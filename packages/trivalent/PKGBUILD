@@ -1,0 +1,38 @@
+# Repackages secureblue's Trivalent RPM. Bump with ./update.py, which verifies
+# the signed repository metadata and pins the RPM checksum.
+
+pkgname=trivalent
+pkgver=154.0.8037.97
+_rpmrel=447729
+pkgrel=1
+pkgdesc='Hardened Chromium for desktop Linux by secureblue (repackaged RPM)'
+arch=(x86_64)
+url='https://github.com/secureblue/Trivalent'
+license=('GPL-2.0-only' 'BSD-3-Clause' 'LGPL-2.1-or-later' 'Apache-2.0' 'MIT')
+depends=(
+  alsa-lib brotli bubblewrap dbus desktop-file-utils flac fontconfig freetype2
+  gtk3 harfbuzz hicolor-icon-theme icu libcups libffi libgcrypt libjpeg-turbo
+  libpng libpulse libva libwebp libxml2 libxslt libxss minizip nss opus
+  pciutils systemd ttf-liberation xdg-utils
+)
+optdepends=('pipewire: WebRTC screen sharing under Wayland')
+options=(!strip !debug)
+source=("https://repo.secureblue.dev/Packages/trivalent-${pkgver}-${_rpmrel}.x86_64.rpm")
+noextract=("trivalent-${pkgver}-${_rpmrel}.x86_64.rpm")
+sha256sums=('06d2190639197200e5eda5c66d902ca434ed9b43caf3f475787fc30223f7e1b6')
+
+prepare() {
+  rm -rf root && mkdir root
+  bsdtar -xf "trivalent-${pkgver}-${_rpmrel}.x86_64.rpm" -C root
+  mv root/usr/lib64 root/usr/lib
+  sed -i 's/\[0-9\]\.so"/[0-9]-arch[0-9].[0-9].so"/' root/etc/trivalent/trivalent.conf
+  rm -f root/usr/lib/tmpfiles.d/*-drm-fix-secontexts.conf root/usr/share/user-tmpfiles.d/*-drm-fix-secontexts.conf
+}
+
+package() {
+  cp -a root/. "$pkgdir/"
+  if find "$pkgdir" -perm -4000 | grep -q .; then
+    echo "unexpected setuid file in Trivalent RPM" >&2
+    return 1
+  fi
+}

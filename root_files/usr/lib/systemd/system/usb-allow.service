@@ -1,0 +1,9 @@
+[Unit]
+Description=Temporarily allow new USB devices (30 seconds)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sysctl -w kernel.deny_new_usb=0
+ExecStart=/usr/bin/sleep 30
+ExecStopPost=/usr/bin/sysctl -w kernel.deny_new_usb=1
+TimeoutStartSec=45

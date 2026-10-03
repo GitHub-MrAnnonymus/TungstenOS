@@ -1,0 +1,61 @@
+# ---- Secrets: never commit ---------------------------------------------------
+# Secure Boot / signing private keys and anything derived from them
+*.key
+*.pem
+!keys/secureboot/*.crt
+*.p12
+*.pfx
+*.base64
+*secret*
+*private*
+!**/private*.md
+keys/offline/
+keys/private/
+# GnuPG homes and keyrings that may contain secret keys
+.gnupg/
+gnupg/
+*.gpg
+!keys/tungsten.pgp
+secring.*
+*.kbx
+*.kbx~
+# CI secret dumps / env files
+.env
+.env.*
+sbsign/
+sigkeys/
+
+# ---- Build outputs ---------------------------------------------------------------
+# makepkg
+*.pkg.tar.*
+*.src.tar.*
+kernel/src/
+kernel/pkg/
+packages/*/src/
+packages/*/pkg/
+packages/*/*.rpm
+packages/*/hardened_malloc/
+packages/*/dank-greeter/
+packages/*/dank-qml-common/
+out/
+.ccache/
+repo/
+new/
+# kernel sources fetched by makepkg / check-patches.sh
+linux-*.tar.*
+NVIDIA-kernel-module-source-*
+# image build
+rootfs/
+*.erofs
+*.verity
+*.raw
+*.efi
+*.efi.signed
+SHA256SUMS*
+!keys/microsoft/SHA256SUMS
+
+# ---- Local testing ---------------------------------------------------------------
+OVMF_*
+*.qcow2
+*.img
+prepare_qemu_disk.sh

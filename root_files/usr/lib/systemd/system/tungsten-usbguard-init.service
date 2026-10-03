@@ -1,0 +1,13 @@
+[Unit]
+Description=Allow the USB devices present on first boot
+ConditionFileNotEmpty=!/etc/usbguard/rules.conf
+After=systemd-udev-trigger.service
+Before=usbguard.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/udevadm settle
+ExecStart=/usr/bin/sh -c 'umask 077 && usbguard generate-policy > /etc/usbguard/rules.conf'
+
+[Install]
+RequiredBy=usbguard.service

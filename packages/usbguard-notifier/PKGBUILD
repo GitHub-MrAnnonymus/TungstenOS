@@ -1,0 +1,25 @@
+# Based on the AUR package by Faerbit.
+pkgname=usbguard-notifier
+pkgver=0.1.1
+pkgrel=1
+pkgdesc='Desktop notifications for USBGuard policy and device events'
+arch=(x86_64)
+url='https://github.com/Cropi/usbguard-notifier'
+license=(GPL-2.0-only)
+depends=(usbguard libnotify librsvg)
+makedepends=(catch2-v2 asciidoc)
+source=("$url/releases/download/$pkgname-$pkgver/$pkgname-$pkgver.tar.gz"{,.asc})
+sha256sums=('bde4dcb3b9a888b8876149832fe27198c0a98e8bb7fc865717f8dde90abe4acf'
+            'SKIP')
+validpgpkeys=('42363D1C30A574A4EE5D9C87E650CBBFEF3AAC4B') # Attila Lakatos
+
+build() {
+  cd $pkgname-$pkgver
+  ./configure CPPFLAGS=-I/usr/include/catch2 --prefix=/usr
+  make
+}
+
+package() {
+  cd $pkgname-$pkgver
+  make DESTDIR="$pkgdir/" install
+}

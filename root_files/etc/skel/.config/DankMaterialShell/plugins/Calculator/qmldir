@@ -1,0 +1,2 @@
+singleton QalcService QalcService.qml
+singleton NumbatService NumbatService.qml

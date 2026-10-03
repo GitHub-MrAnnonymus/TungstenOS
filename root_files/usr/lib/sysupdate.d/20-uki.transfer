@@ -1,0 +1,21 @@
+# Boot counting (+3-0) falls back to the previous UKI after three failed boots.
+[Transfer]
+ProtectVersion=%A
+Verify=yes
+
+[Source]
+Type=url-file
+Path=@UPDATE_URL@
+MatchPattern=@IMAGE_ID@_@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=@IMAGE_ID@_@v+@l-@d.efi \
+             @IMAGE_ID@_@v+@l.efi \
+             @IMAGE_ID@_@v.efi
+Mode=0444
+TriesLeft=3
+TriesDone=0
+InstancesMax=2

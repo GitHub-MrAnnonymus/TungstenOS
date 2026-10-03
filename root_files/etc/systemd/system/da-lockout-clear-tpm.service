@@ -1,0 +1,10 @@
+[Unit]
+Description=Clear the TPM 2.0 DA lockout counter on a successful boot.
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=tpm2_dictionarylockout -c
+
+[Install]
+WantedBy=multi-user.target

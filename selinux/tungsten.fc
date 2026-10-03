@@ -1,0 +1,13 @@
+# Trivalent runs in the chromium domain (its sandbox needs user namespaces).
+/usr/lib/trivalent/trivalent			--	gen_context(system_u:object_r:chromium_exec_t)
+/usr/lib/trivalent/chrome_crashpad_handler	--	gen_context(system_u:object_r:chromium_exec_t)
+/usr/lib/trivalent/trivalent\.sh		--	gen_context(system_u:object_r:bin_t)
+
+HOME_DIR/\.config/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_config_t)
+HOME_DIR/\.cache/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_cache_t)
+
+# Display manager: xdm_t may transition into user domains at login.
+/usr/bin/greetd					--	gen_context(system_u:object_r:xdm_exec_t)
+
+# Flatpak deployments are hardlinks into the ostree repo, so the tree shares one type.
+/var/lib/flatpak(/.*)?					gen_context(system_u:object_r:bin_t)

@@ -1,0 +1,10 @@
+// Active local users may start these units without authentication.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        subject.local && subject.active &&
+        action.lookup("verb") == "start" &&
+        ["usb-allow.service", "bluetooth-on.service", "bluetooth-off.service"]
+            .indexOf(action.lookup("unit")) >= 0) {
+        return polkit.Result.YES;
+    }
+});

@@ -1,0 +1,229 @@
+# Merged over config.base (Arch linux-hardened); the build fails if any option is not honoured.
+
+# --- LSMs ---
+# CONFIG_SECURITY_APPARMOR is not set
+CONFIG_SECURITY_SELINUX=y
+CONFIG_SECURITY_SELINUX_BOOTPARAM=y
+# Allows permissive mode; disable once the policy is complete.
+CONFIG_SECURITY_SELINUX_DEVELOP=y
+CONFIG_DEFAULT_SECURITY_SELINUX=y
+CONFIG_LSM="landlock,lockdown,yama,integrity,selinux,bpf,ipe"
+CONFIG_AUDIT=y
+CONFIG_AUDITSYSCALL=y
+
+# Unprivileged user namespaces are gated by SELinux, not disabled.
+CONFIG_USER_NS=y
+# CONFIG_OVERLAY_FS_UNPRIVILEGED is not set
+
+# --- Integrity ---
+CONFIG_SECURITY_IPE=y
+CONFIG_IPE_PROP_DM_VERITY=y
+CONFIG_EROFS_FS=y
+CONFIG_EROFS_FS_XATTR=y
+CONFIG_EROFS_FS_SECURITY=y
+CONFIG_MODULE_SIG_FORCE=y
+CONFIG_SECURITY_LOCKDOWN_LSM=y
+CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y
+CONFIG_LOCK_DOWN_KERNEL_FORCE_CONFIDENTIALITY=y
+
+# --- Clang CFI ---
+CONFIG_CFI=y
+# CONFIG_CFI_PERMISSIVE is not set
+CONFIG_FINEIBT=y
+CONFIG_LTO_NONE=y
+
+# --- Additional hardening ---
+CONFIG_ZERO_CALL_USED_REGS=y
+# CONFIG_HIBERNATION is not set
+# CONFIG_KEXEC is not set
+# CONFIG_KEXEC_FILE is not set
+
+
+# --- From secureblue/kernel (copr_script.sh @ 47de460) ---
+# EXPERT is required to disable X86_VSYSCALL_EMULATION and CACHESTAT_SYSCALL;
+# it un-hides the TV-tuner sub-drivers below, which are disabled explicitly.
+CONFIG_EXPERT=y
+# CONFIG_VIDEO_CS5345 is not set
+# CONFIG_VIDEO_CS53L32A is not set
+# CONFIG_VIDEO_CX25840 is not set
+# CONFIG_VIDEO_M52790 is not set
+# CONFIG_VIDEO_SAA6588 is not set
+# CONFIG_VIDEO_SAA7127 is not set
+# CONFIG_VIDEO_SAA717X is not set
+# CONFIG_VIDEO_SONY_BTF_MPX is not set
+# CONFIG_VIDEO_TDA7432 is not set
+# CONFIG_VIDEO_TDA9840 is not set
+# CONFIG_VIDEO_TEA6415C is not set
+# CONFIG_VIDEO_TEA6420 is not set
+# CONFIG_VIDEO_TVAUDIO is not set
+# CONFIG_VIDEO_TW2804 is not set
+# CONFIG_VIDEO_TW9903 is not set
+# CONFIG_VIDEO_TW9906 is not set
+# CONFIG_VIDEO_UDA1342 is not set
+# CONFIG_VIDEO_UPD64031A is not set
+# CONFIG_VIDEO_UPD64083 is not set
+# CONFIG_VIDEO_VP27SMPX is not set
+# CONFIG_VIDEO_WM8739 is not set
+# CONFIG_VIDEO_WM8775 is not set
+# Enabled
+CONFIG_PROC_PAGE_MONITOR=y
+CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+CONFIG_INIT_ON_FREE_DEFAULT_ON=y
+CONFIG_INTEL_IOMMU_DEFAULT_ON=y
+CONFIG_IOMMU_DEFAULT_DMA_STRICT=y
+CONFIG_DEBUG_NOTIFIERS=y
+# Disabled: general
+# CONFIG_IOMMU_DEFAULT_DMA_LAZY is not set
+# CONFIG_X86_VSYSCALL_EMULATION is not set
+# CONFIG_INFINIBAND is not set
+# CONFIG_NETCONSOLE is not set
+# CONFIG_6LOWPAN is not set
+# CONFIG_IEEE802154 is not set
+# CONFIG_AF_RXRPC is not set
+# CONFIG_AFS_FS is not set
+# CONFIG_XDP_SOCKETS_DIAG is not set
+# CONFIG_VSOCKETS_DIAG is not set
+# CONFIG_HSR is not set
+# CONFIG_NET_DSA is not set
+# CONFIG_LDISC_AUTOLOAD is not set
+# Disabled: carrier and datacenter networking
+# CONFIG_GTP is not set
+# CONFIG_PFCP is not set
+# CONFIG_AMT is not set
+# CONFIG_AF_KCM is not set
+# CONFIG_BAREUDP is not set
+# CONFIG_IPV6_ILA is not set
+# CONFIG_ATA_OVER_ETH is not set
+# Disabled: testing and debugging
+# CONFIG_X86_MCE_INJECT is not set
+# CONFIG_HWPOISON_INJECT is not set
+# CONFIG_PCIEAER_INJECT is not set
+# CONFIG_ACPI_APEI_EINJ is not set
+# CONFIG_SCSI_DEBUG is not set
+# CONFIG_USB_SERIAL_DEBUG is not set
+# CONFIG_RING_BUFFER_BENCHMARK is not set
+# CONFIG_DRM_VKMS is not set
+# CONFIG_USB_DUMMY_HCD is not set
+# CONFIG_MTD_NAND_NANDSIM is not set
+# CONFIG_MTD_MTDRAM is not set
+# CONFIG_MEDIA_TEST_SUPPORT is not set
+# CONFIG_CRYPTO_BENCHMARK is not set
+# CONFIG_X86_AMD_PSTATE_UT is not set
+# CONFIG_I2C_STUB is not set
+# CONFIG_I2C_SLAVE_EEPROM is not set
+# CONFIG_GPIO_SIM is not set
+# CONFIG_GPIO_VIRTUSER is not set
+# CONFIG_VDPA_SIM is not set
+# CONFIG_VDPA_SIM_NET is not set
+# CONFIG_VDPA_SIM_BLOCK is not set
+# CONFIG_NVME_TARGET_FCLOOP is not set
+# CONFIG_NTB_PERF is not set
+# CONFIG_NTB_PINGPONG is not set
+# CONFIG_NTB_TOOL is not set
+# CONFIG_BLK_DEV_NULL_BLK is not set
+# CONFIG_BLK_DEV_RUST_NULL is not set
+# CONFIG_BLK_DEV_ZONED_LOOP is not set
+# CONFIG_DM_FLAKEY is not set
+# CONFIG_DM_DUST is not set
+# CONFIG_DM_DELAY is not set
+# CONFIG_DM_LOG_WRITES is not set
+# CONFIG_SND_DUMMY is not set
+# CONFIG_BT_HCIVHCI is not set
+# CONFIG_VIRT_WIFI is not set
+# CONFIG_DRM_VGEM is not set
+# CONFIG_INTEL_TH is not set
+# CONFIG_CORESIGHT_STM is not set
+# CONFIG_STM is not set
+# CONFIG_NLMON is not set
+# CONFIG_VSOCKMON is not set
+# CONFIG_DW_XDATA_PCIE is not set
+# CONFIG_LATENCYTOP is not set
+# CONFIG_SUNRPC_DEBUG is not set
+# CONFIG_XFS_ONLINE_SCRUB_STATS is not set
+# CONFIG_PROVIDE_OHCI1394_DMA_INIT is not set
+# Disabled: unused ports and devices
+# CONFIG_SERIAL_NONSTANDARD is not set
+# CONFIG_EQUALIZER is not set
+# CONFIG_SLIP is not set
+# CONFIG_PCCARD is not set
+# CONFIG_NOZOMI is not set
+# CONFIG_RC_CORE is not set
+# CONFIG_USB_GSPCA is not set
+# CONFIG_MEDIA_RADIO_SUPPORT is not set
+# CONFIG_MEDIA_DIGITAL_TV_SUPPORT is not set
+# CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
+# CONFIG_BLK_DEV_FD is not set
+# CONFIG_HID_PXRC is not set
+# CONFIG_VIDEO_CS3308 is not set
+# CONFIG_VIDEO_SAA6752HS is not set
+# CONFIG_GNSS is not set
+# CONFIG_GPIB is not set
+# Disabled: attack surface
+# CONFIG_DEVPORT is not set
+# CONFIG_LIVEPATCH is not set
+# CONFIG_X86_IOPL_IOPERM is not set
+# CONFIG_CACHESTAT_SYSCALL is not set
+# CONFIG_MEM_SOFT_DIRTY is not set
+# CONFIG_DEVMEM is not set
+# CONFIG_STRICT_DEVMEM is not set
+# CONFIG_IO_STRICT_DEVMEM is not set
+# CONFIG_KPROBES is not set
+# CONFIG_KPROBE_EVENTS is not set
+# CONFIG_KPROBES_SANITY_TEST is not set
+# CONFIG_KGDB_HONOUR_BLOCKLIST is not set
+# CONFIG_KGDB_LOW_LEVEL_TRAP is not set
+# CONFIG_KGDB_SERIAL_CONSOLE is not set
+# CONFIG_KGDB_TESTS is not set
+# CONFIG_KGDB is not set
+# CONFIG_PROC_KCORE is not set
+# CONFIG_EFI_TEST is not set
+# CONFIG_MMIOTRACE is not set
+# CONFIG_KEXEC_HANDOVER_DEBUGFS is not set
+# CONFIG_KEXEC_HANDOVER is not set
+# CONFIG_KEXEC_JUMP is not set
+# CONFIG_LIVEUPDATE is not set
+# CONFIG_LIVEUPDATE_MEMFD is not set
+# CONFIG_CRASH_DUMP is not set
+# CONFIG_PRESERVE_FA_DUMP is not set
+# CONFIG_PROC_VMCORE is not set
+# CONFIG_CRASH_DM_CRYPT is not set
+# CONFIG_EFI_CUSTOM_SSDT_OVERLAYS is not set
+# CONFIG_ACPI_TABLE_UPGRADE is not set
+# CONFIG_ATM is not set
+# CONFIG_PARPORT is not set
+# CONFIG_GAMEPORT is not set
+# CONFIG_JOYSTICK_A3D is not set
+# CONFIG_JOYSTICK_ADC is not set
+# CONFIG_JOYSTICK_ADI is not set
+# CONFIG_JOYSTICK_ANALOG is not set
+# CONFIG_JOYSTICK_AS5011 is not set
+# CONFIG_JOYSTICK_COBRA is not set
+# CONFIG_JOYSTICK_DB9 is not set
+# CONFIG_JOYSTICK_FSIA6B is not set
+# CONFIG_JOYSTICK_GAMECON is not set
+# CONFIG_JOYSTICK_GF2K is not set
+# CONFIG_JOYSTICK_GRIP is not set
+# CONFIG_JOYSTICK_GRIP_MP is not set
+# CONFIG_JOYSTICK_GUILLEMOT is not set
+# CONFIG_JOYSTICK_IFORCE_232 is not set
+# CONFIG_JOYSTICK_IFORCE is not set
+# CONFIG_JOYSTICK_IFORCE_USB is not set
+# CONFIG_JOYSTICK_INTERACT is not set
+# CONFIG_JOYSTICK_JOYDUMP is not set
+# CONFIG_JOYSTICK_MAGELLAN is not set
+# CONFIG_JOYSTICK_PSXPAD_SPI_FF is not set
+# CONFIG_JOYSTICK_PSXPAD_SPI is not set
+# CONFIG_JOYSTICK_PXRC is not set
+# CONFIG_JOYSTICK_QWIIC is not set
+# CONFIG_JOYSTICK_SEESAW is not set
+# CONFIG_JOYSTICK_SENSEHAT is not set
+# CONFIG_JOYSTICK_SIDEWINDER is not set
+# CONFIG_JOYSTICK_SPACEBALL is not set
+# CONFIG_JOYSTICK_SPACEORB is not set
+# CONFIG_JOYSTICK_STINGER is not set
+# CONFIG_JOYSTICK_TMDC is not set
+# CONFIG_JOYSTICK_TURBOGRAFX is not set
+# CONFIG_JOYSTICK_TWIDJOY is not set
+# CONFIG_JOYSTICK_WALKERA0701 is not set
+# CONFIG_JOYSTICK_WARRIOR is not set
+# CONFIG_JOYSTICK_ZHENHUA is not set

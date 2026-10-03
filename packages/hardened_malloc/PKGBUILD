@@ -1,0 +1,23 @@
+pkgname=hardened_malloc
+_commit=a4ed3054772a06d29903cd0a162677a9ee7b332d
+pkgver=r0.${_commit:0:7}
+pkgrel=1
+pkgdesc='Hardened memory allocator from GrapheneOS'
+arch=(x86_64)
+url='https://github.com/GrapheneOS/hardened_malloc'
+license=(MIT)
+depends=(glibc)
+makedepends=(git)
+source=("git+https://github.com/GrapheneOS/hardened_malloc.git#commit=${_commit}")
+sha256sums=('SKIP')
+
+build() {
+  cd hardened_malloc
+  make
+}
+
+package() {
+  cd hardened_malloc
+  install -Dm755 out/libhardened_malloc.so "$pkgdir/usr/lib/libhardened_malloc.so"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

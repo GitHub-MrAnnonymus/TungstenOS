@@ -1,0 +1,130 @@
+name: Build OS image
+
+on:
+  schedule:
+    - cron: '0 0 */2 * *'
+  push:
+    branches: [master, main]
+    paths:
+      - root_files/**
+      - variants/**
+      - components/**
+      - selinux/**
+      - scripts/**
+      - keys/**
+      - build.sh
+      - .github/workflows/build.yml
+  workflow_run:
+    workflows: [Build packages]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - id: v
+        run: echo "tag=$(date -u +'%Y%m%d%H%M')" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        variant: [generic, generic-asus, nvidia, nvidia-asus]
+    container:
+      image: archlinux:latest
+      # Free disk space by deleting the host's preinstalled SDKs.
+      options: --privileged -v /usr/share/dotnet:/host/dotnet -v /usr/local/lib/android:/host/android -v /opt/ghc:/host/ghc -v /opt/hostedtoolcache:/host/toolcache
+    steps:
+      - name: Free disk space
+        run: rm -rf /host/dotnet/* /host/android/* /host/ghc/* /host/toolcache/* && df -h /
+      - uses: actions/checkout@v4
+
+      - name: Trust the [tungsten] repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          pacman-key --init
+          pacman -Sy --noconfirm --needed archlinux-keyring
+          pacman-key --add keys/tungsten.pgp
+          KEY=$(gpg --show-keys --with-colons keys/tungsten.pgp | awk -F: '/^fpr/ {print $10; exit}')
+          pacman-key --lsign-key "$KEY"
+          REPO="https://github.com/${{ github.repository }}/releases/download/packages"
+          echo "TUNGSTEN_REPO=$REPO" >> "$GITHUB_ENV"
+          awk -v repo="$REPO" '/^\[core\]/ && !d { print "[tungsten]\nServer = " repo "\n"; d=1 } { print }' /etc/pacman.conf > /tmp/p.conf
+          mv /tmp/p.conf /etc/pacman.conf
+          pacman -Syu --noconfirm base arch-install-scripts erofs-utils-selinux sbsigntools systemd-ukify openssl cryptsetup libcap
+
+      - name: Write Secure Boot keys
+        env:
+          SB_DB_KEY: ${{ secrets.SB_DB_KEY }}
+          SB_DB_CRT: ${{ secrets.SB_DB_CRT }}
+        run: |
+          mkdir -p /tmp/sbsign && chmod 700 /tmp/sbsign
+          echo "$SB_DB_KEY" | base64 -d > /tmp/sbsign/db.key
+          echo "$SB_DB_CRT" | base64 -d > /tmp/sbsign/db.pem
+          chmod 600 /tmp/sbsign/*
+
+      - name: Build ${{ matrix.variant }}
+        env:
+          VARIANT: ${{ matrix.variant }}
+          OS_BUILD_TAG: ${{ needs.version.outputs.tag }}
+          UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/
+          SB_DIR: /tmp/sbsign
+        run: bash build.sh
+
+      - name: Remove signing material
+        if: always()
+        run: rm -rf /tmp/sbsign
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.variant }}
+          path: /tungsten/out/*
+          compression-level: 0
+          retention-days: 1
+
+  publish:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: -v /usr/share/dotnet:/host/dotnet -v /usr/local/lib/android:/host/android -v /opt/ghc:/host/ghc -v /opt/hostedtoolcache:/host/toolcache
+    steps:
+      - name: Free disk space (both variants' images land here)
+        run: rm -rf /host/dotnet/* /host/android/* /host/ghc/* /host/toolcache/*
+      - run: pacman -Syu --noconfirm gnupg
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: out, merge-multiple: true }
+
+      - name: Sign the release manifest
+        shell: bash
+        env:
+          TUNGSTEN_GPG_KEY: ${{ secrets.TUNGSTEN_GPG_KEY }}
+        run: |
+          set -euo pipefail
+          export GNUPGHOME=$(mktemp -d)
+          echo "$TUNGSTEN_GPG_KEY" | base64 -d | gpg --batch --import
+          KEY=$(gpg --show-keys --with-colons keys/tungsten.pgp | awk -F: '/^fpr/ {print $10; exit}')
+          cd out
+          sha256sum -- * > SHA256SUMS
+          gpg --batch --yes --local-user "$KEY" --detach-sign --output SHA256SUMS.gpg SHA256SUMS
+          gpgv --keyring ../keys/tungsten.pgp SHA256SUMS.gpg SHA256SUMS
+          rm -rf "$GNUPGHOME"
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: tungsten ${{ needs.version.outputs.tag }}
+          make_latest: true
+          files: out/*

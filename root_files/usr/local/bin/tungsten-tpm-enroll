@@ -1,0 +1,53 @@
+#!/bin/bash
+# Binds the root partition's TPM2 key to a systemd-pcrlock policy.
+# Run after installation and after a factory reset.
+# Usage: run0 tungsten-tpm-enroll [--pin|--no-pin]
+set -euo pipefail
+[ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }
+PCRLOCK=/usr/lib/systemd/systemd-pcrlock
+POLICY=/var/lib/systemd/pcrlock.json
+DEV=/dev/disk/by-partlabel/root
+case "${1:-}" in
+  --pin) pin=yes ;;
+  --no-pin) pin=no ;;
+  "")
+    echo "Require a PIN at boot to unlock the system?"
+    echo "  yes: the TPM releases the key only with your PIN, even on an untampered boot"
+    echo "  no:  the TPM releases the key on an untampered boot; homes stay locked"
+    echo "       until each user logs in"
+    read -r -p "Use a PIN? [Y/n] " a
+    if [ "${a,,}" = n ]; then pin=no; else pin=yes; fi
+    ;;
+  *) echo "usage: $0 [--pin|--no-pin]" >&2; exit 2 ;;
+esac
+
+for u in firmware-code firmware-config secureboot-policy secureboot-authority; do
+  systemctl start "systemd-pcrlock-$u.service"
+done
+/usr/local/lib/tungsten/pcrlock-predict
+
+if [ -e "$POLICY" ]; then
+  "$PCRLOCK" make-policy --policy="$POLICY" --location=770
+else
+  echo ">>> Creating the pcrlock policy. Store the recovery PIN shown below; it is"
+  echo ">>> needed to update the policy if the TPM state ever stops matching."
+  "$PCRLOCK" make-policy --policy="$POLICY" --location=770 --recovery-pin=show
+fi
+"$PCRLOCK" predict
+
+meta=$(cryptsetup luksDump --dump-json-metadata "$DEV")
+has_tpm=$(jq '[.tokens[] | select(.type == "systemd-tpm2")] | length' <<<"$meta")
+non_tpm=$(jq '[.tokens[] | select(.type == "systemd-tpm2") | .keyslots[]] as $tpm
+  | [.keyslots | keys[] | select(. as $k | $tpm | index($k) | not)] | length' <<<"$meta")
+# Unlock with the existing TPM key if there is one, otherwise with the passphrase.
+unlock=(); [ "$has_tpm" -gt 0 ] && unlock=(--unlock-tpm2-device=auto)
+
+# A partition recreated by factory reset has only a TPM key: add a recovery key.
+if [ "$non_tpm" -eq 0 ]; then
+  echo ">>> Adding a recovery key. Store it safely; it unlocks the system without the TPM."
+  systemd-cryptenroll "${unlock[@]}" --recovery-key "$DEV"
+fi
+
+systemd-cryptenroll "${unlock[@]}" --wipe-slot=tpm2 --tpm2-device=auto \
+  --tpm2-pcrlock="$POLICY" --tpm2-with-pin="$pin" "$DEV"
+echo "Enrolled."

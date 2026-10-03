@@ -1,0 +1,7 @@
+[Unit]
+Description=Stop bluetoothd and unload Bluetooth modules
+Conflicts=bluetooth-on.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bt-toggle off

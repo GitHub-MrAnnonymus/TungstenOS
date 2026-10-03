@@ -1,0 +1,15 @@
+[Unit]
+ConditionPathExists=/usr/bin/rog-control-center
+Description=ROG Control Center
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# Run through bash: /home is mounted noexec and IPE blocks executing files outside the image.
+ExecStart=/bin/bash %h/.config/hypr/rog-control-center.sh
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

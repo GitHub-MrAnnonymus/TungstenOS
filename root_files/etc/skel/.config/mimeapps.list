@@ -1,0 +1,31 @@
+
+[Default Applications]
+text/html=trivalent.desktop
+x-scheme-handler/http=trivalent.desktop
+x-scheme-handler/https=trivalent.desktop
+x-scheme-handler/about=trivalent.desktop
+x-scheme-handler/unknown=trivalent.desktop
+x-scheme-handler/geo=openstreetmap-geo-handler.desktop
+inode/directory=org.gnome.Nautilus.desktop
+x-scheme-handler/file=org.gnome.Nautilus.desktop
+x-scheme-handler/sftp=org.gnome.Nautilus.desktop
+x-scheme-handler/calendar=dms-open.desktop
+audio/aac=com.github.neithern.g4music.desktop
+audio/mpeg=com.github.neithern.g4music.desktop
+audio/ogg=com.github.neithern.g4music.desktop
+audio/wav=com.github.neithern.g4music.desktop
+audio/webm=com.github.neithern.g4music.desktop
+audio/x-flac=com.github.neithern.g4music.desktop
+
+[Added Associations]
+x-scheme-handler/geo=openstreetmap-geo-handler.desktop;
+inode/directory=org.gnome.Nautilus.desktop;
+x-scheme-handler/file=org.gnome.Nautilus.desktop;
+x-scheme-handler/sftp=org.gnome.Nautilus.desktop;
+x-scheme-handler/calendar=dms-open.desktop;
+audio/aac=com.github.neithern.g4music.desktop;
+audio/mpeg=com.github.neithern.g4music.desktop;
+audio/ogg=com.github.neithern.g4music.desktop;
+audio/wav=com.github.neithern.g4music.desktop;
+audio/webm=com.github.neithern.g4music.desktop;
+audio/x-flac=com.github.neithern.g4music.desktop;

@@ -1,0 +1,33 @@
+#!/bin/bash
+# Inspect and reset local changes to /etc (the upper layer of the /etc overlay).
+#   tungsten-etc status            list files that differ from the image defaults
+#   tungsten-etc diff <path>       show the change for one file
+#   tungsten-etc reset <path>|--all  restore defaults at the next boot
+set -euo pipefail
+UPPER=/var/lib/tungsten/etc/upper
+LOWER=/usr/share/factory/etc
+RESET=/var/lib/tungsten/etc/reset
+
+rel() { local p=${1#/etc/}; p=${p#/}; [[ $p != *..* && -n $p ]] || { echo "invalid path: $1" >&2; exit 2; }; echo "$p"; }
+
+case "${1:-}" in
+  status)
+    cd "$UPPER"
+    find . -mindepth 1 \( -type f -o -type l -o -type c \) -printf '%P\n' | sort | while read -r p; do
+      if [ -c "$p" ]; then echo "deleted   /etc/$p"
+      elif [ -e "$LOWER/$p" ] || [ -L "$LOWER/$p" ]; then echo "modified  /etc/$p"
+      else echo "added     /etc/$p"; fi
+    done
+    [ -f "$RESET" ] && echo "pending resets: $(tr '\n' ' ' < "$RESET")"
+    ;;
+  diff)
+    p=$(rel "${2:?path}")
+    diff -u "$LOWER/$p" "/etc/$p" || true
+    ;;
+  reset)
+    [ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }
+    if [ "${2:-}" = --all ]; then echo '*' >> "$RESET"; else echo "$(rel "${2:?path}")" >> "$RESET"; fi
+    echo "Will be restored to the image default at the next boot."
+    ;;
+  *) sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+esac

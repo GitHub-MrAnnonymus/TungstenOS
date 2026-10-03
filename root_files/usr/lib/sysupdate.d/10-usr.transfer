@@ -1,0 +1,17 @@
+# Partition UUID (@u) is the first half of the verity root hash of /usr.
+[Transfer]
+ProtectVersion=%A
+Verify=yes
+
+[Source]
+Type=url-file
+Path=@UPDATE_URL@
+MatchPattern=@IMAGE_ID@_@v_@u.usr.raw
+
+[Target]
+Type=partition
+Path=auto
+MatchPartitionType=usr
+MatchPattern=@IMAGE_ID@_@v
+ReadOnly=yes
+InstancesMax=2

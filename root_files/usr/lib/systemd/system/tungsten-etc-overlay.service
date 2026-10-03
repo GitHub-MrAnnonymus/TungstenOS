@@ -1,0 +1,12 @@
+[Unit]
+Description=Mount /etc overlay
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+RequiresMountsFor=/sysroot /sysroot/usr
+After=sysroot.mount sysroot-usr.mount
+Before=initrd-fs.target initrd-parse-etc.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/tungsten/etc-overlay

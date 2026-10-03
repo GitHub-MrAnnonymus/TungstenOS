@@ -1,0 +1,16 @@
+#!/bin/bash
+# Usage: bt-toggle on|off (via bluetooth-on/off.service)
+set -u
+case "${1:-}" in
+  off)
+    systemctl stop bluetooth.service
+    rfkill block bluetooth
+    modprobe -r --remove-holders bluetooth 2>/dev/null || :
+    ;;
+  on)
+    rfkill unblock bluetooth
+    modprobe bluetooth && modprobe btusb && modprobe btintel
+    systemctl start bluetooth.service
+    ;;
+  *) echo "usage: $0 on|off" >&2; exit 2 ;;
+esac

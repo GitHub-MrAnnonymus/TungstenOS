@@ -1,0 +1,52 @@
+[window]
+opacity = 0.76
+blur = true   
+padding = { x = 10, y = 10 }
+
+[terminal.shell]
+program = "/bin/zsh"
+
+[cursor]
+style = { shape = "Beam", blinking = "Always" }
+blink_interval = 500
+thickness = 0.15   
+
+[font]
+offset.y = 0  # Adjust line spacing (default: 0)
+offset.x = 0  # Adjust letter spacing (default: 0)   
+normal = { family = "FiraCode Nerd Font Mono", style = "Regular" }
+bold = { family = "FiraCode Nerd Font Mono", style = "Bold" }
+italic = { family = "FiraCode Nerd Font Mono", style = "Regular" }
+size = 11.0
+
+[colors.primary]
+foreground = "#dfe3e7"
+background = "#0f1417"
+
+[colors.cursor]
+text   = "#c0c7cd"
+cursor = "#dfe3e7"
+
+[colors.selection]
+text       = "#1f333d"
+background = "#b5c9d7"
+
+[colors.normal]
+black   = "#0f1417"
+red     = "#ff729f"
+green   = "#79f287"
+yellow  = "#fff672"
+blue    = "#72bee5"
+magenta = "#004d67"
+cyan    = "#8dcff2"
+white   = "#eefafe"
+
+[colors.bright]
+black   = "#3d4345"
+red     = "#ff9fbd"
+green   = "#a5ffb0"
+yellow  = "#fff9a5"
+blue    = "#a4dfff"
+magenta = "#b4e5ff"
+cyan    = "#cfeeff"
+white   = "#f8fdff"

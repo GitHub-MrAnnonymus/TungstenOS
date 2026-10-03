@@ -1,0 +1,11 @@
+#!/bin/sh
+# Rejects commits containing private keys. Enable: git config core.hooksPath .githooks
+bad=$(git diff --cached --name-only --diff-filter=ACM -z |
+  xargs -0 -r grep -l -I -E -e '-----BEGIN ([A-Z]+ )?PRIVATE KE[Y]-----' \
+                              -e '-----BEGIN PGP PRIVATE KEY BLOC[K]-----' 2>/dev/null)
+binbad=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(key|p12|pfx)$|(^|/)(secring|private-keys-v1\.d)')
+if [ -n "$bad$binbad" ]; then
+  echo "pre-commit: refusing to commit private key material:" >&2
+  printf '  %s\n' $bad $binbad >&2
+  exit 1
+fi

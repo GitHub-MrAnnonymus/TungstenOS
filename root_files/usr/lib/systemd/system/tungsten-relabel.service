@@ -1,0 +1,14 @@
+[Unit]
+Description=Apply SELinux labels to the root partition
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target systemd-tmpfiles-setup.service
+ConditionSecurity=selinux
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/tungsten/relabel
+
+[Install]
+WantedBy=sysinit.target

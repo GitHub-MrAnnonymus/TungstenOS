@@ -1,0 +1,229 @@
+# Based on Arch's linux-hardened PKGBUILD by Levente Polyak.
+# NVIDIA modules are built here so they are signed with this build's module key.
+
+pkgbase=linux-tungsten
+pkgver=7.2.8
+_nvver=615.71.09
+pkgrel=1
+pkgdesc='TungstenOS kernel (Linux + selected linux-hardened patches, SELinux)'
+url='https://github.com/anthraxx/linux-hardened'
+arch=(x86_64)
+license=(GPL-2.0-only)
+makedepends=(
+  bc binutils ccache clang cpio gettext glibc libelf libgcc lld llvm openssl pahole
+  perl python rust rust-bindgen rust-src tar xxhash xz zlib zstd
+)
+options=(!debug !strip ccache)
+_srcname=linux-$pkgver
+source=(
+  https://cdn.kernel.org/pub/linux/kernel/v${pkgver%%.*}.x/${_srcname}.tar.{xz,sign}
+  config.base
+  config.fragment
+  https://download.nvidia.com/XFree86/NVIDIA-kernel-module-source/NVIDIA-kernel-module-source-${_nvver}.tar.xz
+)
+validpgpkeys=(
+  ABAF11C65A2970B130ABE3C479BE3E4300411886  # Linus Torvalds
+  647F28654894E3BD457199BE38DBBDC86092693E  # Greg Kroah-Hartman
+)
+sha256sums=('12e8d5a973d1ad7c5a5c69882e4022b131ed715db7003fdcd760ddf8c3e51941'
+            'SKIP'
+            '4a65b4ca211d25fdf70e182ca5c4a0be14f664e69670c32c9af65db16670f2e9'
+            'SKIP'
+            'SKIP')
+# From Arch's nvidia-utils PKGBUILD (updated by sync-nvidia.sh).
+_nvsha512='0b32c1aaa5ed261bdee7232d5e5d293e53c42ac9896f49c4be4e6b9b6bce1370cb69a7f7fde5531a7537d5e925d651c36bcb512a2f827c2d2cb26ede33f7c057'
+
+_patchdir="$startdir/patches"
+
+export LLVM=1
+export KBUILD_BUILD_HOST=tungstenos
+export KBUILD_BUILD_USER=$pkgbase
+export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
+
+prepare() {
+  echo "$_nvsha512  NVIDIA-kernel-module-source-${_nvver}.tar.xz" | sha512sum -c -
+
+  local nvutils="NVIDIA-kernel-module-source-${_nvver}/utils.mk"
+  sed -i "s/^  HOSTNAME.*/  HOSTNAME = echo tungstenos/" "$nvutils"
+  sed -i "s/^WHOAMI.*/WHOAMI = echo tungstenos-builder/" "$nvutils"
+  sed -i "s/^DATE.*/DATE = date -r version.mk/" "$nvutils"
+
+  cd $_srcname
+
+  echo "Setting version..."
+  echo "-$pkgrel" > localversion.10-pkgrel
+  echo "${pkgbase#linux}" > localversion.20-pkgname
+
+  local listed patch
+  listed=$(sed -E 's/^#[[:space:]]*//' "$_patchdir/series" | grep -E '\.patch$' | sort)
+  if [[ "$listed" != "$(cd "$_patchdir" && ls -1 *.patch | sort)" ]]; then
+    echo "patches/ and patches/series are out of sync" >&2
+    return 1
+  fi
+
+  while read -r patch; do
+    [[ -z $patch || $patch = \#* ]] && continue
+    echo "Applying $patch"
+    patch -Np1 --no-backup-if-mismatch < "$_patchdir/$patch"
+  done < "$_patchdir/series"
+
+  echo "Setting config..."
+  cp ../config.base .config
+  scripts/kconfig/merge_config.sh -m .config ../config.fragment
+  make olddefconfig
+
+  # Fail if any requested option did not survive olddefconfig.
+  local line sym want got
+  while read -r line; do
+    if [[ $line =~ ^(CONFIG_[A-Za-z0-9_]+)=(.*)$ ]]; then
+      sym=${BASH_REMATCH[1]}; want=${BASH_REMATCH[2]}
+    elif [[ $line =~ ^#\ (CONFIG_[A-Za-z0-9_]+)\ is\ not\ set$ ]]; then
+      sym=${BASH_REMATCH[1]}; want=n
+    else
+      continue
+    fi
+    got=$(scripts/config -s "${sym#CONFIG_}")
+    [[ $got = undef ]] && got=n
+    want=${want//\"/}; got=${got//\"/}
+    if [[ "$got" != "$want" ]]; then
+      echo "config.fragment: $sym wanted '$want', got '$got'" >&2
+      return 1
+    fi
+  done < ../config.fragment
+
+  make -s kernelrelease > version
+  echo "Prepared $pkgbase version $(<version)"
+}
+
+build() {
+  cd $_srcname
+  make all
+  make -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
+
+  echo "Building NVIDIA open modules..."
+  make -C ../NVIDIA-kernel-module-source-${_nvver} modules \
+    CC=clang LD=ld.lld AR=llvm-ar OBJCOPY=llvm-objcopy \
+    SYSSRC="$srcdir/$_srcname" SYSOUT="$srcdir/$_srcname"
+}
+
+_package() {
+  pkgdesc="The $pkgdesc kernel and modules"
+  depends=(coreutils initramfs kmod)
+  optdepends=(
+    "$pkgbase-headers: headers and scripts for building modules"
+    'linux-firmware: firmware images needed for some devices'
+    'wireless-regdb: to set the correct wireless channels of your country'
+    'usbctl: deny_new_usb control'
+  )
+  provides=(WIREGUARD-MODULE)
+
+  cd $_srcname
+  local modulesdir="$pkgdir/usr/lib/modules/$(<version)"
+
+  echo "Installing boot image..."
+  install -Dm644 "$(make -s image_name)" "$modulesdir/vmlinuz"
+
+  # Used by mkinitcpio to name the kernel
+  echo "$pkgbase" | install -Dm644 /dev/stdin "$modulesdir/pkgbase"
+
+  echo "Installing modules..."
+  ZSTD_CLEVEL=9 make INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 \
+    DEPMOD=/doesnt/exist modules_install  # Suppress depmod
+
+  rm "$modulesdir"/build
+}
+
+_package-headers() {
+  pkgdesc="Headers and scripts for building modules for the $pkgdesc kernel"
+  depends=(binutils glibc libelf libgcc openssl pahole xxhash zlib zstd)
+  provides=(LINUX-HEADERS)
+
+  cd $_srcname
+  local builddir="$pkgdir/usr/lib/modules/$(<version)/build"
+  local karch=x86
+
+  echo "Installing build files..."
+  install -Dt "$builddir" -m644 .config Makefile Module.symvers System.map \
+    localversion.* version vmlinux tools/bpf/bpftool/vmlinux.h
+  install -Dt "$builddir/kernel" -m644 kernel/Makefile
+  install -Dt "$builddir/arch/$karch" -m644 arch/$karch/Makefile
+  cp -t "$builddir" -a scripts
+  ln -srt "$builddir" "$builddir/scripts/gdb/vmlinux-gdb.py"
+
+  if [[ $(scripts/config -s CONFIG_HAVE_STACK_VALIDATION) = y ]]; then
+    install -Dt "$builddir/tools/objtool" tools/objtool/objtool
+  fi
+
+  if [[ $(scripts/config -s CONFIG_DEBUG_INFO_BTF_MODULES) = y ]]; then
+    install -Dt "$builddir/tools/bpf/resolve_btfids" tools/bpf/resolve_btfids/resolve_btfids
+  fi
+
+  echo "Installing headers..."
+  cp -t "$builddir" -a include
+  cp -t "$builddir/arch/$karch" -a arch/$karch/include
+  install -Dt "$builddir/arch/$karch/kernel" -m644 arch/$karch/kernel/asm-offsets.s
+  install -Dt "$builddir/drivers/md" -m644 drivers/md/*.h
+  install -Dt "$builddir/net/mac80211" -m644 net/mac80211/*.h
+
+  echo "Installing KConfig files..."
+  find . -name 'Kconfig*' -exec install -Dm644 {} "$builddir/{}" \;
+
+  if [[ $(scripts/config -s CONFIG_RUST) = y ]]; then
+    echo "Installing Rust files..."
+    install -Dt "$builddir/rust" -m644 rust/*.rmeta
+    install -Dt "$builddir/rust" rust/*.so
+  fi
+
+  echo "Removing unneeded architectures..."
+  local arch
+  for arch in "$builddir"/arch/*/; do
+    [[ $arch = */$karch/ ]] && continue
+    rm -r "$arch"
+  done
+
+  rm -r "$builddir/Documentation"
+  find -L "$builddir" -type l -delete
+  find "$builddir" -type f -name '*.o' -delete
+
+  echo "Stripping build tools..."
+  local file
+  while read -rd '' file; do
+    case "$(file -Sib "$file")" in
+      application/x-sharedlib\;*)      strip $STRIP_SHARED "$file" ;;
+      application/x-archive\;*)        strip $STRIP_STATIC "$file" ;;
+      application/x-executable\;*)     strip $STRIP_BINARIES "$file" ;;
+      application/x-pie-executable\;*) strip $STRIP_SHARED "$file" ;;
+    esac
+  done < <(find "$builddir" -type f -perm -u+x ! -name vmlinux -print0)
+  strip $STRIP_STATIC "$builddir/vmlinux"
+
+  mkdir -p "$pkgdir/usr/src"
+  ln -sr "$builddir" "$pkgdir/usr/src/$pkgbase"
+}
+
+_package-nvidia-open() {
+  pkgdesc="NVIDIA open GPU kernel modules for the $pkgdesc kernel"
+  depends=("$pkgbase=$pkgver-$pkgrel" "nvidia-utils=${_nvver}" libglvnd)
+  provides=(NVIDIA-MODULE nvidia-open)
+  conflicts=(nvidia-open nvidia-open-dkms)
+  license=('MIT AND GPL-2.0-only')
+
+  cd $_srcname
+  ZSTD_CLEVEL=9 make INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_DIR=extramodules \
+    INSTALL_MOD_STRIP=1 DEPMOD=/doesnt/exist \
+    M="$srcdir/NVIDIA-kernel-module-source-${_nvver}/kernel-open" modules_install
+  rm -f "$pkgdir"/usr/lib/modules/*/modules.*
+
+  install -Dm644 "$srcdir/NVIDIA-kernel-module-source-${_nvver}/COPYING" \
+    "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
+
+pkgname=("$pkgbase" "$pkgbase-headers" "$pkgbase-nvidia-open")
+for _p in "${pkgname[@]}"; do
+  eval "package_$_p() {
+    $(declare -f "_package${_p#$pkgbase}")
+    _package${_p#$pkgbase}
+  }"
+done
+
+# vim:set ts=8 sts=2 sw=2 et:

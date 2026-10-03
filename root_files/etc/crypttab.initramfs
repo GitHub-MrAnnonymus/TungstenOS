@@ -1,0 +1,1 @@
+root  PARTLABEL=root  -  tpm2-device=auto,tpm2-measure-pcr=yes

@@ -1,0 +1,20 @@
+{
+    "id": "calculator",
+    "name": "Calculator",
+    "description": "A calculator plugin that evaluates mathematical expressions and copies results to clipboard",
+    "version": "0.3.4",
+    "author": "Bruno Cesar Rocha <rochacbruno>",
+    "icon": "calculate",
+    "type": "launcher",
+    "capabilities": ["launcher", "command-execution"],
+    "component": "./CalculatorLauncher.qml",
+    "settings": "./CalculatorSettings.qml",
+    "trigger": "=",
+    "requires_dms": ">=1.4.0",
+    "requires": ["dms"],
+    "permissions": [
+        "settings_read",
+        "settings_write",
+        "process"
+    ]
+}

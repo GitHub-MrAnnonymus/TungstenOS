@@ -1,0 +1,17 @@
+# Partition UUID (@u) is the second half of the verity root hash.
+[Transfer]
+ProtectVersion=%A
+Verify=yes
+
+[Source]
+Type=url-file
+Path=@UPDATE_URL@
+MatchPattern=@IMAGE_ID@_@v_@u.usr-verity.raw
+
+[Target]
+Type=partition
+Path=auto
+MatchPartitionType=usr-verity
+MatchPattern=@IMAGE_ID@_@v
+ReadOnly=yes
+InstancesMax=2

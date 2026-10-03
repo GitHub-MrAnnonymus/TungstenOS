@@ -1,0 +1,38 @@
+# Built from source; upstream publishes only unsigned binaries.
+
+pkgname=greetd-dms-greeter
+pkgver=1.6.2
+_commit=0175be5c2084e2c5027324403a329e04040cd0bc  # tag v1.6.2
+pkgrel=1
+pkgdesc='Greetd login screen with the Dank Material aesthetic'
+arch=(x86_64)
+url='https://github.com/AvengeMedia/dank-greeter'
+license=(MIT)
+depends=(greetd quickshell qt6-declarative)
+makedepends=(git go)
+provides=(dms-greeter)
+conflicts=(greetd-dms-greeter-bin greetd-dms-greeter-git)
+source=("git+https://github.com/AvengeMedia/dank-greeter.git#commit=${_commit}"
+        "git+https://github.com/AvengeMedia/dank-qml-common.git")
+sha256sums=('SKIP' 'SKIP')
+
+prepare() {
+  cd dank-greeter
+  git submodule init
+  git config submodule.dank-qml-common.url "$srcdir/dank-qml-common"
+  git -c protocol.file.allow=always submodule update
+}
+
+build() {
+  cd dank-greeter/core
+  export CGO_ENABLED=0 GOFLAGS="-trimpath -mod=readonly -modcacherw" GOPATH="$srcdir/gopath"
+  make build VERSION="$pkgver" COMMIT="${_commit:0:8}" \
+    BUILD_TIME="$(date -u -d "@${SOURCE_DATE_EPOCH:-0}" '+%Y-%m-%d_%H:%M:%S')"
+}
+
+package() {
+  cd dank-greeter
+  install -Dm755 core/bin/dms-greeter "$pkgdir/usr/bin/dms-greeter"
+  install -Dm644 assets/systemd/tmpfiles-dms-greeter.conf "$pkgdir/usr/lib/tmpfiles.d/dms-greeter.conf"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

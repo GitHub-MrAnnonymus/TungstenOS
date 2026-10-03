@@ -1,0 +1,31 @@
+#!/bin/bash
+# Predicts PCR 4/11 for the installed bootloader and both A/B UKIs.
+# --make-policy also refreshes the TPM policy, if one exists.
+set -euo pipefail
+PCRLOCK=/usr/lib/systemd/systemd-pcrlock
+POLICY=/var/lib/systemd/pcrlock.json
+D=/var/lib/pcrlock.d
+ESP=$(bootctl --print-esp-path)
+
+mkdir -p "$D"/610-boot-loader-code.pcrlock.d "$D"/650-uki.pcrlock.d "$D"/660-uki.pcrlock.d
+rm -f "$D"/610-boot-loader-code.pcrlock.d/*.pcrlock "$D"/650-uki.pcrlock.d/*.pcrlock "$D"/660-uki.pcrlock.d/*.pcrlock
+
+n=0
+for loader in "$ESP"/EFI/systemd/systemd-bootx64.efi "$ESP"/EFI/BOOT/BOOTX64.EFI \
+              /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed; do
+  [ -f "$loader" ] || continue
+  "$PCRLOCK" lock-pe "$loader" --pcrlock="$D/610-boot-loader-code.pcrlock.d/loader-$((n++)).pcrlock"
+done
+
+shopt -s nullglob
+ukis=("$ESP"/EFI/Linux/tungsten*.efi)
+[ ${#ukis[@]} -gt 0 ] || { echo "no TungstenOS UKIs in $ESP/EFI/Linux" >&2; exit 1; }
+for uki in "${ukis[@]}"; do
+  name=$(basename "$uki" .efi); name=${name%%+*}   # drop the boot-counting suffix
+  "$PCRLOCK" lock-pe  "$uki" --pcrlock="$D/650-uki.pcrlock.d/$name.pcrlock"
+  "$PCRLOCK" lock-uki "$uki" --pcrlock="$D/660-uki.pcrlock.d/$name.pcrlock"
+done
+
+if [ "${1:-}" = --make-policy ] && [ -e "$POLICY" ]; then
+  "$PCRLOCK" make-policy --policy="$POLICY" --location=770
+fi

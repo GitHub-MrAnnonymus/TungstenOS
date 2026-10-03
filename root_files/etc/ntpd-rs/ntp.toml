@@ -1,0 +1,31 @@
+[observability]
+log-level = "info"
+
+[[source]]
+mode = "nts"
+address = "time.cloudflare.com"
+
+[[source]]
+mode = "nts"
+address = "ntppool1.time.nl"
+
+[[source]]
+mode = "nts"
+address = "nts.netnod.se"
+
+[[source]]
+mode = "nts"
+address = "ptbtime1.ptb.de"
+
+[[source]]
+mode = "nts"
+address = "time.dfm.dk"
+
+[[source]]
+mode = "nts"
+address = "time.cifelli.xyz"
+
+[synchronization]
+single-step-panic-threshold = 1800
+startup-step-panic-threshold = { forward="inf", backward = 86400 }
+minimum-agreeing-sources = 3

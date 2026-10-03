@@ -1,0 +1,8 @@
+policy_module(tungsten, 1.0.0)
+
+# User namespace creation is limited to domains granted
+# `self:user_namespace create` (chromium_t, *_bubblewrap_t, container engines).
+# Audit with: sesearch -A -c user_namespace -p create
+
+# Desktop session rules (Hyprland, DankMaterialShell under staff_t) go here,
+# derived from reviewed AVC denials.

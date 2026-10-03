@@ -1,0 +1,200 @@
+name: Build packages
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - kernel/**
+      - packages/**
+      - .github/workflows/packages.yml
+  schedule:
+    - cron: '0 3 * * *'   # pick up new Trivalent / NVIDIA releases
+  workflow_dispatch:
+    inputs:
+      all:
+        description: Rebuild every package group
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    outputs:
+      kernel: ${{ steps.plan.outputs.kernel }}
+      selinux: ${{ steps.plan.outputs.selinux }}
+      misc: ${{ steps.plan.outputs.misc }}
+    steps:
+      - run: pacman -Syu --noconfirm git python gnupg zstd
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+      - id: plan
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$PWD"
+          all=${{ github.event_name == 'workflow_dispatch' && inputs.all || false }}
+          changed=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ALL)
+          has() { [ "$all" = true ] || [ "$changed" = ALL ] || grep -qE "$1" <<<"$changed"; }
+          kernel=false; selinux=false; misc=false
+          has '^kernel/|^\.github/workflows/packages\.yml' && kernel=true
+          has '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' && selinux=true
+          has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier)/' && misc=true
+          ./kernel/sync-nvidia.sh | grep -q -- '->' && kernel=true
+          GNUPGHOME=$(mktemp -d) python3 packages/trivalent/update.py | grep -q -- '->' && misc=true
+          echo "kernel=$kernel selinux=$selinux misc=$misc"
+          { echo "kernel=$kernel"; echo "selinux=$selinux"; echo "misc=$misc"; } >> "$GITHUB_OUTPUT"
+
+  kernel:
+    needs: plan
+    if: needs.plan.outputs.kernel == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    container:
+      image: archlinux:latest
+      # Free disk space by deleting the host's preinstalled SDKs.
+      options: -v /usr/share/dotnet:/host/dotnet -v /usr/local/lib/android:/host/android -v /opt/ghc:/host/ghc -v /opt/hostedtoolcache:/host/toolcache
+    steps:
+      - name: Free disk space
+        run: rm -rf /host/dotnet/* /host/android/* /host/ghc/* /host/toolcache/* && df -h /
+      - run: pacman -Syu --noconfirm base-devel git sudo ccache
+      - uses: actions/checkout@v4
+      # Saved even on failure, so a timed-out first build still warms the cache.
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: kernel-ccache-${{ github.run_id }}
+          restore-keys: kernel-ccache-
+      - name: Build linux-tungsten
+        shell: bash
+        timeout-minutes: 330   # leave time for the cache save below
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CCACHE_MAXSIZE: 6G
+          CCACHE_BASEDIR: ${{ github.workspace }}/kernel/src
+          CCACHE_COMPILERCHECK: content
+          CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman' > /etc/sudoers.d/builder
+          mkdir -p "$CCACHE_DIR"
+          chown -R builder .
+          sudo -u builder --preserve-env=CCACHE_DIR,CCACHE_MAXSIZE,CCACHE_BASEDIR,CCACHE_COMPILERCHECK,CCACHE_SLOPPINESS bash -euo pipefail <<'EOF'
+          ccache -z
+          ./kernel/sync-nvidia.sh
+          gpg --locate-external-keys torvalds@kernel.org gregkh@kernel.org
+          cd kernel
+          makepkg -s --noconfirm
+          ccache -s
+          EOF
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: kernel-ccache-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        with: { name: kernel, path: kernel/*.pkg.tar.zst, retention-days: 1 }
+
+  selinux:
+    needs: plan
+    if: needs.plan.outputs.selinux == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    container: archlinux:latest
+    steps:
+      - name: Enable multilib (systemd-selinux needs lib32-gcc-libs)
+        run: |
+          printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
+          pacman -Syu --noconfirm base-devel git sudo
+      - uses: actions/checkout@v4
+      - name: Build SELinux packages
+        shell: bash
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman' > /etc/sudoers.d/builder
+          chown -R builder .
+          sudo -u builder ./packages/build-selinux.sh out
+      - uses: actions/upload-artifact@v4
+        with: { name: selinux, path: out/*.pkg.tar.zst, retention-days: 1 }
+
+  misc:
+    needs: plan
+    if: needs.plan.outputs.misc == 'true'
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - run: pacman -Syu --noconfirm base-devel git sudo python gnupg
+      - uses: actions/checkout@v4
+      - name: Build small packages
+        shell: bash
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman' > /etc/sudoers.d/builder
+          chown -R builder .
+          sudo -u builder bash -euo pipefail <<'EOF'
+          GNUPGHOME=$(mktemp -d) python3 packages/trivalent/update.py
+          (cd packages/trivalent && makepkg -s --noconfirm)
+          (cd packages/hardened_malloc && makepkg -s --noconfirm)
+          (cd packages/greetd-dms-greeter && makepkg -s --noconfirm)
+          gpg --batch --import packages/usbguard-notifier/*.asc
+          (cd packages/usbguard-notifier && makepkg -s --noconfirm)
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: misc
+          path: |
+            packages/trivalent/*.pkg.tar.zst
+            packages/hardened_malloc/*.pkg.tar.zst
+            packages/greetd-dms-greeter/*.pkg.tar.zst
+            packages/usbguard-notifier/*.pkg.tar.zst
+
+  publish:
+    needs: [plan, kernel, selinux, misc]
+    if: ${{ !failure() && !cancelled() && (needs.kernel.result == 'success' || needs.selinux.result == 'success' || needs.misc.result == 'success') }}
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - run: pacman -Syu --noconfirm github-cli gnupg pacman-contrib git
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: new, merge-multiple: true }
+      - name: Sign packages and update the repo database
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TUNGSTEN_GPG_KEY: ${{ secrets.TUNGSTEN_GPG_KEY }}
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$PWD"
+          export GNUPGHOME=$(mktemp -d)
+          echo "$TUNGSTEN_GPG_KEY" | base64 -d | gpg --batch --import
+          KEY=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')
+
+          mkdir repo
+          # Carry over packages from groups not rebuilt in this run.
+          gh release view packages >/dev/null 2>&1 || gh release create packages --prerelease --latest=false \
+            --title "Package repository" --notes "pacman repo [tungsten]. Not an OS release."
+          gh release download packages --dir repo --pattern '*.pkg.tar.zst*' --pattern 'tungsten.db*' --pattern 'tungsten.files*' || :
+          for f in repo/tungsten.db repo/tungsten.files; do [ -f "$f" ] && mv "$f" "$f.tar.zst"; done
+          rm -f repo/tungsten.db.sig repo/tungsten.files.sig
+
+          for p in new/*.pkg.tar.zst; do
+            gpg --batch --yes --local-user "$KEY" --detach-sign --output "$p.sig" "$p"
+          done
+          mv new/* repo/
+          cd repo
+          repo-add --new --remove --sign --key "$KEY" tungsten.db.tar.zst ./*.pkg.tar.zst
+          for sig in ./*.pkg.tar.zst.sig; do [ -e "${sig%.sig}" ] || rm -f "$sig"; done
+          # Release assets can't be symlinks.
+          for f in tungsten.db tungsten.files; do
+            rm -f "$f" "$f.sig"
+            cp "$f.tar.zst" "$f"; cp "$f.tar.zst.sig" "$f.sig"
+          done
+          for asset in $(gh release view packages --json assets -q '.assets[].name'); do
+            [ -e "$asset" ] || gh release delete-asset packages "$asset" -y
+          done
+          gh release upload packages --clobber ./*.pkg.tar.zst ./*.pkg.tar.zst.sig tungsten.db tungsten.db.sig tungsten.files tungsten.files.sig

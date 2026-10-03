@@ -1,0 +1,12 @@
+{
+  "dankKDEConnect": {
+    "enabled": true
+  },
+  "Calculator": {
+    "enabled": true
+  },
+  "calculator": {
+    "enabled": true,
+    "trigger": "="
+  }
+}

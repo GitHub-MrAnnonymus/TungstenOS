@@ -1,0 +1,37 @@
+# Arch's erofs-utils (by David Runge) built with SELinux labeling support.
+
+pkgname=erofs-utils-selinux
+pkgver=1.9.4
+pkgrel=1
+pkgdesc="Userspace utilities for linux-erofs file system (with SELinux labeling)"
+arch=(x86_64)
+url="https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git"
+license=(Apache-2.0 GPL-2.0-or-later)
+depends=(curl glibc libdeflate libselinux lz4 openssl util-linux-libs xxhash xz zlib zstd)
+makedepends=(fuse2)
+provides=("erofs-utils=$pkgver")
+conflicts=(erofs-utils)
+source=($url/snapshot/erofs-utils-$pkgver.tar.gz)
+sha512sums=('c78fb83a206fa1a313eae3c54134f892a6eafc6839ee689457c5d4b1f5a7d399f9475a160a9c9173221944e8823e665eecfc0d72b2b2a1563250646d091a9176')
+
+prepare() {
+  cd erofs-utils-$pkgver
+  autoreconf -fiv
+}
+
+build() {
+  cd erofs-utils-$pkgver
+  MAX_BLOCK_SIZE=65536 ./configure \
+    --enable-lzma \
+    --enable-multithreading \
+    --prefix=/usr \
+    --sbindir=/usr/bin/ \
+    --with-libdeflate \
+    --with-selinux
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+  make
+}
+
+package() {
+  make DESTDIR="$pkgdir/" install -C erofs-utils-$pkgver
+}

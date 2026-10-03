@@ -1,0 +1,4 @@
+# Stable names for hybrid graphics, used by ~/.config/hypr/hardware.lua.
+SUBSYSTEM=="drm", KERNEL=="card*", DRIVERS=="amdgpu", SYMLINK+="dri/amd-igpu"
+SUBSYSTEM=="drm", KERNEL=="card*", DRIVERS=="i915|xe", SYMLINK+="dri/intel-igpu"
+SUBSYSTEM=="drm", KERNEL=="card*", DRIVERS=="nvidia", SYMLINK+="dri/nvidia-dgpu"

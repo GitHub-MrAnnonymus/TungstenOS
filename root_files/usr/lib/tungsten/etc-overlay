@@ -1,0 +1,23 @@
+#!/bin/sh
+# Mounts /sysroot/etc as an overlay: image defaults (lower) and local changes (upper).
+set -eu
+ROOT=/sysroot
+STATE=$ROOT/var/lib/tungsten/etc
+LOWER=$ROOT/usr/share/factory/etc
+
+mkdir -p "$STATE/upper" "$STATE/work" "$ROOT/etc"
+
+# Resets requested by `tungsten-etc reset`, applied before the overlay is mounted.
+if [ -f "$STATE/reset" ]; then
+    while IFS= read -r path; do
+        case "$path" in
+            '*') find "$STATE/upper" -mindepth 1 -delete ;;
+            ''|/*|*..*) ;;
+            *) rm -rf "$STATE/upper/$path" ;;
+        esac
+    done < "$STATE/reset"
+    rm -f "$STATE/reset"
+    find "$STATE/work" -mindepth 1 -delete
+fi
+
+mount -t overlay overlay -o "lowerdir=$LOWER,upperdir=$STATE/upper,workdir=$STATE/work,nosuid,nodev,noexec" "$ROOT/etc"

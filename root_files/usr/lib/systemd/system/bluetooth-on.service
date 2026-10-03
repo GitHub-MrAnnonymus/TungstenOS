@@ -1,0 +1,7 @@
+[Unit]
+Description=Load Bluetooth modules and start bluetoothd
+Conflicts=bluetooth-off.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bt-toggle on

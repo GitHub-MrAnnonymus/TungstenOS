@@ -1,0 +1,15 @@
+[Unit]
+Description=Predict PCRs for installed bootloader and UKIs (pcrlock)
+DefaultDependencies=no
+After=systemd-boot-update.service systemd-tpm2-setup.service var.mount
+Before=systemd-pcrlock-make-policy.service shutdown.target
+Conflicts=shutdown.target
+ConditionSecurity=measured-uki
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/lib/tungsten/pcrlock-predict
+
+[Install]
+WantedBy=sysinit.target

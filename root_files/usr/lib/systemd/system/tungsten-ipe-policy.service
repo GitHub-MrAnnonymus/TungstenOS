@@ -1,0 +1,9 @@
+[Unit]
+Description=Load and activate the IPE policy
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/sh -ec 'cat /etc/ipe_setup/hardened.policy.p7b > /sys/kernel/security/ipe/new_policy && echo 1 > /sys/kernel/security/ipe/policies/hardened/active'
