@@ -80,8 +80,10 @@ arch-chroot "$WORKDIR" /bin/bash -c 'mkdir -p /usr/share/tungstenos && arch-repr
 # --- Configuration ---
 cp -r "$SRC"/root_files/. "$WORKDIR"/
 for l in "${LAYERS[@]}"; do [ -d "$l/root_files" ] && cp -r "$l"/root_files/. "$WORKDIR"/; done
-cp "$SEBUILD"/tungsten.pp "$WORKDIR"/tmp/tungsten.pp
-cp "$SRC"/scripts/remove-suid.sh "$WORKDIR"/tmp/remove-suid.sh
+# Staged outside /tmp: arch-chroot mounts an empty tmpfs there.
+STAGE=/root/tungsten-build
+install -Dm644 "$SEBUILD"/tungsten.pp "$WORKDIR$STAGE"/tungsten.pp
+install -Dm755 "$SRC"/scripts/remove-suid.sh "$WORKDIR$STAGE"/remove-suid.sh
 
 sed -i "s|@UPDATE_URL@|${UPDATE_URL}|; s|@IMAGE_ID@|${IMAGE_ID}|g" "$WORKDIR"/usr/lib/sysupdate.d/*.transfer
 cat >> "$WORKDIR"/usr/lib/os-release <<EOF
@@ -114,13 +116,13 @@ systemctl disable systemd-timesyncd.service
 
 # SELinux: permissive until the desktop policy is complete.
 sed -i 's/^SELINUX=.*/SELINUX=permissive/; s/^SELINUXTYPE=.*/SELINUXTYPE='"$POLICY"'/' /etc/selinux/config
-semodule -n -s "$POLICY" -X 300 -i /tmp/tungsten.pp
+semodule -n -s "$POLICY" -X 300 -i /root/tungsten-build/tungsten.pp
 # Confined logins (staff_t) cannot create user namespaces themselves.
 semanage login -N -S "$POLICY" -m -s staff_u __default__
 # /etc defaults in the image carry the labels of their /etc paths.
 semanage fcontext -N -S "$POLICY" -a -e /etc /usr/share/factory/etc
 
-bash /tmp/remove-suid.sh
+bash /root/tungsten-build/remove-suid.sh
 
 # Firewall: drop unsolicited inbound traffic.
 sed -i 's/^DefaultZone=.*/DefaultZone=drop/' /etc/firewalld/firewalld.conf
@@ -148,7 +150,7 @@ mkdir -p /etc/flatpak/remotes.d
 curl -fsSL --proto '=https' https://dl.flathub.org/repo/flathub.flatpakrepo -o /etc/flatpak/remotes.d/flathub.flatpakrepo
 
 passwd -l root
-rm -f /etc/machine-id /tmp/tungsten.pp /tmp/remove-suid.sh
+rm -rf /etc/machine-id /root/tungsten-build
 CHROOT
 
 # --- Hermetic /usr: everything outside /usr is recreated from /usr on boot ---
