@@ -157,7 +157,7 @@ Before writing, the script checks the TPM event log and warns if the selection w
 ### First boot
 
 1. Unlock the root partition with the recovery passphrase.
-2. Create the first user when prompted. Add this account to `wheel`; it is the administrator.
+2. Create the first user when prompted. This account is added to `wheel` and is the administrator.
 3. Bind the root partition to the TPM. This shows a pcrlock recovery PIN once; store it with the passphrase. After a factory reset, the same command also creates a recovery key.
    ```sh
    run0 tungsten-tpm-enroll

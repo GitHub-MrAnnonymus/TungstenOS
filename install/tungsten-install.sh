@@ -146,7 +146,7 @@ cat <<EOF
 Installed $IMAGE_ID $VER with extensions: ${EXTS[*]:-none}.
 1. Secure Boot: $( [ "$SB_ENROLLED" = 1 ] && echo "keys enrolled; enable Secure Boot in firmware setup if needed." || echo "put the firmware in Setup Mode, boot the live ISO again and run install/enroll-secureboot.sh." )
 2. Boot and enter the recovery passphrase. systemd-homed-firstboot then
-   asks you to create a user: make this first one the admin (add it to wheel).
+   asks you to create a user; it becomes the administrator (wheel).
 3. Bind the root partition to the TPM with a systemd-pcrlock policy:
      run0 tungsten-tpm-enroll
    It asks whether to require a PIN, and shows a pcrlock recovery PIN once;
