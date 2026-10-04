@@ -6,3 +6,32 @@ policy_module(tungsten, 1.0.0)
 
 # Desktop session rules (Hyprland, DankMaterialShell under staff_t) go here,
 # derived from reviewed AVC denials.
+
+gen_require(`
+	attribute nsswitch_domain;
+	type auditd_t, firewalld_t, kmod_t, NetworkManager_t, policykit_t, policykit_auth_t;
+	type systemd_homed_t, systemd_homed_runtime_t;
+	type systemd_userdbd_runtime_t, systemd_nsresourced_runtime_t;
+	type proc_t, devpts_t, var_run_t, user_home_dir_t, xdg_cache_t;
+	type sysctl_kernel_t, sysctl_vm_t, sysctl_vm_overcommit_t;
+')
+
+# User and group lookups through nss-systemd (homed, userdbd, nsresourced varlink sockets)
+allow { nsswitch_domain auditd_t NetworkManager_t policykit_t policykit_auth_t } { systemd_homed_runtime_t systemd_userdbd_runtime_t systemd_nsresourced_runtime_t }:sock_file { getattr read write };
+
+# Polkit authentication of homed users (pam_systemd_home)
+allow policykit_auth_t systemd_homed_t:fd use;
+allow policykit_auth_t systemd_homed_runtime_t:fifo_file write;
+allow policykit_t devpts_t:filesystem getattr;
+dontaudit policykit_auth_t self:capability net_admin;
+
+# firewalld
+allow firewalld_t self:capability setpcap;
+allow firewalld_t self:process { getcap setcap getsched };
+allow firewalld_t proc_t:filesystem getattr;
+allow firewalld_t { sysctl_kernel_t sysctl_vm_t }:dir search;
+allow firewalld_t { sysctl_kernel_t sysctl_vm_overcommit_t }:file { open read };
+dontaudit firewalld_t user_home_dir_t:dir search;
+
+allow kmod_t var_run_t:file { getattr open read };
+dontaudit NetworkManager_t xdg_cache_t:dir search;

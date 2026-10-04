@@ -12,6 +12,8 @@ find /usr -xdev -type f -perm /6000 -print0 | while IFS= read -r -d '' f; do
 done
 
 rm -f /usr/bin/{sudo,sudoedit,su,pkexec,chsh,chfn}
+# tmpfiles entries that would restore the bits on the read-only /usr at every boot
+sed -i -E '/^[zZ][[:space:]]+\/usr\S*[[:space:]]+[0-7]?[2467][0-7]{3}[[:space:]]/d' /usr/lib/tmpfiles.d/*.conf
 
 setcap_if() { [ -f "$2" ] && setcap "$1" "$2" && echo "caps $1 on $2"; }
 # User FUSE mounts (document portal)

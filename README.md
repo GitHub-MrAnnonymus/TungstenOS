@@ -7,7 +7,7 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 ## Contents
 
 - [Security model](#security-model)
-- [Images](#images)
+- [Image and extensions](#image-and-extensions)
 - [Disk layout](#disk-layout)
 - [Configuration](#configuration)
 - [Building](#building)
@@ -23,29 +23,36 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 |---|---|
 | Boot integrity | UEFI Secure Boot with an owner-controlled key hierarchy, signed systemd-boot and Unified Kernel Images (UKIs) |
 | Operating system | Read-only EROFS `/usr` image verified by dm-verity; the verity root hash is embedded in the signed UKI |
-| Code integrity | IPE restricts kernel modules and firmware to the verified image; module signatures are enforced |
+| Code integrity | IPE restricts kernel modules and firmware to the verified image and its extensions; module signatures are enforced |
 | Execution control | The writable root partition is mounted `noexec`, and SELinux denies confined users execution from their home and `/tmp`; the only writable executable location is system-wide Flatpak |
 | Mandatory access control | SELinux (refpolicy) with all logins confined as `staff_u` |
 | User namespaces | Enabled, but creation is permitted only to SELinux domains that need it (browser sandbox, bubblewrap) |
 | Privileges | No setuid or setgid binaries; administration through `run0` and polkit |
 | Kernel | Linux stable with selected [linux-hardened](https://github.com/anthraxx/linux-hardened) patches, built with Clang (kCFI/FineIBT), reduced attack surface and lockdown in confidentiality mode |
 | Disk encryption | LUKS2 bound to the TPM through a signed PCR 11 policy valid only in the initrd, plus a systemd-pcrlock policy for firmware, Secure Boot and bootloader (optional PIN); each home is a separate systemd-homed LUKS image |
-| Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded system-wide |
+| Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded into every service and login session (Quickshell is exempt: it crashes under it) |
 | Peripherals | USBGuard blocks unknown USB devices; IOMMU enforced; Thunderbolt and about 760 unused or risky kernel modules blocked |
 | Network | firewalld with inbound traffic dropped by default, IPv6 disabled, encrypted DNS (dnscrypt-proxy), authenticated time (NTS) |
 
-## Images
+## Image and extensions
 
-Each release contains four images. They share the kernel, SELinux policy and userspace.
+Each release contains one image for x86_64 systems with AMD or Intel graphics, plus optional [system extensions](https://www.freedesktop.org/software/systemd/man/latest/systemd-sysext.html) that are merged into `/usr` at boot:
 
-| Image | Adds |
+| Extension | Adds |
 |---|---|
-| `tungsten-generic` | Base image for x86_64 systems with AMD or Intel graphics |
-| `tungsten-generic-asus` | asusctl and rog-control-center for ASUS laptops |
-| `tungsten-nvidia` | Open NVIDIA kernel modules (signed during the kernel build), `nvidia-utils` and hybrid-graphics setup |
-| `tungsten-nvidia-asus` | Both of the above |
+| `nvidia` | Open NVIDIA kernel modules (signed during the kernel build), `nvidia-utils` and hybrid-graphics device links |
+| `asus` | asusctl and rog-control-center for ASUS laptops |
 
-Images are composed from `components/` (`nvidia`, `asus`); each `variants/<name>/components` file selects them, and a variant may add its own files.
+Each extension is a dm-verity image signed with the db key. It is built in the same run as `/usr` and merges only into that exact version (`SYSEXT_LEVEL`); `systemd-sysext` refuses unsigned images, and the IPE policy in the UKI pins each extension's root hash for kernel modules and firmware. Extensions are defined in `components/<name>/`: `packages`, `units` to enable, and `root_files/usr`.
+
+Installed extensions are sysupdate features and are updated with `/usr`. To add or remove one later:
+
+```sh
+run0 updatectl enable --now nvidia    # downloads it for the running version
+run0 updatectl disable --now nvidia
+```
+
+The change takes effect at the next boot.
 
 ## Disk layout
 
@@ -54,7 +61,7 @@ Images are composed from `components/` (`nvidia`, `asus`); each `variants/<name>
 | 1 | ESP | systemd-boot, UKIs, pcrlock policy credential | Contents signed for Secure Boot |
 | 2, 4 | `/usr` A, B | Operating system (EROFS) | dm-verity |
 | 3, 5 | `/usr` verity A, B | dm-verity hash trees | — |
-| 6 | Root | `/etc` changes, `/var`, `/home`, Flatpak | LUKS2: TPM2 + pcrlock (optional PIN), recovery key; mounted `noexec` |
+| 6 | Root | `/etc` changes, `/var`, `/home`, Flatpak, system extensions | LUKS2: TPM2 + pcrlock (optional PIN), recovery key; mounted `noexec` |
 
 Home directories are additionally systemd-homed LUKS images unlocked with each user's password, so they stay locked while their user is logged out. `/tmp` is memory-backed.
 
@@ -74,6 +81,10 @@ Settings made with graphical tools, such as firewall-config, NetworkManager conn
 
 USBGuard allows the devices present at first boot and blocks any new device until it is allowed (`run0 usbguard allow-device <id>`). Members of the `usbguard` group receive notifications. The stricter linux-hardened mode, which blocks all new USB devices at the kernel level, remains available through `mydenyusb.service` and `usb-allow.service`.
 
+## Troubleshooting
+
+`tungsten-debug` writes a report to your home directory: failed units, errors from this boot, crashes, SELinux denials, local `/etc` changes, USBGuard, boot entries, updates and TPM keyslots. It asks for authentication once for the root-only parts.
+
 ## Building
 
 Builds run on GitHub Actions.
@@ -82,9 +93,8 @@ Builds run on GitHub Actions.
 
 | Path | Purpose |
 |---|---|
-| `build.sh` | Builds one image variant |
-| `components/` | Optional image components: packages, units, kernel parameters and files |
-| `variants/` | Image definitions: the components each image uses, plus image-specific files |
+| `build.sh` | Builds the image and its system extensions |
+| `components/` | System extensions: packages, units and files under `/usr` |
 | `root_files/` | Files copied into every image; `etc/skel` holds the default user configuration |
 | `kernel/` | `linux-tungsten` package: PKGBUILD, config fragment and vendored linux-hardened patches |
 | `packages/` | SELinux userspace builder and PKGBUILDs for Trivalent, hardened_malloc, dms-greeter, usbguard-notifier and erofs-utils |
@@ -120,20 +130,20 @@ Builds run on GitHub Actions.
 |---|---|---|
 | Update | Verified version bumps: commits for routine updates, pull requests for the rest | Daily, manual |
 | Build packages | Signed `[tungsten]` pacman repository on the `packages` release | Changes to package inputs, started by *Update*, manual |
-| Build OS image | All images and a signed `SHA256SUMS` as the latest release | Every two days, configuration changes, after a package build, manual |
+| Build OS image | The image, its extensions and a signed `SHA256SUMS` as the latest release | Every two days, configuration changes, after a package build, manual |
 
 Run *Build packages* with **all** selected before the first image build. Only package groups whose inputs changed are rebuilt; the kernel build uses a compiler cache that is saved even when a build times out.
 
 ## Installation
 
-Download one image's files together with `SHA256SUMS` and `SHA256SUMS.gpg` from a release, verify them, and run the installer from an Arch Linux live ISO:
+Download a release's files, verify them, and run the installer from an Arch Linux live ISO:
 
 ```sh
 gpgv --keyring keys/tungsten.pgp SHA256SUMS.gpg SHA256SUMS
-IMAGE_ID=tungsten-generic install/tungsten-install.sh /dev/nvme0n1 ./release
+install/tungsten-install.sh /dev/nvme0n1 ./release
 ```
 
-The installer erases the disk, creates the partition layout above, writes the first image, installs the bootloader and asks for a recovery passphrase for the root partition.
+The installer erases the disk, creates the partition layout above, writes the first image, installs the bootloader, offers each extension (preselected when the hardware is detected) and asks for a recovery passphrase for the root partition. Given a file instead of a disk, it creates a VM image; `install/run-vm.sh` boots it with UEFI and a software TPM.
 
 ### Secure Boot enrollment
 
@@ -159,7 +169,7 @@ Before writing, the script checks the TPM event log and warns if the selection w
 
 ## Updates
 
-`systemd-sysupdate` downloads new releases, verifies `SHA256SUMS.gpg` against the key built into the image, and writes the new `/usr` and verity images to the inactive slot. The new UKI is installed with boot counting: if it fails to boot three times, systemd-boot returns to the previous one. After each update the pcrlock policy is extended to cover the new UKI, so the root partition keeps unlocking from the TPM.
+`systemd-sysupdate` downloads new releases, verifies `SHA256SUMS.gpg` against the key built into the image, and writes the new `/usr` and verity images to the inactive slot, and the matching versions of enabled extensions to `/var/lib/extensions.d`. The new UKI is installed with boot counting: if it fails to boot three times, systemd-boot returns to the previous one. After each update the pcrlock policy is extended to cover the new UKI, so the root partition keeps unlocking from the TPM.
 
 Applications are installed with Flatpak, system-wide only:
 
@@ -168,6 +178,8 @@ flatpak install flathub <application>
 ```
 
 Per-user (`--user`) Flatpak installations cannot run, because the root partition and home directories do not allow execution.
+
+A factory reset also removes installed extensions; enable them again with `updatectl enable --now`.
 
 ## Automation
 

@@ -5,10 +5,10 @@ set -euo pipefail
 . /etc/selinux/config
 fc="/etc/selinux/${SELINUXTYPE}/contexts/files/file_contexts"
 stamp=/var/lib/tungsten/file-contexts.sha256
-want=$(cat "$fc" "$fc".homedirs "$fc".subs "$fc".local 2>/dev/null | sha256sum)
+want=$({ cat "$fc" "$fc".homedirs "$fc".subs "$fc".local 2>/dev/null || :; } | sha256sum)
 [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$want" ] && exit 0
 
-restorecon -RF -e /usr -e /etc -e /var/lib/tungsten/etc -e /proc -e /sys -e /dev -e /run -e /tmp -e /efi -e /boot /
+restorecon -RF -e /usr -e /etc -e /proc -e /sys -e /dev -e /run -e /tmp -e /efi -e /boot /
 restorecon -F /etc
 mkdir -p "$(dirname "$stamp")"
 echo "$want" > "$stamp"

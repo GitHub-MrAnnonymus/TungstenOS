@@ -1,0 +1,26 @@
+#!/bin/bash
+# Collects a troubleshooting report into ~/tungsten-debug-<time>.txt.
+# Run as your user; it asks for authentication once for the root-only parts.
+out=~/tungsten-debug-$(date +%Y%m%d-%H%M%S).txt
+
+section() { printf '\n===== %s =====\n' "$1"; }
+{
+  section "Image";            grep -E '^(IMAGE_ID|IMAGE_VERSION)=' /usr/lib/os-release; uname -r
+  section "Kernel cmdline";   cat /proc/cmdline
+  section "Failed units";     systemctl --failed --no-pager; systemctl --user --failed --no-pager
+  section "Session";          loginctl show-session "$XDG_SESSION_ID" -p Type -p Class -p State; id -Z
+  section "SELinux";          getenforce
+  section "Errors this boot"; journalctl -b -p err --no-pager | tail -60
+  section "User errors";      journalctl --user -b -p warning --no-pager | tail -40
+  section "Crashes";          coredumpctl list --no-pager 2>&1 | tail -15
+  section "Local /etc changes"; tungsten-etc status 2>&1
+  section "Root-only checks"
+  run0 sh -c '
+    echo "--- SELinux denials (as rules) ---"; ausearch -m avc -ts boot --raw 2>/dev/null | audit2allow
+    echo "--- USBGuard ---";      usbguard list-devices 2>&1 | head -30
+    echo "--- Boot entries ---";  bootctl list --no-pager 2>&1 | grep -E "title|id|version|status"
+    echo "--- Updates ---";       updatectl list 2>&1 | head -10
+    echo "--- TPM keyslots ---";  cryptsetup luksDump /dev/disk/by-partlabel/root 2>&1 | grep -A2 -E "^Tokens|systemd-tpm2"'
+} > "$out" 2>&1
+
+echo "Report written to $out"

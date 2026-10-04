@@ -7,7 +7,6 @@ on:
     branches: [master, main]
     paths:
       - root_files/**
-      - variants/**
       - components/**
       - selinux/**
       - scripts/remove-suid.sh
@@ -38,10 +37,6 @@ jobs:
     # Signing secrets live in the 'release' environment, which only master can use.
     environment: release
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        variant: [generic, generic-asus, nvidia, nvidia-asus]
     container:
       image: archlinux:latest
       # Free disk space by deleting the host's preinstalled SDKs.
@@ -64,7 +59,7 @@ jobs:
           echo "TUNGSTEN_REPO=$REPO" >> "$GITHUB_ENV"
           awk -v repo="$REPO" '/^\[core\]/ && !d { print "[tungsten]\nServer = " repo "\n"; d=1 } { print }' /etc/pacman.conf > /tmp/p.conf
           mv /tmp/p.conf /etc/pacman.conf
-          pacman -Syu --noconfirm base arch-install-scripts erofs-utils-selinux sbsigntools systemd-ukify openssl cryptsetup libcap
+          pacman -Syu --noconfirm base arch-install-scripts erofs-utils-selinux sbsigntools systemd-ukify openssl cryptsetup libcap jq
 
       - name: Write Secure Boot keys
         env:
@@ -78,9 +73,8 @@ jobs:
           echo "$TPM2_PCR_KEY" | base64 -d > /tmp/sbsign/tpm2-pcr-private-key.pem
           chmod 600 /tmp/sbsign/*
 
-      - name: Build ${{ matrix.variant }}
+      - name: Build
         env:
-          VARIANT: ${{ matrix.variant }}
           OS_BUILD_TAG: ${{ needs.version.outputs.tag }}
           UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/
           SB_DIR: /tmp/sbsign
@@ -92,7 +86,7 @@ jobs:
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: image-${{ matrix.variant }}
+          name: image
           path: /tungsten/out/*
           compression-level: 0
           retention-days: 1
@@ -106,7 +100,7 @@ jobs:
       image: archlinux:latest
       options: -v /usr/share/dotnet:/host/dotnet -v /usr/local/lib/android:/host/android -v /opt/ghc:/host/ghc -v /opt/hostedtoolcache:/host/toolcache
     steps:
-      - name: Free disk space (both variants' images land here)
+      - name: Free disk space
         run: rm -rf /host/dotnet/* /host/android/* /host/ghc/* /host/toolcache/*
       - run: pacman -Syu --noconfirm gnupg
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

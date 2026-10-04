@@ -1,0 +1,5 @@
+# systemd applies presets on first boot; NetworkManager, dnscrypt-proxy and ntpd-rs
+# replace these.
+disable systemd-networkd*
+disable systemd-resolved*
+disable systemd-timesyncd.service

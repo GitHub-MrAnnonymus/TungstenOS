@@ -1,6 +1,6 @@
 -- Hyprland configuration (Lua) — https://wiki.hypr.land/Configuring/Start/
 hl.exec_cmd("plymouth quit --retain-splash")
--- Machine-specific GPU settings (only the nvidia image ships hardware.lua)
+-- GPU selection for hybrid graphics (the NVIDIA extension provides the device links)
 pcall(require, "hardware")
 hl.env("SDL_VIDEODRIVER", "wayland")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
