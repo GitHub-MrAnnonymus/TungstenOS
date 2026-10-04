@@ -52,15 +52,15 @@ PACKAGES=(
   tpm2-tss tpm2-tools hardened_malloc usbguard usbguard-notifier
 
   # Network
-  networkmanager firewalld firewall-config dnscrypt-proxy ntpd-rs bluez bluez-utils
+  networkmanager iptables firewalld firewall-config dnscrypt-proxy ntpd-rs bluez bluez-utils
 
   # Desktop
   plymouth greetd greetd-dms-greeter flatpak
   hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dms-shell quickshell
   matugen polkit kitty alacritty nautilus kdeconnect papirus-icon-theme
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
-  pipewire pipewire-pulse pipewire-alsa wireplumber pavucontrol
-  oo7 gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
+  pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
+  gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
   power-profiles-daemon trivalent qemu-full libvirt virt-manager bazaar
 
   # Tools
