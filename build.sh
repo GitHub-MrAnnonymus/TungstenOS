@@ -91,6 +91,21 @@ IMAGE_ID=${IMAGE_ID}
 IMAGE_VERSION=${OS_BUILD_TAG}
 EOF
 
+# dnscrypt-proxy: set each key, failing if it isn't present exactly once.
+DNSCRYPT="$WORKDIR"/etc/dnscrypt-proxy/dnscrypt-proxy.toml
+set_toml() {
+  local n; n=$(grep -cE "^#? *$1 *=" "$DNSCRYPT")
+  [ "$n" -eq 1 ] || { echo "dnscrypt-proxy.toml: '$1' found $n times" >&2; exit 1; }
+  sed -i -E "s|^#? *$1 *=.*|$1 = $2|" "$DNSCRYPT"
+}
+set_toml server_names "['cloudflare', 'google']"
+set_toml require_dnssec true
+set_toml timeout 1000
+set_toml blocked_query_response "'refused'"
+set_toml dnscrypt_ephemeral_keys true
+set_toml block_ipv6 true
+set_toml skip_incompatible true
+
 # The only keyring systemd-sysupdate trusts.
 install -Dm644 "$SRC"/keys/tungsten.pgp "$WORKDIR"/usr/lib/systemd/import-pubring.pgp
 # Verifies the signed PCR 11 policy in each UKI (default path for systemd-cryptenroll).
@@ -143,8 +158,6 @@ tmpfs             /tmp              tmpfs  defaults,noexec,nosuid,nodev,mode=177
 # The only writable location mounted exec (the root partition is noexec).
 /var/lib/flatpak  /var/lib/flatpak  none   bind,exec,nosuid,nodev,x-mount.mkdir                               0  0
 FSTAB
-patch /etc/dnscrypt-proxy/dnscrypt-proxy.toml /etc/patch_dnscryptproxy_toml.patch
-rm /etc/patch_dnscryptproxy_toml.patch
 
 mkdir -p /etc/flatpak/remotes.d
 curl -fsSL --proto '=https' https://dl.flathub.org/repo/flathub.flatpakrepo -o /etc/flatpak/remotes.d/flathub.flatpakrepo
