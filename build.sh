@@ -61,7 +61,7 @@ PACKAGES=(
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
-  power-profiles-daemon trivalent qemu-full libvirt virt-manager bazaar
+  power-profiles-daemon trivalent qemu-desktop libvirt virt-manager bazaar
 
   # Tools
   less git jq fastfetch tmux helix rsync unzip zip arch-repro-status
@@ -200,7 +200,7 @@ FC="$WORKDIR/etc/selinux/$POLICY/contexts/files/file_contexts"
 USR_IMG=/tmp/usr.erofs
 VERITY_IMG=/tmp/usr.verity
 mkfs.erofs -L "${OS_BUILD_TAG}" --mount-point=/usr --file-contexts="$FC" \
-  -zlz4hc,12 -C65536 -Efragments,ztailpacking "$USR_IMG" "$WORKDIR/usr"
+  -zzstd,level=15 -C131072 -Efragments,ztailpacking "$USR_IMG" "$WORKDIR/usr"
 
 VERITY_HASH=$(veritysetup format "$USR_IMG" "$VERITY_IMG" | awk '/Root hash:/ {print $3}')
 [ "${#VERITY_HASH}" -eq 64 ] || { echo "Failed to extract verity root hash"; exit 1; }
@@ -211,6 +211,11 @@ UUID_VERITY=$(hex_to_uuid "${VERITY_HASH:32:32}")
 mv "$USR_IMG"    "$OUT/${IMAGE_ID}_${OS_BUILD_TAG}_${UUID_USR}.usr.raw"
 mv "$VERITY_IMG" "$OUT/${IMAGE_ID}_${OS_BUILD_TAG}_${UUID_VERITY}.usr-verity.raw"
 echo "usr hash: $VERITY_HASH"
+# GitHub rejects release assets of 2 GiB or more; fail here rather than at upload.
+for f in "$OUT"/*; do
+  [ "$(stat -c %s "$f")" -lt 2147483648 ] || { echo "$(basename "$f") is $(du -h "$f" | cut -f1), over GitHub's 2 GiB asset limit" >&2; exit 1; }
+done
+ls -lh "$OUT"
 
 # --- IPE policy (initramfs only, as it embeds the verity hash) ---
 mkdir -p "$WORKDIR"/etc/ipe_setup
