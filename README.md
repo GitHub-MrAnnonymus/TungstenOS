@@ -99,24 +99,27 @@ Builds run on GitHub Actions.
    ```sh
    git config core.hooksPath .githooks
    ```
-2. **Create the release signing key** as described in [`keys/README.md`](keys/README.md). Commit `keys/tungsten.pgp` and add the secret key as the `TUNGSTEN_GPG_KEY` repository secret.
-3. **Create the Secure Boot hierarchy** on an offline machine with `efitools` installed:
+2. **Create the `release` environment:** Settings → Environments → *New environment* `release` → *Deployment branches and tags* → *Selected branches and tags* → add `master`. All signing secrets below are environment secrets of `release`, so only workflows running on `master` can read them; do not add them as repository secrets.
+3. **Create the release signing key** as described in [`keys/README.md`](keys/README.md). Commit `keys/tungsten.pgp` and add the secret key as the `TUNGSTEN_GPG_KEY` secret.
+4. **Create the Secure Boot hierarchy** on an offline machine with `efitools` installed:
    ```sh
    keys/make-secureboot-keys.sh /path/to/offline/storage
    ```
    Commit `keys/secureboot/`. Add the generated `SB_DB_KEY.base64` and `SB_DB_CRT.base64` values as the `SB_DB_KEY` and `SB_DB_CRT` secrets. The PK and KEK private keys never leave the offline machine.
-4. **Create the PCR signing key**, which signs each UKI's expected PCR 11 values:
+5. **Create the PCR signing key**, which signs each UKI's expected PCR 11 values:
    ```sh
    keys/make-pcr-key.sh /path/to/offline/storage
    ```
    Commit `keys/tpm2-pcr-public-key.pem` and add `TPM2_PCR_KEY.base64` as the `TPM2_PCR_KEY` secret.
-5. **Allow workflows to publish releases:** Settings → Actions → General → Workflow permissions → *Read and write*.
+6. **Allow workflows to publish releases and open pull requests:** Settings → Actions → General → Workflow permissions → *Read and write*, and *Allow GitHub Actions to create and approve pull requests*.
+7. **Back up the private keys** offline, encrypted (for example with `age -p`), in at least two places, and test restoring them once.
 
 ### Workflows
 
 | Workflow | Output | Trigger |
 |---|---|---|
-| Build packages | Signed `[tungsten]` pacman repository on the `packages` release | Changes under `kernel/` or `packages/`, daily upstream checks (Trivalent, NVIDIA), manual |
+| Update | Verified version bumps: commits for routine updates, pull requests for the rest | Daily, manual |
+| Build packages | Signed `[tungsten]` pacman repository on the `packages` release | Changes to package inputs, started by *Update*, manual |
 | Build OS image | All images and a signed `SHA256SUMS` as the latest release | Every two days, configuration changes, after a package build, manual |
 
 Run *Build packages* with **all** selected before the first image build. Only package groups whose inputs changed are rebuilt; the kernel build uses a compiler cache that is saved even when a build times out.

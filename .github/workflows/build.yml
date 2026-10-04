@@ -30,6 +30,8 @@ jobs:
 
   build:
     needs: version
+    # Signing secrets live in the 'release' environment, which only master can use.
+    environment: release
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -92,6 +94,8 @@ jobs:
 
   publish:
     needs: [version, build]
+    # Signing secrets live in the 'release' environment, which only master can use.
+    environment: release
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest

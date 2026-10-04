@@ -156,6 +156,8 @@ jobs:
 
   publish:
     needs: [plan, kernel, selinux, misc]
+    # Signing secrets live in the 'release' environment, which only master can use.
+    environment: release
     # Publish every group that built, even if another group failed.
     if: ${{ always() && !cancelled() && needs.plan.result == 'success' && (needs.kernel.result == 'success' || needs.selinux.result == 'success' || needs.misc.result == 'success') }}
     runs-on: ubuntu-latest
