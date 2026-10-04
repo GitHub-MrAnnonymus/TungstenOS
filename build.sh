@@ -19,7 +19,7 @@ words() { [ -f "$1" ] && sed 's/#.*//' "$1" | xargs || :; }
 
 if [ "$EUID" -ne 0 ]; then echo "Be root!"; exit 1; fi
 
-for m in "$EXTDIR"/*/merged; do umount -R "$m" 2>/dev/null || :; done
+for m in "$EXTDIR"/*/merged "$EXTDIR"/*/rw; do umount -R "$m" 2>/dev/null || :; done
 umount -R "$WORKDIR" 2>/dev/null || :
 rm -rf "$WORKDIR" "$EXTDIR" "$OUT" && mkdir -p "$WORKDIR" "$EXTDIR" "$OUT"
 
@@ -183,8 +183,9 @@ arch-chroot "$WORKDIR" /bin/bash -c '
   for f in /usr/bin/*; do
     [ -f "$f" ] && [ ! -L "$f" ] || continue
     out=$(ldd -r "$f" 2>&1) || continue
-    bad=$(grep -E "undefined symbol|not found" <<<"$out" | head -3)
-    [ -n "$bad" ] && printf "::warning::%s will not start:\n%s\n" "$f" "$bad"
+    grep -q "not found" <<<"$out" && continue   # optional dependency not installed
+    bad=$(grep "undefined symbol" <<<"$out" | head -3)
+    [ -n "$bad" ] && printf "::warning::%s will not start (library version skew):\n%s\n" "$f" "$bad"
   done; :'
 
 # --- Drop files nothing in the image can use (there is no compiler) ---
@@ -193,7 +194,7 @@ rm -rf "$WORKDIR"/usr/include "$WORKDIR"/usr/src/debug \
        "$WORKDIR"/usr/lib/{cmake,pkgconfig} "$WORKDIR"/usr/share/pkgconfig
 find "$WORKDIR"/usr/lib -name '*.a' -type f -delete
 echo "Largest directories in /usr:"
-du -x --max-depth=3 "$WORKDIR"/usr 2>/dev/null | sort -rn | sed -n '2,21p' | numfmt --field=1 --to=iec | sed "s#$WORKDIR##"
+du -x --max-depth=3 "$WORKDIR"/usr 2>/dev/null | sort -rn | sed -n '2,21p' | numfmt --field=1 --from-unit=1024 --to=iec | sed "s#$WORKDIR##"
 
 # --- Hermetic /usr: everything outside /usr is recreated from /usr on boot ---
 FACTORY="$WORKDIR"/usr/share/factory
@@ -225,8 +226,11 @@ FC="$WORKDIR/etc/selinux/$POLICY/contexts/files/file_contexts"
 declare -A EXT_HASH
 build_extension() {
   local name=$1 comp=$SRC/components/$1 E=$EXTDIR/$1 pkgs units u t
-  mkdir -p "$E"/upper "$E"/work "$E"/merged "$E"/tree "$E"/repart.d
-  mount -t overlay overlay -o "lowerdir=$WORKDIR,upperdir=$E/upper,workdir=$E/work" "$E"/merged
+  mkdir -p "$E"/rw "$E"/merged "$E"/tree "$E"/repart.d
+  # The container's own overlayfs cannot hold an upper directory; use memory.
+  mount -t tmpfs -o size=12G tmpfs "$E"/rw
+  mkdir -p "$E"/rw/upper "$E"/rw/work
+  mount -t overlay overlay -o "lowerdir=$WORKDIR,upperdir=$E/rw/upper,workdir=$E/rw/work" "$E"/merged
   read -ra pkgs <<<"$(words "$comp"/packages)"
   pacstrap -C "$PACMAN_CONF" -c "$E"/merged "${pkgs[@]}"
   [ -d "$comp"/root_files ] && cp -r "$comp"/root_files/. "$E"/merged/
@@ -243,9 +247,9 @@ build_extension() {
   umount "$E"/merged
 
   # Copy without xattrs: overlayfs metadata must not reach the image.
-  cp -dR --preserve=mode,ownership,timestamps,links "$E"/upper/usr "$E"/tree/usr
+  cp -dR --preserve=mode,ownership,timestamps,links "$E"/rw/upper/usr "$E"/tree/usr
   find "$E"/tree/usr -type c -delete
-  local dropped; dropped=$(find "$E"/upper/etc -mindepth 1 -maxdepth 1 ! -name ld.so.cache ! -name pacman.d -printf '/etc/%P ' 2>/dev/null || :)
+  local dropped; dropped=$(find "$E"/rw/upper/etc -mindepth 1 -maxdepth 1 ! -name ld.so.cache ! -name pacman.d -printf '/etc/%P ' 2>/dev/null || :)
   [ -z "$dropped" ] || echo "::warning::$name: changes outside /usr are not part of the extension: $dropped"
   rm -rf "$E"/tree/usr/include "$E"/tree/usr/src "$E"/tree/usr/share/{doc,gtk-doc,info,man} \
          "$E"/tree/usr/lib/{cmake,pkgconfig}
@@ -255,6 +259,7 @@ build_extension() {
   mkdir -p "$E"/tree/usr/lib/extension-release.d
   printf 'ID=arch\nSYSEXT_LEVEL=%s\nSYSEXT_SCOPE=system\n' "$OS_BUILD_TAG" \
     > "$E"/tree/usr/lib/extension-release.d/extension-release."$name"
+  umount "$E"/rw
 
   mkfs.erofs -L "$name" --mount-point=/usr --file-contexts="$FC" \
     -zzstd,level=15 -C262144 -Efragments,ztailpacking "$E"/usr.erofs "$E"/tree/usr
