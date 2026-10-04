@@ -13,7 +13,7 @@ makedepends=(
   bc binutils ccache clang cpio gettext glibc libelf libgcc lld llvm openssl pahole
   perl python rust rust-bindgen rust-src tar xxhash xz zlib zstd
 )
-options=(!debug !strip ccache)
+options=(!debug !strip !lto ccache)
 _srcname=linux-$pkgver
 source=(
   https://cdn.kernel.org/pub/linux/kernel/v${pkgver%%.*}.x/${_srcname}.tar.{xz,sign}
@@ -49,7 +49,7 @@ prepare() {
   local nvutils="NVIDIA-kernel-module-source-${_nvver}/utils.mk"
   sed -i "s/^  HOSTNAME.*/  HOSTNAME = echo tungstenos/" "$nvutils"
   sed -i "s/^WHOAMI.*/WHOAMI = echo tungstenos-builder/" "$nvutils"
-  sed -i "s/^DATE.*/DATE = date -r version.mk/" "$nvutils"
+  sed -i "s/^DATE.*/DATE = date -u -d @${SOURCE_DATE_EPOCH:-0}/" "$nvutils"
 
   cd $_srcname
 
@@ -104,6 +104,8 @@ build() {
   make -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
 
   echo "Building NVIDIA open modules..."
+  # makepkg's userland CFLAGS/LDFLAGS would reach ld.lld through NVIDIA's Makefiles.
+  env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u LTOFLAGS -u RUSTFLAGS \
   make -C ../NVIDIA-kernel-module-source-${_nvver} modules \
     CC=clang LD=ld.lld AR=llvm-ar OBJCOPY=llvm-objcopy \
     SYSSRC="$srcdir/$_srcname" SYSOUT="$srcdir/$_srcname"
