@@ -177,7 +177,7 @@ $EDITOR patches/series                              # comment out patches to ski
 ./check-patches.sh                                  # apply the series to a pristine tarball
 ```
 
-Update `pkgver` and the tarball checksum in `kernel/PKGBUILD`. Patches that conflict once their neighbours are disabled are kept as rebased copies in `kernel/patch-overrides/`. `config.fragment` lists every deviation from Arch's linux-hardened configuration, and the build fails if any of them is not honoured. The NVIDIA module version follows Arch's `nvidia-utils` automatically.
+Update `pkgver` and the tarball checksum in `kernel/PKGBUILD`. Patches that conflict once their neighbours are disabled are kept as rebased copies in `kernel/patch-overrides/`. `config.fragment` lists every deviation from Arch's linux-hardened configuration, and the build fails if any of them is not honoured. `config.slim` disables the options that build modules blocked in modprobe; regenerate it with `kernel/update-slim-config.py <patched-tree>` whenever the blocklists change. The NVIDIA module version follows Arch's `nvidia-utils` automatically.
 
 ### SELinux policy
 
@@ -194,7 +194,7 @@ Add reviewed rules to `selinux/tungsten.te` and repeat until no denials remain. 
 | Component | Update procedure |
 |---|---|
 | archlinuxhardened SELinux packages | Set `SELINUX_COMMIT` in `packages/build-selinux.sh` to a maintainer-signed merge commit; the reference policy is patched by `packages/refpolicy-user-exec-content.sh` |
-| secureblue module blocklists | Set `COMMIT` in `scripts/update-secureblue-modprobe.sh` and run it |
+| secureblue module blocklists | Set `COMMIT` in `scripts/update-secureblue-modprobe.sh`, run it, then regenerate `kernel/config.slim` |
 | Trivalent | Automatic (`packages/trivalent/update.py`) |
 | hardened_malloc | Set `_commit` in `packages/hardened_malloc/PKGBUILD` |
 | Microsoft certificates | Replace files in `keys/microsoft/` and regenerate `SHA256SUMS` |

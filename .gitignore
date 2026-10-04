@@ -60,3 +60,6 @@ OVMF_*
 *.qcow2
 *.img
 prepare_qemu_disk.sh
+
+# Python
+__pycache__/

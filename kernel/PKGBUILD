@@ -19,6 +19,7 @@ source=(
   https://cdn.kernel.org/pub/linux/kernel/v${pkgver%%.*}.x/${_srcname}.tar.{xz,sign}
   config.base
   config.fragment
+  config.slim
   https://download.nvidia.com/XFree86/NVIDIA-kernel-module-source/NVIDIA-kernel-module-source-${_nvver}.tar.xz
 )
 validpgpkeys=(
@@ -29,6 +30,7 @@ sha256sums=('12e8d5a973d1ad7c5a5c69882e4022b131ed715db7003fdcd760ddf8c3e51941'
             'SKIP'
             '4a65b4ca211d25fdf70e182ca5c4a0be14f664e69670c32c9af65db16670f2e9'
             'SKIP'
+            'SKIP'
             'SKIP')
 # From Arch's nvidia-utils PKGBUILD (updated by sync-nvidia.sh).
 _nvsha512='0b32c1aaa5ed261bdee7232d5e5d293e53c42ac9896f49c4be4e6b9b6bce1370cb69a7f7fde5531a7537d5e925d651c36bcb512a2f827c2d2cb26ede33f7c057'
@@ -36,6 +38,7 @@ _nvsha512='0b32c1aaa5ed261bdee7232d5e5d293e53c42ac9896f49c4be4e6b9b6bce1370cb69a
 _patchdir="$startdir/patches"
 
 export LLVM=1
+export MAKEFLAGS="-j$(nproc)"
 export KBUILD_BUILD_HOST=tungstenos
 export KBUILD_BUILD_USER=$pkgbase
 export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
@@ -69,7 +72,7 @@ prepare() {
 
   echo "Setting config..."
   cp ../config.base .config
-  scripts/kconfig/merge_config.sh -m .config ../config.fragment
+  scripts/kconfig/merge_config.sh -m .config ../config.fragment ../config.slim
   make olddefconfig
 
   # Fail if any requested option did not survive olddefconfig.
@@ -86,10 +89,10 @@ prepare() {
     [[ $got = undef ]] && got=n
     want=${want//\"/}; got=${got//\"/}
     if [[ "$got" != "$want" ]]; then
-      echo "config.fragment: $sym wanted '$want', got '$got'" >&2
+      echo "config: $sym wanted '$want', got '$got'" >&2
       return 1
     fi
-  done < ../config.fragment
+  done < <(cat ../config.fragment ../config.slim)
 
   make -s kernelrelease > version
   echo "Prepared $pkgbase version $(<version)"
