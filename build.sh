@@ -166,6 +166,14 @@ passwd -l root
 rm -rf /etc/machine-id /root/tungsten-build
 CHROOT
 
+# --- Drop files nothing in the image can use (there is no compiler) ---
+rm -rf "$WORKDIR"/usr/include "$WORKDIR"/usr/src/debug \
+       "$WORKDIR"/usr/share/{doc,gtk-doc,info,devhelp,gir-1.0,vala} \
+       "$WORKDIR"/usr/lib/{cmake,pkgconfig} "$WORKDIR"/usr/share/pkgconfig
+find "$WORKDIR"/usr/lib -name '*.a' -type f -delete
+echo "Largest directories in /usr:"
+du -x --max-depth=3 "$WORKDIR"/usr 2>/dev/null | sort -rn | sed -n '2,21p' | numfmt --field=1 --to=iec | sed "s#$WORKDIR##"
+
 # --- Hermetic /usr: everything outside /usr is recreated from /usr on boot ---
 FACTORY="$WORKDIR"/usr/share/factory
 TMPFILES="$WORKDIR"/usr/lib/tmpfiles.d/tungsten-factory.conf
@@ -200,7 +208,7 @@ FC="$WORKDIR/etc/selinux/$POLICY/contexts/files/file_contexts"
 USR_IMG=/tmp/usr.erofs
 VERITY_IMG=/tmp/usr.verity
 mkfs.erofs -L "${OS_BUILD_TAG}" --mount-point=/usr --file-contexts="$FC" \
-  -zzstd,level=15 -C131072 -Efragments,ztailpacking "$USR_IMG" "$WORKDIR/usr"
+  -zzstd,level=19 -C262144 -Efragments,ztailpacking "$USR_IMG" "$WORKDIR/usr"
 
 VERITY_HASH=$(veritysetup format "$USR_IMG" "$VERITY_IMG" | awk '/Root hash:/ {print $3}')
 [ "${#VERITY_HASH}" -eq 64 ] || { echo "Failed to extract verity root hash"; exit 1; }
