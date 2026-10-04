@@ -22,6 +22,11 @@ permissions:
   contents: write
   actions: write
 
+# Runs that publish to the same release must not overlap; later runs wait.
+concurrency:
+  group: packages
+  cancel-in-progress: false
+
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -42,12 +47,17 @@ jobs:
           changed=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ALL)
           has() { [ "$all" = true ] || [ "$changed" = ALL ] || grep -qE "$1" <<<"$changed"; }
           kernel=false; selinux=false; misc=false
-          has '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)|^\.github/workflows/packages\.yml' && kernel=true
+          has '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' && kernel=true
           has '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' && selinux=true
           has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier)/' && misc=true
-          for g in ${{ github.event_name == 'workflow_dispatch' && inputs.groups || '' }}; do
-            case $g in kernel|selinux|misc) printf -v "$g" true ;; esac
-          done
+          groups="${{ github.event_name == 'workflow_dispatch' && inputs.groups || '' }}"
+          if [ -n "$groups" ]; then
+            # Explicit groups (from the Update workflow or a manual run) replace change detection.
+            kernel=false; selinux=false; misc=false
+            for g in $groups; do
+              case $g in kernel|selinux|misc) printf -v "$g" true ;; esac
+            done
+          fi
           echo "kernel=$kernel selinux=$selinux misc=$misc"
           { echo "kernel=$kernel"; echo "selinux=$selinux"; echo "misc=$misc"; } >> "$GITHUB_OUTPUT"
 

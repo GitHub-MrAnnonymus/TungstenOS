@@ -19,6 +19,11 @@ on:
 permissions:
   contents: write
 
+# A newer image build replaces one that is still running.
+concurrency:
+  group: images
+  cancel-in-progress: true
+
 jobs:
   version:
     runs-on: ubuntu-latest
