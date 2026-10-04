@@ -67,10 +67,12 @@ jobs:
         env:
           SB_DB_KEY: ${{ secrets.SB_DB_KEY }}
           SB_DB_CRT: ${{ secrets.SB_DB_CRT }}
+          TPM2_PCR_KEY: ${{ secrets.TPM2_PCR_KEY }}
         run: |
           mkdir -p /tmp/sbsign && chmod 700 /tmp/sbsign
           echo "$SB_DB_KEY" | base64 -d > /tmp/sbsign/db.key
           echo "$SB_DB_CRT" | base64 -d > /tmp/sbsign/db.pem
+          echo "$TPM2_PCR_KEY" | base64 -d > /tmp/sbsign/tpm2-pcr-private-key.pem
           chmod 600 /tmp/sbsign/*
 
       - name: Build ${{ matrix.variant }}

@@ -3,6 +3,7 @@
 *.key
 *.pem
 !keys/secureboot/*.crt
+!keys/tpm2-pcr-public-key.pem
 *.p12
 *.pfx
 *.base64

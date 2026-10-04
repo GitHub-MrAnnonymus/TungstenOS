@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds one image variant: SELinux-labeled EROFS /usr, dm-verity tree, signed UKI.
-# Env: VARIANT, OS_BUILD_TAG, UPDATE_URL, TUNGSTEN_REPO, SB_DIR (db.key, db.pem)
+# Env: VARIANT, OS_BUILD_TAG, UPDATE_URL, TUNGSTEN_REPO,
+#      SB_DIR (db.key, db.pem, tpm2-pcr-private-key.pem)
 set -euo pipefail
 : "${VARIANT:?}" "${OS_BUILD_TAG:?}" "${UPDATE_URL:?}" "${TUNGSTEN_REPO:?}" "${SB_DIR:?}"
 
@@ -88,6 +89,8 @@ EOF
 
 # The only keyring systemd-sysupdate trusts.
 install -Dm644 "$SRC"/keys/tungsten.pgp "$WORKDIR"/usr/lib/systemd/import-pubring.pgp
+# Verifies the signed PCR 11 policy in each UKI (default path for systemd-cryptenroll).
+install -Dm644 "$SRC"/keys/tpm2-pcr-public-key.pem "$WORKDIR"/etc/systemd/tpm2-pcr-public-key.pem
 
 arch-chroot "$WORKDIR" /bin/bash -s "$POLICY" $(layer_list units) <<'CHROOT'
 set -euo pipefail
@@ -250,7 +253,10 @@ ukify build \
   --os-release "@$WORKDIR/usr/lib/os-release" \
   --microcode /tmp/ucode.img \
   --linux "$BOOT/vmlinuz-linux-tungsten" \
-  --initrd "$BOOT/initramfs-linux-tungsten.img"
+  --initrd "$BOOT/initramfs-linux-tungsten.img" \
+  --pcr-private-key "$SB_DIR"/tpm2-pcr-private-key.pem \
+  --pcr-public-key "$SRC"/keys/tpm2-pcr-public-key.pem \
+  --sign-initrd-pcrs
 sbsign --key "$SB_DIR"/db.key --cert "$SB_DIR"/db.pem \
   --output "$OUT/${IMAGE_ID}_${OS_BUILD_TAG}.efi" /tmp/uki.efi
 

@@ -48,6 +48,9 @@ if [ "$non_tpm" -eq 0 ]; then
   systemd-cryptenroll "${unlock[@]}" --recovery-key "$DEV"
 fi
 
+# Signed PCR 11 policy (any UKI signed by the build, initrd phase only) plus pcrlock
+# (firmware, Secure Boot, bootloader).
 systemd-cryptenroll "${unlock[@]}" --wipe-slot=tpm2 --tpm2-device=auto \
+  --tpm2-public-key=/etc/systemd/tpm2-pcr-public-key.pem --tpm2-public-key-policyref=initrd \
   --tpm2-pcrlock="$POLICY" --tpm2-with-pin="$pin" "$DEV"
 echo "Enrolled."

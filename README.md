@@ -29,7 +29,7 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 | User namespaces | Enabled, but creation is permitted only to SELinux domains that need it (browser sandbox, bubblewrap) |
 | Privileges | No setuid or setgid binaries; administration through `run0` and polkit |
 | Kernel | Linux stable with selected [linux-hardened](https://github.com/anthraxx/linux-hardened) patches, built with Clang (kCFI/FineIBT), reduced attack surface and lockdown in confidentiality mode |
-| Disk encryption | LUKS2 bound to the TPM through a systemd-pcrlock policy (optional PIN); each home is a separate systemd-homed LUKS image |
+| Disk encryption | LUKS2 bound to the TPM through a signed PCR 11 policy valid only in the initrd, plus a systemd-pcrlock policy for firmware, Secure Boot and bootloader (optional PIN); each home is a separate systemd-homed LUKS image |
 | Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded system-wide |
 | Peripherals | USBGuard blocks unknown USB devices; IOMMU enforced; Thunderbolt and about 760 unused or risky kernel modules blocked |
 | Network | firewalld with inbound traffic dropped by default, IPv6 disabled, encrypted DNS (dnscrypt-proxy), authenticated time (NTS) |
@@ -105,7 +105,12 @@ Builds run on GitHub Actions.
    keys/make-secureboot-keys.sh /path/to/offline/storage
    ```
    Commit `keys/secureboot/`. Add the generated `SB_DB_KEY.base64` and `SB_DB_CRT.base64` values as the `SB_DB_KEY` and `SB_DB_CRT` secrets. The PK and KEK private keys never leave the offline machine.
-4. **Allow workflows to publish releases:** Settings → Actions → General → Workflow permissions → *Read and write*.
+4. **Create the PCR signing key**, which signs each UKI's expected PCR 11 values:
+   ```sh
+   keys/make-pcr-key.sh /path/to/offline/storage
+   ```
+   Commit `keys/tpm2-pcr-public-key.pem` and add `TPM2_PCR_KEY.base64` as the `TPM2_PCR_KEY` secret.
+5. **Allow workflows to publish releases:** Settings → Actions → General → Workflow permissions → *Read and write*.
 
 ### Workflows
 
@@ -202,7 +207,7 @@ Packages not available from Arch Linux are built from source in CI and published
 |---|---|
 | Linux kernel | kernel.org tarball signatures |
 | linux-hardened patches | Vendored in the repository and reviewed per patch |
-| archlinuxhardened/selinux | Pinned commit verified against the maintainer's key (`E25E254C8EE4D303554BF5AFEC701A1DA494C5EB`); upstream tarballs verified with the keys in that signed tree. The project's prebuilt repository is unsigned and not used. |
+| archlinuxhardened/selinux | Pinned commit verified against the maintainer's key (`E25E254C8EE4D303554BF5AFEC701A1DA494C5EB`); upstream tarballs verified with the keys in that signed tree. The project's prebuilt repository is unsigned and not used. GNU sources (coreutils, findutils, gnulib) are fetched from GitHub mirrors because of Savannah outages; their signed release tags are still verified. |
 | Trivalent | secureblue's signed repository metadata, then metadata and RPM checksums |
 | NVIDIA open modules | Checksum from Arch's `nvidia-utils` package |
 | dms-greeter, hardened_malloc | Pinned commits |

@@ -34,6 +34,17 @@ keys=("$SRC"/*/keys/pgp/*.asc)
 [ ${#keys[@]} -gt 0 ] && gpg --batch --quiet --import "${keys[@]}"
 shopt -u nullglob
 
+# Fetch GNU sources from GitHub mirrors instead of git.savannah.gnu.org, which
+# has frequent outages. makepkg still verifies the signed release tags (?signed),
+# and gnulib is pinned by commit in those tags. Scoped to this process via env.
+export GIT_CONFIG_COUNT=3
+export GIT_CONFIG_KEY_0=url.https://github.com/coreutils/coreutils.git.insteadOf
+export GIT_CONFIG_VALUE_0=https://git.savannah.gnu.org/git/coreutils.git
+export GIT_CONFIG_KEY_1=url.https://github.com/coreutils/gnulib.git.insteadOf
+export GIT_CONFIG_VALUE_1=https://git.savannah.gnu.org/git/gnulib.git
+export GIT_CONFIG_KEY_2=url.https://github.com/sailfishos-mirror/findutils.git.insteadOf
+export GIT_CONFIG_VALUE_2=https://git.savannah.gnu.org/git/findutils.git
+
 # Build order from upstream's build_and_install_all.sh (util-linux/systemd twice).
 PKGS=(
   libsepol libselinux checkpolicy secilc libsemanage policycoreutils
@@ -57,7 +68,14 @@ for pkg in "${PKGS[@]}"; do
       printf '\nprepare() { cd "${srcdir}/${_reponame}" && bash %q; }\n' \
         "$HERE/refpolicy-user-exec-content.sh" >> PKGBUILD
     fi
-    makepkg -s -C -f --noconfirm "${extra[@]}"
+    # Download and verify sources with retries, then build without re-fetching.
+    for attempt in 1 2 3 4 5; do
+      makepkg --verifysource --noconfirm && break
+      [ "$attempt" -eq 5 ] && { echo "source download failed for $pkg" >&2; exit 1; }
+      echo "source download failed, retrying in $((attempt * 2)) minutes" >&2
+      sleep $((attempt * 120))
+    done
+    makepkg -s -C -f --holdver --noconfirm "${extra[@]}"
     # --ask=4: replace the conflicting non-SELinux package
     sudo pacman -U --noconfirm --ask=4 ./*.pkg.tar.zst
     cp ./*.pkg.tar.zst "$OUT/"
