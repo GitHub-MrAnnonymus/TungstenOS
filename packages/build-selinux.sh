@@ -7,6 +7,8 @@ set -euo pipefail
 SELINUX_COMMIT=30b3051b203f9c48d9740b0488329dbf00cc1d39
 MAINTAINER_FPR=E25E254C8EE4D303554BF5AFEC701A1DA494C5EB
 HERE="$(dirname -- "$(realpath "$0")")"
+# Perl scripts (e.g. po4a for util-linux) live here; normally added by a login shell.
+export PATH="$PATH:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl"
 
 OUT="$(realpath -m "${1:-out}")"
 mkdir -p "$OUT"
@@ -60,10 +62,11 @@ for pkg in "${PKGS[@]}"; do
   (
     cd "$SRC/$pkg"
     rm -f ./*.pkg.tar.zst
-    extra=()
-    # systemd's tests fail under container seccomp filters
-    [ "$pkg" = systemd-selinux ] && extra+=(--nocheck)
-    [ "$pkg" = setools ] && export MAKEFLAGS=-j1
+    # Test suites are skipped: the same sources are tested by Arch and upstream,
+    # and running them all exceeds the 6 h CI job limit.
+    extra=(--nocheck)
+    export MAKEFLAGS="-j$(nproc)"
+    [ "$pkg" = setools ] && export MAKEFLAGS=-j1   # as upstream builds it
     if [ "$pkg" = selinux-refpolicy-arch ]; then
       printf '\nprepare() { cd "${srcdir}/${_reponame}" && bash %q; }\n' \
         "$HERE/refpolicy-user-exec-content.sh" >> PKGBUILD

@@ -29,7 +29,7 @@ jobs:
       misc: ${{ steps.plan.outputs.misc }}
     steps:
       - run: pacman -Syu --noconfirm git python gnupg zstd
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 2 }
       - id: plan
         shell: bash
@@ -60,10 +60,10 @@ jobs:
       - name: Free disk space
         run: rm -rf /host/dotnet/* /host/android/* /host/ghc/* /host/toolcache/* && df -h /
       - run: pacman -Syu --noconfirm base-devel git sudo ccache
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Saved even on failure, so a timed-out first build still warms the cache.
       - name: Restore ccache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .ccache
           key: kernel-ccache-${{ github.run_id }}
@@ -92,11 +92,11 @@ jobs:
           EOF
       - name: Save ccache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .ccache
           key: kernel-ccache-${{ github.run_id }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: kernel, path: kernel/*.pkg.tar.zst, retention-days: 1 }
 
   selinux:
@@ -110,7 +110,7 @@ jobs:
         run: |
           printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
           pacman -Syu --noconfirm base-devel git sudo
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build SELinux packages
         shell: bash
         run: |
@@ -118,7 +118,7 @@ jobs:
           echo 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman' > /etc/sudoers.d/builder
           chown -R builder .
           sudo -u builder ./packages/build-selinux.sh out
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: selinux, path: out/*.pkg.tar.zst, retention-days: 1 }
 
   misc:
@@ -128,7 +128,7 @@ jobs:
     container: archlinux:latest
     steps:
       - run: pacman -Syu --noconfirm base-devel git sudo python gnupg
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build small packages
         shell: bash
         run: |
@@ -143,7 +143,7 @@ jobs:
           gpg --batch --import packages/usbguard-notifier/*.asc
           (cd packages/usbguard-notifier && makepkg -s --noconfirm)
           EOF
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: misc
           path: |
@@ -154,13 +154,14 @@ jobs:
 
   publish:
     needs: [plan, kernel, selinux, misc]
-    if: ${{ !failure() && !cancelled() && (needs.kernel.result == 'success' || needs.selinux.result == 'success' || needs.misc.result == 'success') }}
+    # Publish every group that built, even if another group failed.
+    if: ${{ always() && !cancelled() && needs.plan.result == 'success' && (needs.kernel.result == 'success' || needs.selinux.result == 'success' || needs.misc.result == 'success') }}
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
       - run: pacman -Syu --noconfirm github-cli gnupg pacman-contrib git
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with: { path: new, merge-multiple: true }
       - name: Sign packages and update the repo database
         shell: bash
