@@ -64,7 +64,12 @@ PACKAGES=(
   # Tools
   less git jq fastfetch tmux helix rsync unzip zip arch-repro-status
 )
-pacstrap -C "$PACMAN_CONF" -c -P "$WORKDIR" "${PACKAGES[@]}"
+# Retried: a mirror dropping connections aborts the whole transaction.
+for try in 1 2 3; do
+  pacstrap -C "$PACMAN_CONF" -c -P "$WORKDIR" "${PACKAGES[@]}" && break
+  [ "$try" -lt 3 ] || exit 1
+  echo "pacstrap failed, retrying ($try)" >&2; sleep 30
+done
 
 # The SELinux module is compiled on the host; the image has no make/m4.
 pacman -S --needed --noconfirm --config "$PACMAN_CONF" make m4 checkpolicy semodule-utils selinux-refpolicy-arch
@@ -232,7 +237,7 @@ build_extension() {
   mkdir -p "$E"/rw/upper "$E"/rw/work
   mount -t overlay overlay -o "lowerdir=$WORKDIR,upperdir=$E/rw/upper,workdir=$E/rw/work" "$E"/merged
   read -ra pkgs <<<"$(words "$comp"/packages)"
-  pacstrap -C "$PACMAN_CONF" -c "$E"/merged "${pkgs[@]}"
+  pacstrap -C "$PACMAN_CONF" -c "$E"/merged "${pkgs[@]}" || { sleep 30; pacstrap -C "$PACMAN_CONF" -c "$E"/merged "${pkgs[@]}"; }
   [ -d "$comp"/root_files ] && cp -r "$comp"/root_files/. "$E"/merged/
   # Enable units through .wants symlinks under /usr, as /etc is not part of an extension.
   read -ra units <<<"$(words "$comp"/units)"

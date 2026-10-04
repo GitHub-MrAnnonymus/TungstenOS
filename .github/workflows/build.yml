@@ -50,6 +50,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Several mirrors, so one failing CDN does not end the build.
+          printf 'Server = %s/$repo/os/$arch\n' https://fastly.mirror.pkgbuild.com https://geo.mirror.pkgbuild.com \
+            https://mirror.rackspace.com/archlinux https://mirrors.kernel.org/archlinux > /etc/pacman.d/mirrorlist
           pacman-key --init
           pacman -Sy --noconfirm --needed archlinux-keyring
           pacman-key --add keys/tungsten.pgp
