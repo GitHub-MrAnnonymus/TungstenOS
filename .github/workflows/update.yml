@@ -1,0 +1,48 @@
+name: Update
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install tools
+        run: |
+          pacman -Syu --noconfirm --needed git github-cli gnupg python curl jq xz diffutils patch \
+            base-devel bc flex bison perl cpio clang lld llvm
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Run updaters
+        id: update
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global --add safe.directory "$PWD"
+          scripts/update/run.sh
+
+      # Pushes made with this workflow's token don't trigger other workflows,
+      # so the package build is started explicitly.
+      - name: Rebuild changed packages
+        if: always() && steps.update.outputs.groups != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run packages.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
+            -f groups="${{ steps.update.outputs.groups }}"

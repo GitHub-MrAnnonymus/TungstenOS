@@ -7,17 +7,20 @@ on:
       - kernel/**
       - packages/**
       - .github/workflows/packages.yml
-  schedule:
-    - cron: '0 3 * * *'   # pick up new Trivalent / NVIDIA releases
   workflow_dispatch:
     inputs:
       all:
         description: Rebuild every package group
         type: boolean
         default: false
+      groups:
+        description: Groups to rebuild (kernel selinux misc); used by the Update workflow
+        type: string
+        default: ''
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   plan:
@@ -29,7 +32,7 @@ jobs:
       misc: ${{ steps.plan.outputs.misc }}
     steps:
       - run: pacman -Syu --noconfirm git python gnupg zstd
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 2 }
       - id: plan
         shell: bash
@@ -39,11 +42,12 @@ jobs:
           changed=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ALL)
           has() { [ "$all" = true ] || [ "$changed" = ALL ] || grep -qE "$1" <<<"$changed"; }
           kernel=false; selinux=false; misc=false
-          has '^kernel/|^\.github/workflows/packages\.yml' && kernel=true
+          has '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)|^\.github/workflows/packages\.yml' && kernel=true
           has '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' && selinux=true
           has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier)/' && misc=true
-          ./kernel/sync-nvidia.sh | grep -q -- '->' && kernel=true
-          GNUPGHOME=$(mktemp -d) python3 packages/trivalent/update.py | grep -q -- '->' && misc=true
+          for g in ${{ github.event_name == 'workflow_dispatch' && inputs.groups || '' }}; do
+            case $g in kernel|selinux|misc) printf -v "$g" true ;; esac
+          done
           echo "kernel=$kernel selinux=$selinux misc=$misc"
           { echo "kernel=$kernel"; echo "selinux=$selinux"; echo "misc=$misc"; } >> "$GITHUB_OUTPUT"
 
@@ -60,10 +64,10 @@ jobs:
       - name: Free disk space
         run: rm -rf /host/dotnet/* /host/android/* /host/ghc/* /host/toolcache/* && df -h /
       - run: pacman -Syu --noconfirm base-devel git sudo ccache
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Saved even on failure, so a timed-out first build still warms the cache.
       - name: Restore ccache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ccache
           key: kernel-ccache-${{ github.run_id }}
@@ -84,19 +88,18 @@ jobs:
           chown -R builder .
           sudo -u builder --preserve-env=CCACHE_DIR,CCACHE_MAXSIZE,CCACHE_BASEDIR,CCACHE_COMPILERCHECK,CCACHE_SLOPPINESS bash -euo pipefail <<'EOF'
           ccache -z
-          ./kernel/sync-nvidia.sh
-          gpg --locate-external-keys torvalds@kernel.org gregkh@kernel.org
+          gpg --batch --import kernel/keys/torvalds.asc kernel/keys/gregkh.asc
           cd kernel
           makepkg -s --noconfirm
           ccache -s
           EOF
       - name: Save ccache
         if: always()
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ccache
           key: kernel-ccache-${{ github.run_id }}
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: kernel, path: kernel/*.pkg.tar.zst, retention-days: 1 }
 
   selinux:
@@ -110,7 +113,7 @@ jobs:
         run: |
           printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
           pacman -Syu --noconfirm base-devel git sudo
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build SELinux packages
         shell: bash
         run: |
@@ -118,7 +121,7 @@ jobs:
           echo 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman' > /etc/sudoers.d/builder
           chown -R builder .
           sudo -u builder ./packages/build-selinux.sh out
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: selinux, path: out/*.pkg.tar.zst, retention-days: 1 }
 
   misc:
@@ -128,7 +131,7 @@ jobs:
     container: archlinux:latest
     steps:
       - run: pacman -Syu --noconfirm base-devel git sudo python gnupg
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build small packages
         shell: bash
         run: |
@@ -136,14 +139,13 @@ jobs:
           echo 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman' > /etc/sudoers.d/builder
           chown -R builder .
           sudo -u builder bash -euo pipefail <<'EOF'
-          GNUPGHOME=$(mktemp -d) python3 packages/trivalent/update.py
           (cd packages/trivalent && makepkg -s --noconfirm)
           (cd packages/hardened_malloc && makepkg -s --noconfirm)
           (cd packages/greetd-dms-greeter && makepkg -s --noconfirm)
           gpg --batch --import packages/usbguard-notifier/*.asc
           (cd packages/usbguard-notifier && makepkg -s --noconfirm)
           EOF
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: misc
           path: |
@@ -160,8 +162,8 @@ jobs:
     container: archlinux:latest
     steps:
       - run: pacman -Syu --noconfirm github-cli gnupg pacman-contrib git
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { path: new, merge-multiple: true }
       - name: Sign packages and update the repo database
         shell: bash
@@ -183,10 +185,13 @@ jobs:
           for f in repo/tungsten.db repo/tungsten.files; do [ -f "$f" ] && mv "$f" "$f.tar.zst"; done
           rm -f repo/tungsten.db.sig repo/tungsten.files.sig
 
-          for p in new/*.pkg.tar.zst; do
+          # Artifacts keep their source folders: sign every new package (replacing any
+          # same-named package and signature carried over), skip debug packages.
+          rm -f repo/*-debug-*.pkg.tar.zst*
+          find new -name '*.pkg.tar.zst' ! -name '*-debug-*' -print0 | while IFS= read -r -d '' p; do
             gpg --batch --yes --local-user "$KEY" --detach-sign --output "$p.sig" "$p"
+            mv -f "$p" "$p.sig" repo/
           done
-          mv new/* repo/
           cd repo
           repo-add --new --remove --sign --key "$KEY" tungsten.db.tar.zst ./*.pkg.tar.zst
           for sig in ./*.pkg.tar.zst.sig; do [ -e "${sig%.sig}" ] || rm -f "$sig"; done
@@ -199,3 +204,10 @@ jobs:
             [ -e "$asset" ] || gh release delete-asset packages "$asset" -y
           done
           gh release upload packages --clobber ./*.pkg.tar.zst ./*.pkg.tar.zst.sig tungsten.db tungsten.db.sig tungsten.files tungsten.files.sig
+
+      # The image build is started explicitly, so it also runs after package
+      # builds started by the Update workflow.
+      - name: Build OS images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"

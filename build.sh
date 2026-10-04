@@ -29,6 +29,8 @@ rm -rf "$WORKDIR" "$OUT" && mkdir -p "$WORKDIR" "$OUT"
 # [tungsten] goes first so its packages win over same-named providers.
 PACMAN_CONF=/tmp/pacman-tungsten.conf
 awk -v repo="$TUNGSTEN_REPO" '
+  /^\[/ { skip = ($0 == "[tungsten]") }   # drop a [tungsten] section the host may already have
+  skip { next }
   /^\[core\]/ && !done { print "[tungsten]\nSigLevel = Required DatabaseRequired\nServer = " repo "\n"; done=1 }
   { print }' /etc/pacman.conf > "$PACMAN_CONF"
 

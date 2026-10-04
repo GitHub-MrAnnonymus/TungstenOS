@@ -166,15 +166,37 @@ flatpak install flathub <application>
 
 Per-user (`--user`) Flatpak installations cannot run, because the root partition and home directories do not allow execution.
 
+## Automation
+
+The *Update* workflow runs daily. Each component's updater verifies the new upstream release before changing the pinned version; if verification fails, nothing changes.
+
+| Component | Verification | Applied |
+|---|---|---|
+| Trivalent | secureblue's signed repository metadata | committed automatically |
+| NVIDIA modules, erofs-utils | checksums from Arch Linux's packaging | committed automatically |
+| archlinuxhardened SELinux packages | commit signed by the maintainer's key | committed automatically |
+| Kernel point release | linux-hardened tag signature, kernel.org tarball signature, unchanged patch set, patches apply without fuzz, config check passes | committed automatically, otherwise pull request |
+| New kernel series, changed patch set or stale override | as above | pull request |
+| secureblue module blocklist | GitHub-verified commit signature | pull request when blocked modules change |
+| hardened_malloc, dms-greeter | upstream does not sign; review the linked changes | pull request |
+| GitHub Actions | pinned by commit hash | Dependabot pull request, monthly |
+
+Automatic updates start the package build, which starts the image build when it succeeds. Images are published only if every build succeeds, and installed systems fall back to the previous version if a new one fails to boot.
+
+Requires *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*.
+
 ## Maintenance
 
 ### Kernel
 
+Point releases are applied by the *Update* workflow. For a new series or a pull request that needs work:
+
 ```sh
 cd kernel
-./update-hardened-patches.sh <version> hardened1   # export linux-hardened as individual patches
+./update-hardened-patches.sh <version> hardened1   # export linux-hardened as individual patches (tag signature verified)
 $EDITOR patches/series                              # comment out patches to skip
 ./check-patches.sh                                  # apply the series to a pristine tarball
+./check-config.sh                                   # regenerate config.slim and check the config
 ```
 
 Update `pkgver` and the tarball checksum in `kernel/PKGBUILD`. Patches that conflict once their neighbours are disabled are kept as rebased copies in `kernel/patch-overrides/`. `config.fragment` lists every deviation from Arch's linux-hardened configuration, and the build fails if any of them is not honoured. `config.slim` disables the options that build modules blocked in modprobe; regenerate it with `kernel/update-slim-config.py <patched-tree>` whenever the blocklists change. The NVIDIA module version follows Arch's `nvidia-utils` automatically.
@@ -189,15 +211,15 @@ run0 ausearch -m avc -ts boot | audit2allow -R
 
 Add reviewed rules to `selinux/tungsten.te` and repeat until no denials remain. Then set `SELINUX=enforcing` in `build.sh` and disable `CONFIG_SECURITY_SELINUX_DEVELOP` in `kernel/config.fragment`.
 
-### Vendored components
+### Manual updates
 
-| Component | Update procedure |
+Everything else is handled by the *Update* workflow. These remain manual because they change rarely:
+
+| Component | Procedure |
 |---|---|
-| archlinuxhardened SELinux packages | Set `SELINUX_COMMIT` in `packages/build-selinux.sh` to a maintainer-signed merge commit; the reference policy is patched by `packages/refpolicy-user-exec-content.sh` |
-| secureblue module blocklists | Set `COMMIT` in `scripts/update-secureblue-modprobe.sh`, run it, then regenerate `kernel/config.slim` |
-| Trivalent | Automatic (`packages/trivalent/update.py`) |
-| hardened_malloc | Set `_commit` in `packages/hardened_malloc/PKGBUILD` |
-| Microsoft certificates | Replace files in `keys/microsoft/` and regenerate `SHA256SUMS` |
+| Microsoft certificates and dbx | Replace files in `keys/microsoft/` from a reviewed commit of microsoft/secureboot_objects and regenerate `SHA256SUMS` |
+| usbguard-notifier | Bump `pkgver` and the checksum in `packages/usbguard-notifier/PKGBUILD` (the release signature is verified at build time) |
+| Signing keys in `kernel/keys/` and `packages/*.asc` | Refresh when a key's expiry is extended (linux-hardened key: end of 2027, archlinuxhardened signing subkey: May 2027) |
 
 ## Supply chain
 

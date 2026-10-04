@@ -2,6 +2,7 @@
 # Exports each linux-hardened commit as a patch and regenerates patches/series,
 # keeping previously disabled entries disabled.
 # Usage: ./update-hardened-patches.sh <kernel-version> hardenedN
+# Exits 3 if an override's upstream patch changed (the override needs a rebase).
 set -euo pipefail
 cd "$(dirname -- "$0")"
 
@@ -12,7 +13,15 @@ REPO=https://github.com/anthraxx/linux-hardened
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-git clone -q --bare --filter=blob:none --depth 250 --branch "$TAG" "$REPO" "$WORK/lh"
+git clone -q --bare --filter=blob:none --depth 250 --branch "$TAG" "$REPO" "$WORK/lh" 2>/dev/null
+# The tag must be signed by the linux-hardened maintainer (key in keys/linux-hardened.asc).
+FPR=E240B57E2C4630BA768E2F26FC1B547C8D8172C8
+mkdir -m 700 "$WORK/gnupg"
+GNUPGHOME="$WORK/gnupg" gpg --batch --quiet --import keys/linux-hardened.asc 2>/dev/null
+if ! GNUPGHOME="$WORK/gnupg" git -C "$WORK/lh" verify-tag --raw "$TAG" 2>&1 | grep -qE "^\[GNUPG:\] VALIDSIG .* $FPR\$"; then
+  echo "$TAG is not signed by $FPR" >&2
+  exit 1
+fi
 BASE=$(git -C "$WORK/lh" log --format='%H %s' | awk -v v="$KVER" '!f && $2=="Linux" && $3==v {print $1; f=1}')
 [ -n "$BASE" ] || { echo "Could not find 'Linux $KVER' commit below $TAG" >&2; exit 1; }
 
@@ -28,15 +37,25 @@ rm -rf patches && mkdir patches
 git -C "$WORK/lh" format-patch -q --zero-commit --no-signature -o "$PWD/patches" "$BASE..$TAG~1"
 
 # Rebased replacements for patches that conflict once neighbours are disabled.
+# patch-overrides/<name>.upstream is the upstream patch each override was based on;
+# only its changed lines are compared, so moved line numbers don't count as changes.
+changes() { grep -E '^[+-]' "$1" | grep -vE '^(\+\+\+|---)( |$)'; }
+stale=0
 for o in patch-overrides/*.patch; do
   [ -e "$o" ] || continue
   match=(patches/????-"$(basename "$o")")
-  if [ -e "${match[0]}" ]; then
-    cp "$o" "${match[0]}"
-    echo "Using override for $(basename "${match[0]}") - review it against the new upstream version"
-  else
+  if [ ! -e "${match[0]}" ]; then
     echo "Override $(basename "$o") no longer matches any upstream patch; delete it" >&2
+    stale=1; continue
   fi
+  ref="${o%.patch}.upstream"
+  if [ ! -e "$ref" ]; then
+    cp "${match[0]}" "$ref"
+  elif ! diff -q <(changes "$ref") <(changes "${match[0]}") >/dev/null; then
+    echo "Upstream changed $(basename "${match[0]}"): rebase patch-overrides/$(basename "$o")" >&2
+    stale=1
+  fi
+  cp "$o" "${match[0]}"
 done
 
 {
@@ -54,3 +73,4 @@ mv patches/series.new patches/series
 
 echo "Exported $(ls patches/*.patch | wc -l) patches from $TAG into patches/"
 echo "Now review patches/series, then run ./check-patches.sh"
+[ "$stale" -eq 0 ] || exit 3
