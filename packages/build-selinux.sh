@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # Must be a maintainer-signed merge commit (their binary repo is unsigned).
-SELINUX_COMMIT=30b3051b203f9c48d9740b0488329dbf00cc1d39
+SELINUX_COMMIT=3cf00b6b4104e94b634ad0067d17d9b2f8a67789
 MAINTAINER_FPR=E25E254C8EE4D303554BF5AFEC701A1DA494C5EB
 HERE="$(dirname -- "$(realpath "$0")")"
 # Perl scripts (e.g. po4a for util-linux) live here; normally added by a login shell.
