@@ -206,15 +206,21 @@ jobs:
           for f in repo/tungsten.db repo/tungsten.files; do [ -f "$f" ] && mv "$f" "$f.tar.zst"; done
           rm -f repo/tungsten.db.sig repo/tungsten.files.sig
 
-          # Artifacts keep their source folders: sign every new package (replacing any
-          # same-named package and signature carried over), skip debug packages.
+          # Artifacts keep their source folders. A published file never changes: a
+          # rebuild of a version that is already published is dropped (only a new
+          # version publishes new bytes). Debug packages are skipped.
           rm -f repo/*-debug-*.pkg.tar.zst*
           find new -name '*.pkg.tar.zst' ! -name '*-debug-*' -print0 | while IFS= read -r -d '' p; do
+            if [ -e "repo/$(basename "$p")" ]; then
+              echo "already published, keeping it: $(basename "$p")"; continue
+            fi
             gpg --batch --yes --local-user "$KEY" --detach-sign --output "$p.sig" "$p"
             mv -f "$p" "$p.sig" repo/
           done
           cd repo
-          repo-add --new --remove --sign --key "$KEY" tungsten.db.tar.zst ./*.pkg.tar.zst
+          # Rebuilt from the files present, so the database always matches them.
+          rm -f tungsten.db.tar.zst tungsten.files.tar.zst
+          repo-add --remove --sign --key "$KEY" tungsten.db.tar.zst ./*.pkg.tar.zst
           for sig in ./*.pkg.tar.zst.sig; do [ -e "${sig%.sig}" ] || rm -f "$sig"; done
           # Release assets can't be symlinks.
           for f in tungsten.db tungsten.files; do
