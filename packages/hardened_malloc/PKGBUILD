@@ -1,5 +1,5 @@
 pkgname=hardened_malloc
-_commit=a4ed3054772a06d29903cd0a162677a9ee7b332d
+_commit=c28cd930b0d059ef7704fc816e9d6f367f93fcdd
 pkgver=r0.${_commit:0:7}
 pkgrel=1
 pkgdesc='Hardened memory allocator from GrapheneOS'
