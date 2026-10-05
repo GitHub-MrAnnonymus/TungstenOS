@@ -169,7 +169,7 @@ Before writing, the script checks the TPM event log and warns if the selection w
 
 ## Updates
 
-`systemd-sysupdate` downloads new releases, verifies `SHA256SUMS.gpg` against the key built into the image, and writes the new `/usr` and verity images to the inactive slot, and the matching versions of enabled extensions to `/var/lib/extensions.d`. The new UKI is installed with boot counting: if it fails to boot three times, systemd-boot returns to the previous one. After each update the pcrlock policy is extended to cover the new UKI, so the root partition keeps unlocking from the TPM.
+`systemd-sysupdate` downloads new releases, verifies `SHA256SUMS.gpg` against the key built into the image, and writes the new `/usr` and verity images to the inactive slot, and the matching versions of enabled extensions to `/var/lib/extensions.d`. The new UKI is installed with boot counting: a boot counts as successful once the login screen is up and still running 20 seconds later, and if that fails three times, systemd-boot returns to the previous version. After each update the pcrlock policy is extended to cover the new UKI, so the root partition keeps unlocking from the TPM.
 
 Applications are installed with Flatpak, system-wide only:
 

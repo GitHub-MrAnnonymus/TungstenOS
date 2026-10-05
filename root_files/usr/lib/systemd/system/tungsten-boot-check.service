@@ -1,0 +1,16 @@
+# A boot counts as good (boot counting, A/B fallback) once the login screen has started
+# and is still running 20 seconds later. Other failed units do not make a boot bad.
+[Unit]
+Description=Mark the boot good once the login screen is running
+Requires=greetd.service
+After=greetd.service
+Before=boot-complete.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/sleep 20
+ExecStart=/usr/bin/systemctl is-active --quiet greetd.service
+
+[Install]
+RequiredBy=boot-complete.target

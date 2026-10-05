@@ -138,7 +138,7 @@ systemctl enable \
   greetd NetworkManager firewalld usbguard tungsten-usbguard-init dnscrypt-proxy ntpd-rs \
   systemd-homed systemd-homed-firstboot auditd power-profiles-daemon da-lockout-clear-tpm \
   libvirtd.socket tungsten-relabel \
-  systemd-sysupdate.timer systemd-boot-update systemd-boot-check-no-failures \
+  systemd-sysupdate.timer systemd-boot-update tungsten-boot-check \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \
   tungsten-pcrlock-predict systemd-pcrlock-make-policy systemd-sysext
