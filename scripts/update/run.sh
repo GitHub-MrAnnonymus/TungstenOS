@@ -71,7 +71,7 @@ changed=$(git diff --name-only "$START" HEAD)
 groups=()
 grep -qE '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' <<<"$changed" && groups+=(kernel)
 grep -qE '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' <<<"$changed" && groups+=(selinux)
-grep -qE '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier)/' <<<"$changed" && groups+=(misc)
+grep -qE '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell)/' <<<"$changed" && groups+=(misc)
 echo "groups=${groups[*]}" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 
 if [ ${#failed[@]} -gt 0 ]; then

@@ -1,0 +1,19 @@
+hyprland/ipc: use deleteLater() for request sockets
+
+The readyRead handler deleted the socket while QAbstractSocketPrivate::emitReadyRead
+was still emitting channelReadyRead on it (use-after-free, crashes under hardened_malloc).
+https://github.com/quickshell-mirror/quickshell/issues/947
+
+--- a/src/wayland/hyprland/ipc/connection.cpp	2026-10-05 10:04:17.027956750 -0500
++++ b/src/wayland/hyprland/ipc/connection.cpp	2026-10-05 10:04:17.075166108 -0500
+@@ -178,7 +178,9 @@
+ 		auto responseCallback = [requestSocket, callback]() {
+ 			auto response = requestSocket->readAll();
+ 			callback(true, std::move(response));
+-			delete requestSocket;
++			// The socket is still emitting this signal (readyRead, then channelReadyRead).
++			QObject::disconnect(requestSocket, nullptr, nullptr, nullptr);
++			requestSocket->deleteLater();
+ 		};
+ 
+ 		QObject::connect(requestSocket, &QLocalSocket::readyRead, this, responseCallback);

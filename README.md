@@ -30,7 +30,7 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 | Privileges | No setuid or setgid binaries; administration through `run0` and polkit |
 | Kernel | Linux stable with selected [linux-hardened](https://github.com/anthraxx/linux-hardened) patches, built with Clang (kCFI/FineIBT), reduced attack surface and lockdown in confidentiality mode |
 | Disk encryption | LUKS2 bound to the TPM through a signed PCR 11 policy valid only in the initrd, plus a systemd-pcrlock policy for firmware, Secure Boot and bootloader (optional PIN); each home is a separate systemd-homed LUKS image |
-| Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded into every service and login session (Quickshell is exempt: it crashes under it) |
+| Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded into every service and login session |
 | Peripherals | USBGuard blocks unknown USB devices; IOMMU enforced; Thunderbolt and about 760 unused or risky kernel modules blocked |
 | Network | firewalld with inbound traffic dropped by default, IPv6 disabled, encrypted DNS (dnscrypt-proxy), authenticated time (NTS) |
 
@@ -97,7 +97,7 @@ Builds run on GitHub Actions.
 | `components/` | System extensions: packages, units and files under `/usr` |
 | `root_files/` | Files copied into every image; `etc/skel` holds the default user configuration |
 | `kernel/` | `linux-tungsten` package: PKGBUILD, config fragment and vendored linux-hardened patches |
-| `packages/` | SELinux userspace builder and PKGBUILDs for Trivalent, hardened_malloc, dms-greeter, usbguard-notifier and erofs-utils |
+| `packages/` | SELinux userspace builder and PKGBUILDs for Trivalent, hardened_malloc, dms-greeter, usbguard-notifier, erofs-utils and a patched Quickshell |
 | `selinux/` | Local SELinux policy module |
 | `keys/` | Public signing keys, Secure Boot key tooling and vendored Microsoft certificates |
 | `install/` | Disk installer and Secure Boot enrollment |

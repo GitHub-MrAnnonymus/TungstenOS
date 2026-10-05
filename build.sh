@@ -79,16 +79,10 @@ make -C "$SEBUILD" -f /usr/share/selinux/"$POLICY"/include/Makefile tungsten.pp
 
 arch-chroot "$WORKDIR" /bin/bash -c 'mkdir -p /usr/share/tungstenos && arch-repro-status > /usr/share/tungstenos/arch-repro-status-report.txt 2>&1 || :'
 
-# Quickshell crashes under hardened_malloc, so it runs without it; DMS's launch
-# prefix gives the apps it starts hardened_malloc again.
-mv "$WORKDIR"/usr/bin/quickshell "$WORKDIR"/usr/bin/quickshell.real
-cat > "$WORKDIR"/usr/bin/quickshell <<'EOF'
-#!/bin/sh
-[ -n "$LD_PRELOAD" ] && export DMS_DEFAULT_LAUNCH_PREFIX="env LD_PRELOAD=$LD_PRELOAD"
-exec env -u LD_PRELOAD /usr/bin/quickshell.real "$@"
-EOF
-chmod 755 "$WORKDIR"/usr/bin/quickshell
-[ -L "$WORKDIR"/usr/bin/qs ] || ln -sf quickshell "$WORKDIR"/usr/bin/qs
+# Quickshell must be the [tungsten] build: Arch's crashes under hardened_malloc (use-after-free,
+# quickshell issue #947). Fail if a newer Arch release replaced it.
+pacman --config "$PACMAN_CONF" --root "$WORKDIR" -Sl tungsten | grep -c '^tungsten quickshell .*\[installed' >/dev/null \
+  || { echo "quickshell is not the patched [tungsten] build; update packages/quickshell" >&2; exit 1; }
 
 # --- Configuration ---
 cp -r "$SRC"/root_files/. "$WORKDIR"/
