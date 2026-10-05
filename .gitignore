@@ -34,6 +34,7 @@ kernel/src/
 kernel/pkg/
 packages/*/src/
 packages/*/pkg/
+packages/*/*.tar.gz
 packages/*/*.rpm
 packages/*/hardened_malloc/
 packages/*/dank-greeter/
