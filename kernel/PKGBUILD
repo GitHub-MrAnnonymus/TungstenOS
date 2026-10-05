@@ -4,7 +4,7 @@
 pkgbase=linux-tungsten
 pkgver=7.2.8
 _nvver=615.71.09
-pkgrel=1
+pkgrel=2
 pkgdesc='TungstenOS kernel (Linux + selected linux-hardened patches, SELinux)'
 url='https://github.com/anthraxx/linux-hardened'
 arch=(x86_64)
@@ -104,11 +104,26 @@ build() {
   make -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
 
   echo "Building NVIDIA open modules..."
+  # src/nvidia and src/nvidia-modeset are compiled by NVIDIA's own Makefiles, not kbuild.
+  # Give them the kernel's kCFI flags and function padding: the kernel rewrites the CFI
+  # preamble in front of every function it seals, and without one it corrupts code.
+  local nvflags
+  nvflags=$(. include/config/auto.conf
+    printf -- '-fsanitize=kcfi'
+    [ "${CONFIG_CFI_ICALL_NORMALIZE_INTEGERS:-}" = y ] && printf -- ' -fsanitize-cfi-icall-experimental-normalize-integers'
+    [ "${CONFIG_FINEIBT_BHI:-}" = y ] && printf -- ' -fsanitize-kcfi-arity'
+    [ "${CONFIG_CALL_PADDING:-}" = y ] && printf -- ' -fpatchable-function-entry=%s,%s' \
+      "$CONFIG_FUNCTION_PADDING_BYTES" "$CONFIG_FUNCTION_PADDING_BYTES"
+    :)
+  echo "NVIDIA EXTRA_CFLAGS: $nvflags"
   # makepkg's userland CFLAGS/LDFLAGS would reach ld.lld through NVIDIA's Makefiles.
   env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u LTOFLAGS -u RUSTFLAGS \
   make -C ../NVIDIA-kernel-module-source-${_nvver} modules \
-    CC=clang LD=ld.lld AR=llvm-ar OBJCOPY=llvm-objcopy \
+    CC=clang LD=ld.lld AR=llvm-ar OBJCOPY=llvm-objcopy EXTRA_CFLAGS="$nvflags" \
     SYSSRC="$srcdir/$_srcname" SYSOUT="$srcdir/$_srcname"
+  # A function from NVIDIA's own build must carry a kCFI preamble.
+  llvm-nm ../NVIDIA-kernel-module-source-${_nvver}/kernel-open/nvidia.ko | grep -c ' __cfi_rm_init_rm$' >/dev/null \
+    || { echo "nv-kernel.o was built without kCFI" >&2; return 1; }
 }
 
 _package() {
