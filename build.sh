@@ -143,6 +143,8 @@ systemctl enable \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \
   tungsten-pcrlock-predict systemd-pcrlock-make-policy systemd-sysext
 systemctl disable systemd-timesyncd.service
+# Locale, keymap and timezone come from the image, and root stays locked: never ask.
+systemctl mask systemd-firstboot.service
 
 # SELinux: permissive until the desktop policy is complete.
 sed -i 's/^SELINUX=.*/SELINUX=permissive/; s/^SELINUXTYPE=.*/SELINUXTYPE='"$POLICY"'/' /etc/selinux/config
