@@ -4,7 +4,7 @@
 pkgbase=linux-tungsten
 pkgver=7.2.8
 _nvver=615.71.09
-pkgrel=2
+pkgrel=3
 pkgdesc='TungstenOS kernel (Linux + selected linux-hardened patches, SELinux)'
 url='https://github.com/anthraxx/linux-hardened'
 arch=(x86_64)
@@ -104,14 +104,22 @@ build() {
   make -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1
 
   echo "Building NVIDIA open modules..."
-  # src/nvidia and src/nvidia-modeset are compiled by NVIDIA's own Makefiles, not kbuild.
-  # Give them the kernel's kCFI flags and function padding: the kernel rewrites the CFI
-  # preamble in front of every function it seals, and without one it corrupts code.
+  # src/nvidia and src/nvidia-modeset are compiled by NVIDIA's own Makefiles, not kbuild,
+  # which know only GCC's mitigation flags. Give them the kernel's Clang flags:
+  # - kCFI and function padding: the kernel rewrites the CFI preamble in front of every
+  #   function it seals, and without one it corrupts code;
+  # - retpoline and return thunks: the kernel finds the kCFI call sites to re-randomize
+  #   through the thunk calls, so a plain "call *%r11" fails CFI after boot.
   # auto.conf is make syntax (unquoted strings), so read single keys instead of sourcing it.
   kcfg() { sed -n "s/^CONFIG_$1=//p" include/config/auto.conf; }
   local nvflags=-fsanitize=kcfi pad
   [ "$(kcfg CFI_ICALL_NORMALIZE_INTEGERS)" = y ] && nvflags+=" -fsanitize-cfi-icall-experimental-normalize-integers"
   [ "$(kcfg FINEIBT_BHI)" = y ] && nvflags+=" -fsanitize-kcfi-arity"
+  if [ "$(kcfg MITIGATION_RETPOLINE)" = y ]; then
+    nvflags+=" -mretpoline-external-thunk -mindirect-branch-cs-prefix"
+    [ "$(kcfg MITIGATION_RETHUNK)" = y ] && nvflags+=" -mfunction-return=thunk-extern"
+  fi
+  [ "$(kcfg MITIGATION_SLS)" = y ] && nvflags+=" -mharden-sls=all"
   if [ "$(kcfg CALL_PADDING)" = y ]; then
     pad=$(kcfg FUNCTION_PADDING_BYTES)
     nvflags+=" -fpatchable-function-entry=$pad,$pad"
@@ -122,9 +130,14 @@ build() {
   make -C ../NVIDIA-kernel-module-source-${_nvver} modules \
     CC=clang CXX=clang++ LD=ld.lld AR=llvm-ar OBJCOPY=llvm-objcopy EXTRA_CFLAGS="$nvflags" \
     SYSSRC="$srcdir/$_srcname" SYSOUT="$srcdir/$_srcname"
-  # A function from NVIDIA's own build must carry a kCFI preamble.
-  llvm-nm ../NVIDIA-kernel-module-source-${_nvver}/kernel-open/nvidia.ko | grep -c ' __cfi_rm_init_rm$' >/dev/null \
+  # Code from NVIDIA's own build must carry kCFI preambles and call through the thunks.
+  local ko=../NVIDIA-kernel-module-source-${_nvver}/kernel-open/nvidia.ko
+  llvm-nm "$ko" | grep -c ' __cfi_rm_init_rm$' >/dev/null \
     || { echo "nv-kernel.o was built without kCFI" >&2; return 1; }
+  if [ "$(kcfg MITIGATION_RETPOLINE)" = y ]; then
+    llvm-objdump -dr --disassemble-symbols=portMemAllocNonPaged "$ko" | grep -c __x86_indirect_thunk >/dev/null \
+      || { echo "nv-kernel.o makes indirect calls without retpoline thunks" >&2; return 1; }
+  fi
 }
 
 _package() {
