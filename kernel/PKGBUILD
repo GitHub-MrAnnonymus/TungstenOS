@@ -120,7 +120,7 @@ build() {
   # makepkg's userland CFLAGS/LDFLAGS would reach ld.lld through NVIDIA's Makefiles.
   env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u LTOFLAGS -u RUSTFLAGS \
   make -C ../NVIDIA-kernel-module-source-${_nvver} modules \
-    CC=clang LD=ld.lld AR=llvm-ar OBJCOPY=llvm-objcopy EXTRA_CFLAGS="$nvflags" \
+    CC=clang CXX=clang++ LD=ld.lld AR=llvm-ar OBJCOPY=llvm-objcopy EXTRA_CFLAGS="$nvflags" \
     SYSSRC="$srcdir/$_srcname" SYSOUT="$srcdir/$_srcname"
   # A function from NVIDIA's own build must carry a kCFI preamble.
   llvm-nm ../NVIDIA-kernel-module-source-${_nvver}/kernel-open/nvidia.ko | grep -c ' __cfi_rm_init_rm$' >/dev/null \
