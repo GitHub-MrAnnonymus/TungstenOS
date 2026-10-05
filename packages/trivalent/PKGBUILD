@@ -3,7 +3,7 @@
 
 pkgname=trivalent
 pkgver=154.0.8037.97
-_rpmrel=447729
+_rpmrel=447774
 pkgrel=1
 pkgdesc='Hardened Chromium for desktop Linux by secureblue (repackaged RPM)'
 arch=(x86_64)
@@ -19,7 +19,7 @@ optdepends=('pipewire: WebRTC screen sharing under Wayland')
 options=(!strip !debug)
 source=("https://repo.secureblue.dev/Packages/trivalent-${pkgver}-${_rpmrel}.x86_64.rpm")
 noextract=("trivalent-${pkgver}-${_rpmrel}.x86_64.rpm")
-sha256sums=('06d2190639197200e5eda5c66d902ca434ed9b43caf3f475787fc30223f7e1b6')
+sha256sums=('53fe70824a33472b99345705730f36e229529b743800681979b871106f3d0476')
 
 prepare() {
   rm -rf root && mkdir root
