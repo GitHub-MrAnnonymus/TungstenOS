@@ -221,10 +221,14 @@ jobs:
             rm -f "$f" "$f.sig"
             cp "$f.tar.zst" "$f"; cp "$f.tar.zst.sig" "$f.sig"
           done
+          # Packages first, database last: a client never sees a database that lists
+          # packages not uploaded yet.
+          gh release upload packages --clobber ./*.pkg.tar.zst ./*.pkg.tar.zst.sig
+          gh release upload packages --clobber tungsten.files tungsten.files.sig tungsten.db tungsten.db.sig
+          # Only now remove packages the new database no longer lists.
           for asset in $(gh release view packages --json assets -q '.assets[].name'); do
             [ -e "$asset" ] || gh release delete-asset packages "$asset" -y
           done
-          gh release upload packages --clobber ./*.pkg.tar.zst ./*.pkg.tar.zst.sig tungsten.db tungsten.db.sig tungsten.files tungsten.files.sig
 
       # The image build is started explicitly, so it also runs after package
       # builds started by the Update workflow.

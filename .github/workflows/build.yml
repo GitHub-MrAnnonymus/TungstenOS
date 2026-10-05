@@ -62,7 +62,13 @@ jobs:
           echo "TUNGSTEN_REPO=$REPO" >> "$GITHUB_ENV"
           awk -v repo="$REPO" '/^\[core\]/ && !d { print "[tungsten]\nServer = " repo "\n"; d=1 } { print }' /etc/pacman.conf > /tmp/p.conf
           mv /tmp/p.conf /etc/pacman.conf
-          pacman -Syu --noconfirm base arch-install-scripts erofs-utils-selinux sbsigntools systemd-ukify openssl cryptsetup libcap jq
+          # Retried: right after a package build, the download CDN can briefly serve
+          # files that do not match the new repository database.
+          for try in 1 2 3; do
+            pacman -Syu --noconfirm base arch-install-scripts erofs-utils-selinux sbsigntools systemd-ukify openssl cryptsetup libcap jq && break
+            [ "$try" -lt 3 ] || exit 1
+            echo "pacman failed, retrying in 2 minutes ($try)"; sleep 120
+          done
 
       - name: Write Secure Boot keys
         env:

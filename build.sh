@@ -68,7 +68,7 @@ PACKAGES=(
 for try in 1 2 3; do
   pacstrap -C "$PACMAN_CONF" -c -P "$WORKDIR" "${PACKAGES[@]}" && break
   [ "$try" -lt 3 ] || exit 1
-  echo "pacstrap failed, retrying ($try)" >&2; sleep 30
+  echo "pacstrap failed, retrying ($try)" >&2; sleep 120
 done
 
 # The SELinux module is compiled on the host; the image has no make/m4.
