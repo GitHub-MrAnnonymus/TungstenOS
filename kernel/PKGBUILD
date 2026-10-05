@@ -107,14 +107,15 @@ build() {
   # src/nvidia and src/nvidia-modeset are compiled by NVIDIA's own Makefiles, not kbuild.
   # Give them the kernel's kCFI flags and function padding: the kernel rewrites the CFI
   # preamble in front of every function it seals, and without one it corrupts code.
-  local nvflags
-  nvflags=$(. include/config/auto.conf
-    printf -- '-fsanitize=kcfi'
-    [ "${CONFIG_CFI_ICALL_NORMALIZE_INTEGERS:-}" = y ] && printf -- ' -fsanitize-cfi-icall-experimental-normalize-integers'
-    [ "${CONFIG_FINEIBT_BHI:-}" = y ] && printf -- ' -fsanitize-kcfi-arity'
-    [ "${CONFIG_CALL_PADDING:-}" = y ] && printf -- ' -fpatchable-function-entry=%s,%s' \
-      "$CONFIG_FUNCTION_PADDING_BYTES" "$CONFIG_FUNCTION_PADDING_BYTES"
-    :)
+  # auto.conf is make syntax (unquoted strings), so read single keys instead of sourcing it.
+  kcfg() { sed -n "s/^CONFIG_$1=//p" include/config/auto.conf; }
+  local nvflags=-fsanitize=kcfi pad
+  [ "$(kcfg CFI_ICALL_NORMALIZE_INTEGERS)" = y ] && nvflags+=" -fsanitize-cfi-icall-experimental-normalize-integers"
+  [ "$(kcfg FINEIBT_BHI)" = y ] && nvflags+=" -fsanitize-kcfi-arity"
+  if [ "$(kcfg CALL_PADDING)" = y ]; then
+    pad=$(kcfg FUNCTION_PADDING_BYTES)
+    nvflags+=" -fpatchable-function-entry=$pad,$pad"
+  fi
   echo "NVIDIA EXTRA_CFLAGS: $nvflags"
   # makepkg's userland CFLAGS/LDFLAGS would reach ld.lld through NVIDIA's Makefiles.
   env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS -u LTOFLAGS -u RUSTFLAGS \
