@@ -30,7 +30,7 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 | Privileges | No setuid or setgid binaries; administration through `run0` and polkit |
 | Kernel | Linux stable with selected [linux-hardened](https://github.com/anthraxx/linux-hardened) patches, built with Clang (kCFI/FineIBT), reduced attack surface and lockdown in confidentiality mode |
 | Disk encryption | LUKS2 bound to the TPM through a signed PCR 11 policy valid only in the initrd, plus a systemd-pcrlock policy for firmware, Secure Boot and bootloader (optional PIN); each home is a separate systemd-homed LUKS image |
-| Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded into every service and login session |
+| Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded into every process (`/etc/ld.so.preload`) |
 | Peripherals | USBGuard blocks unknown USB devices; IOMMU enforced; Thunderbolt and about 760 unused or risky kernel modules blocked |
 | Network | firewalld with inbound traffic dropped by default, IPv6 disabled, encrypted DNS (dnscrypt-proxy), authenticated time (NTS) |
 

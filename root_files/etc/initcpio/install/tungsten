@@ -10,7 +10,10 @@ build() {
     add_module overlay
     add_binary /usr/lib/tungsten/etc-overlay
     add_systemd_unit tungsten-etc-overlay.service
-    add_symlink /etc/systemd/system/initrd-fs.target.wants/tungsten-etc-overlay.service \
+    # Required: booting with the bare /etc of the root partition looks like a first boot
+    # (no machine-id, no accounts). A failed mount stops the boot instead, and boot
+    # counting falls back to the previous image.
+    add_symlink /etc/systemd/system/initrd-fs.target.requires/tungsten-etc-overlay.service \
         /usr/lib/systemd/system/tungsten-etc-overlay.service
 
     # First boot and factory reset: create the encrypted root partition

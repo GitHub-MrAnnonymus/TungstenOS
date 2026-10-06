@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Boots a TungstenOS VM image in QEMU with UEFI (OVMF, Secure Boot capable) and a software TPM.
 # Firmware variables and TPM state persist next to the image in <image>.vm/.
-# The terminal becomes the VM's serial port (ttyS0); Ctrl+A C toggles the QEMU monitor,
+# The terminal becomes the VM's serial port (ttyS0) with a login prompt (images from
+# tungsten-install.sh): log in there to copy and paste. Ctrl+A C toggles the QEMU monitor,
 # Ctrl+A X quits.
 # Usage: install/run-vm.sh <image-file>
 # Needs: qemu-desktop edk2-ovmf swtpm

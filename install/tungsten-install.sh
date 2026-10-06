@@ -127,6 +127,13 @@ install -Dm644 "$BOOT" "$ESP/EFI/BOOT/BOOTX64.EFI"
 install -Dm444 "$UKI" "$ESP/EFI/Linux/${IMAGE_ID}_${VER}+3-0.efi"
 mkdir -p "$ESP/loader"
 printf 'timeout 3\neditor no\n' > "$ESP/loader/loader.conf"
+# VM images: a login on the serial port, which install/run-vm.sh connects to the host
+# terminal (copy and paste work there). Unsigned add-ons load only without Secure Boot.
+if [ "$VM" = 1 ] && command -v ukify >/dev/null; then
+  mkdir -p "$ESP/loader/addons"
+  ukify build --cmdline='console=ttyS0,115200 console=tty0' \
+    --output="$ESP/loader/addons/vm-serial-console.addon.efi" >/dev/null
+fi
 umount "$ESP"; rmdir "$ESP"
 if [ "$VM" = 1 ]; then
   losetup -d "$DEV"

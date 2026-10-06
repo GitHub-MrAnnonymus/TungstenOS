@@ -1,4 +1,2 @@
 # Shadow stacks only where every loaded object supports them (NVIDIA's driver does not).
 GLIBC_TUNABLES=glibc.cpu.x86_shstk=permissive:glibc.cpu.x86_ibt=on:glibc.cpu.hwcaps=IBT,SHSTK
-# hardened_malloc for login sessions; systemd services get it from system.conf.d.
-LD_PRELOAD=/usr/lib/libhardened_malloc.so

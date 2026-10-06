@@ -20,4 +20,9 @@ if [ -f "$STATE/reset" ]; then
     find "$STATE/work" -mindepth 1 -delete
 fi
 
-mount -t overlay overlay -o "lowerdir=$LOWER,upperdir=$STATE/upper,workdir=$STATE/work,nosuid,nodev,noexec" "$ROOT/etc"
+# Image updates replace the lower layer while the overlay is unmounted. The kernel allows
+# that only without index, redirect_dir, metacopy and xino (Documentation/filesystems/
+# overlayfs.rst, "Changes to underlying filesystems"); Arch's kernel enables them by default.
+mount -t overlay overlay \
+    -o "lowerdir=$LOWER,upperdir=$STATE/upper,workdir=$STATE/work" \
+    -o index=off,redirect_dir=off,metacopy=off,xino=off,nosuid,nodev,noexec "$ROOT/etc"
