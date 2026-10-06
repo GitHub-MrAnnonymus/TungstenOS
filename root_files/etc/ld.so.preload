@@ -1,1 +1,1 @@
-/usr/lib/libhardened_malloc.so
+/usr/lib/libhardened_malloc.so /usr/lib/libno_rlimit_as.so

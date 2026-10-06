@@ -47,7 +47,7 @@ PACKAGES=(
   linux-tungsten linux-firmware sof-firmware amd-ucode intel-ucode mkinitcpio
   mesa vulkan-radeon vulkan-intel intel-media-driver
 
-  tpm2-tss tpm2-tools hardened_malloc usbguard usbguard-notifier
+  tpm2-tss tpm2-tools hardened_malloc no_rlimit_as usbguard usbguard-notifier
 
   # Network
   networkmanager iptables firewalld firewall-config dnscrypt-proxy ntpd-rs bluez bluez-utils

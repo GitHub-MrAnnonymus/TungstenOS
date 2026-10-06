@@ -51,7 +51,7 @@ jobs:
           kernel=false; selinux=false; misc=false
           has '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' && kernel=true
           has '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' && selinux=true
-          has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell)/' && misc=true
+          has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as)/' && misc=true
           groups="${{ github.event_name == 'workflow_dispatch' && inputs.groups || '' }}"
           if [ -n "$groups" ]; then
             # Explicit groups (from the Update workflow or a manual run) replace change detection.
@@ -162,6 +162,7 @@ jobs:
           gpg --batch --import packages/usbguard-notifier/*.asc
           (cd packages/usbguard-notifier && makepkg -s --noconfirm)
           (cd packages/quickshell && makepkg -s --noconfirm)
+          (cd packages/no_rlimit_as && makepkg -s --noconfirm)
           EOF
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -172,6 +173,7 @@ jobs:
             packages/greetd-dms-greeter/*.pkg.tar.zst
             packages/usbguard-notifier/*.pkg.tar.zst
             packages/quickshell/*.pkg.tar.zst
+            packages/no_rlimit_as/*.pkg.tar.zst
 
   publish:
     needs: [plan, kernel, selinux, misc]
