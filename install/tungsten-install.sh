@@ -131,7 +131,7 @@ printf 'timeout 3\neditor no\n' > "$ESP/loader/loader.conf"
 # terminal (copy and paste work there). Unsigned add-ons load only without Secure Boot.
 if [ "$VM" = 1 ] && command -v ukify >/dev/null; then
   mkdir -p "$ESP/loader/addons"
-  ukify build --cmdline='console=ttyS0,115200 console=tty0' \
+  ukify build --cmdline='console=ttyS0,115200 console=tty0 plymouth.ignore-serial-consoles' \
     --output="$ESP/loader/addons/vm-serial-console.addon.efi" >/dev/null
 fi
 umount "$ESP"; rmdir "$ESP"

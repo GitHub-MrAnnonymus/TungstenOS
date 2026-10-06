@@ -55,7 +55,7 @@ PACKAGES=(
   # Desktop
   plymouth greetd greetd-dms-greeter flatpak
   hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dms-shell quickshell
-  matugen polkit kitty alacritty zsh nautilus kdeconnect papirus-icon-theme
+  matugen polkit alacritty zsh nautilus nwg-look adw-gtk-theme kdeconnect papirus-icon-theme
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
@@ -353,8 +353,9 @@ CMDLINE=(
   # KVM
   kvm_amd.sev=1 kvm_amd.sev_es=1 kvm_amd.sev_snp=1 kvm-amd.nested=0 kvm-intel.nested=0
   # Misc
-  preempt=full ipv6.disable=1 amd_pstate=active
-  pcie_aspm.policy=powersupersave acpi.ec_no_wakeup=1 quiet loglevel=0 splash
+  preempt=full loglevel=0 quiet splash
+  # Splash on the firmware framebuffer: the initramfs has no GPU drivers (no kms hook)
+  plymouth.use-simpledrm
 )
 cat "$BOOT"/*-ucode.img > /tmp/ucode.img
 ukify build \
