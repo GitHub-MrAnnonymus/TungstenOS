@@ -9,6 +9,7 @@ ESP=$(bootctl --print-esp-path)
 
 mkdir -p "$D"/610-boot-loader-code.pcrlock.d "$D"/650-uki.pcrlock.d "$D"/660-uki.pcrlock.d
 rm -f "$D"/610-boot-loader-code.pcrlock.d/*.pcrlock "$D"/650-uki.pcrlock.d/*.pcrlock "$D"/660-uki.pcrlock.d/*.pcrlock
+rm -rf "$D"/655-addon-*.pcrlock.d
 
 n=0
 for loader in "$ESP"/EFI/systemd/systemd-bootx64.efi "$ESP"/EFI/BOOT/BOOTX64.EFI \
@@ -24,6 +25,17 @@ for uki in "${ukis[@]}"; do
   name=$(basename "$uki" .efi); name=${name%%+*}   # drop the boot-counting suffix
   "$PCRLOCK" lock-pe  "$uki" --pcrlock="$D/650-uki.pcrlock.d/$name.pcrlock"
   "$PCRLOCK" lock-uki "$uki" --pcrlock="$D/660-uki.pcrlock.d/$name.pcrlock"
+done
+
+# UKI add-ons (PCR 4): systemd-stub loads the global ones in name order, then the
+# UKI's own .extra.d ones. Each is an optional component (the empty variant always
+# matches), so a boot with or without it fits the policy; any other add-on does not.
+n=0
+for addon in "$ESP"/loader/addons/*.addon.efi "$ESP"/EFI/Linux/tungsten*.efi.extra.d/*.addon.efi; do
+  c="$D/655-addon-$(printf %02d $((n++)))-$(basename "$addon" .addon.efi).pcrlock.d"
+  mkdir -p "$c"
+  "$PCRLOCK" lock-pe "$addon" --pcrlock="$c/present.pcrlock"
+  echo '{"records":[]}' > "$c/absent.pcrlock"
 done
 
 if [ "${1:-}" = --make-policy ] && [ -e "$POLICY" ]; then

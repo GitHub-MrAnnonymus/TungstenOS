@@ -27,7 +27,10 @@ done
 /usr/local/lib/tungsten/pcrlock-predict
 
 if [ -e "$POLICY" ]; then
-  "$PCRLOCK" make-policy --policy="$POLICY" --location=770
+  # Updating the policy needs a boot matching its prediction; otherwise use the
+  # recovery PIN shown at the first enrollment.
+  "$PCRLOCK" make-policy --policy="$POLICY" --location=770 \
+    || "$PCRLOCK" make-policy --policy="$POLICY" --location=770 --recovery-pin=query
 else
   echo ">>> Creating the pcrlock policy. Store the recovery PIN shown below; it is"
   echo ">>> needed to update the policy if the TPM state ever stops matching."
