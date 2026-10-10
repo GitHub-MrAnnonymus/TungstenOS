@@ -16,6 +16,7 @@ gen_require(`
 	type sysctl_kernel_t, sysctl_vm_t, sysctl_vm_overcommit_t;
 	type usbguard_t, systemd_pcrphase_t, staff_systemd_t, staff_t, systemd_homework_t;
 	type systemd_hostnamed_t, var_lib_t, security_t, xdm_tmp_t, systemd_homed_record_t;
+	type user_runtime_t, usbguard_tmpfs_t, fsadm_run_t, fuse_device_t;
 ')
 
 # User and group lookups through nss-systemd (homed, userdbd, nsresourced varlink sockets)
@@ -87,3 +88,52 @@ optional_policy(`
 	')
 	lvm_manage_runtime_files(devicekit_disk_t)
 ')
+
+# Trivalent's launcher starts the browser through bwrap (to hide ld.so.preload);
+# refpolicy's bubblewrap domain only returns to the user domain for bin_t, so the
+# browser binary (chromium_exec_t) must enter chromium_t from there, under no_new_privs.
+optional_policy(`
+	gen_require(`
+		type staff_bubblewrap_t, chromium_t;
+	')
+	chromium_domtrans(staff_bubblewrap_t)
+	allow staff_bubblewrap_t chromium_t:process2 { nnp_transition nosuid_transition };
+')
+
+# The user's systemd: socket units of gpg-agent/keyboxd and gnome-keyring, the session
+# environment uwsm writes to $XDG_RUNTIME_DIR, and passing sockets to user services.
+optional_policy(`
+	gen_require(`
+		type gpg_runtime_t, gnome_keyring_tmp_t;
+	')
+	allow staff_systemd_t { gpg_runtime_t gnome_keyring_tmp_t }:dir { add_name create getattr search write };
+	allow staff_systemd_t { gpg_runtime_t gnome_keyring_tmp_t }:sock_file { create getattr setattr unlink write };
+')
+userdom_read_user_tmp_files(staff_systemd_t)
+allow staff_systemd_t staff_t:unix_stream_socket { connectto getattr read setattr write };
+
+# PipeWire's sockets are created by the user's systemd (socket activation).
+allow staff_t user_runtime_t:sock_file write;
+
+# GVFS exposes its mounts to non-GIO programs through FUSE.
+allow staff_t fuse_device_t:chr_file { getattr ioctl open read write };
+fs_mount_fusefs(staff_t)
+fs_unmount_fusefs(staff_t)
+
+# lspci (GPU detection in Trivalent and others) reads modules.softdep.
+modutils_read_module_deps(staff_t)
+
+# usbguard-notifier talks to the daemon over its IPC socket and shared memory.
+optional_policy(`
+	gen_require(`
+		type usbguard_t;
+	')
+	allow staff_t usbguard_t:unix_stream_socket connectto;
+	allow staff_t usbguard_tmpfs_t:file { getattr map open read write };
+')
+files_read_etc_runtime_files(usbguard_t)
+
+# homework runs fsck on the home before mounting it.
+allow systemd_homework_t fsadm_run_t:dir { add_name getattr search write };
+allow systemd_homework_t fsadm_run_t:file { create getattr lock open read write };
+
