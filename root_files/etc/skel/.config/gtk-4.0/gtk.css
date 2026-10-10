@@ -22,6 +22,8 @@ overlay-split-view headerbar.titlebar {
 /* Transparent Sidebar */
 window {
   background: alpha(@window_bg_color, 0.8);
+  /* GTK 4.24+ asks the compositor for blur only where the theme sets it */
+  backdrop-filter: blur(20px);
 }
 
 .sidebar-pane,

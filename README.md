@@ -24,15 +24,17 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 | Boot integrity | UEFI Secure Boot with an owner-controlled key hierarchy, signed systemd-boot and Unified Kernel Images (UKIs) |
 | Operating system | Read-only EROFS `/usr` image verified by dm-verity; the verity root hash is embedded in the signed UKI |
 | Code integrity | IPE restricts kernel modules and firmware to the verified image and its extensions; module signatures are enforced |
-| Execution control | The writable root partition is mounted `noexec`, and SELinux denies confined users execution from their home and `/tmp`; the only writable executable location is system-wide Flatpak |
-| Mandatory access control | SELinux (refpolicy) with all logins confined as `staff_u` |
+| Execution control | The writable root partition, homes, `/tmp` and `/dev/shm` are mounted `noexec`, and SELinux denies confined users execution from their home and `/tmp`; the only writable executable location is system-wide Flatpak |
+| Mandatory access control | SELinux (refpolicy) with all logins confined as `staff_u`; permissive until the desktop policy is complete |
 | User namespaces | Enabled, but creation is permitted only to SELinux domains that need it (browser sandbox, bubblewrap) |
 | Privileges | No setuid or setgid binaries; administration through `run0` and polkit |
 | Kernel | Linux stable with selected [linux-hardened](https://github.com/anthraxx/linux-hardened) patches, built with Clang (kCFI/FineIBT), reduced attack surface and lockdown in confidentiality mode |
-| Disk encryption | LUKS2 bound to the TPM through a signed PCR 11 policy valid only in the initrd, plus a systemd-pcrlock policy for firmware, Secure Boot and bootloader (optional PIN); each home is a separate systemd-homed LUKS image |
-| Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded into every process (`/etc/ld.so.preload`), with [no_rlimit_as](https://github.com/HastD/no_rlimit_as) so address-space limits cannot break it |
+| Disk encryption | LUKS2 bound to the TPM through a signed PCR 11 policy valid only in the initrd, plus a systemd-pcrlock policy for firmware, Secure Boot and bootloader (optional PIN); the TPM rate-limits PIN guesses and its lockout cannot be reset; each home is a separate systemd-homed LUKS image |
+| Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded into every process (`/etc/ld.so.preload`), with [no_rlimit_as](https://github.com/HastD/no_rlimit_as) so address-space limits cannot break it; also preloaded into Flatpak apps |
 | Peripherals | USBGuard blocks unknown USB devices; IOMMU enforced; Thunderbolt and about 760 unused or risky kernel modules blocked |
-| Network | firewalld with inbound traffic dropped by default, IPv6 disabled, encrypted DNS (dnscrypt-proxy), authenticated time (NTS) |
+| Flatpak | Flathub limited to verified publishers; apps and runtimes updated daily |
+| Crash data | Crashes are logged with a backtrace; core dumps (process memory) are not stored |
+| Network | firewalld with inbound traffic dropped by default, encrypted DNS (dnscrypt-proxy, which also blocks IPv6 (AAAA) lookups), authenticated time (NTS) |
 
 ## Image and extensions
 
@@ -84,6 +86,8 @@ USBGuard allows the devices present at first boot and blocks any new device unti
 ## Troubleshooting
 
 `tungsten-debug` writes a report to your home directory: failed units, errors from this boot, crashes, SELinux denials, local `/etc` changes, USBGuard, boot entries, updates and TPM keyslots. It asks for authentication once for the root-only parts.
+
+`tungsten-audit` checks that the security settings are in effect (Secure Boot, dm-verity, IPE, lockdown, SELinux, `noexec` mounts, hardened_malloc, Flatpak hardening, services, TPM binding and PIN lockout) and prints PASS, WARN or FAIL for each. Its exit status is the number of failed checks.
 
 ## Building
 
@@ -164,7 +168,7 @@ Before writing, the script checks the TPM event log and warns if the selection w
    ```
 4. Create a separate everyday account outside `wheel`:
    ```sh
-   run0 homectl create <name> --storage=luks
+   run0 homectl create <name> --storage=luks --noexec=yes
    ```
 
 ## Updates

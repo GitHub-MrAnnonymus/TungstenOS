@@ -1,0 +1,79 @@
+#!/bin/bash
+# Checks that the security settings TungstenOS relies on are in effect on this machine.
+# Run as your user; it asks for authentication once for the root-only checks.
+# Exit status: the number of failed checks.
+fails=0
+pass() { printf '  \e[32mPASS\e[0m  %s\n' "$1"; }
+fail() { printf '  \e[31mFAIL\e[0m  %s\n' "$1"; fails=$((fails + 1)); }
+warn() { printf '  \e[33mWARN\e[0m  %s\n' "$1"; }
+check() { local msg=$1; shift; if "$@" >/dev/null 2>&1; then pass "$msg"; else fail "$msg"; fi; }
+section() { printf '\n%s\n' "$1"; }
+cmdline() { grep -qw -- "$1" /proc/cmdline; }
+mounted_noexec() { findmnt -no OPTIONS --target "$1" | tr , '\n' | grep -qx noexec; }
+
+section "Boot and integrity"
+check "Secure Boot enabled" sh -c 'bootctl status 2>/dev/null | grep -q "Secure Boot: enabled"'
+check "/usr is verified by dm-verity" sh -c 'veritysetup status usr | grep -q "status:.*verified"'
+check "IPE enforcing" cmdline ipe.enforce=1
+check "Kernel lockdown (confidentiality)" grep -q '\[confidentiality\]' /sys/kernel/security/lockdown
+check "Module signatures enforced" cmdline module.sig_enforce=1
+
+section "Kernel"
+check "SMT disabled (mitigations=auto,nosmt)" sh -c '[ "$(cat /sys/devices/system/cpu/smt/control)" != on ]'
+check "No CPU vulnerability reported as vulnerable" \
+  sh -c '! grep -l "^Vulnerable" /sys/devices/system/cpu/vulnerabilities/* | grep -q .'
+check "Unprivileged BPF disabled" sh -c '[ "$(cat /proc/sys/kernel/unprivileged_bpf_disabled)" != 0 ]'
+check "ptrace restricted to admins (Yama 2+)" sh -c '[ "$(cat /proc/sys/kernel/yama/ptrace_scope)" -ge 2 ]'
+
+section "Mandatory access control"
+if [ "$(getenforce 2>/dev/null)" = Enforcing ]; then pass "SELinux enforcing"
+else warn "SELinux is $(getenforce 2>/dev/null || echo off) (permissive until the desktop policy is complete)"; fi
+check "Login confined (not unconfined_t)" sh -c '! id -Z | grep -q unconfined_t'
+
+section "Execution and memory"
+for d in /var /tmp /dev/shm "$HOME"; do
+  check "$d mounted noexec" mounted_noexec "$d"
+done
+check "hardened_malloc preloaded" grep -q libhardened_malloc /etc/ld.so.preload
+check "No setuid or setgid binaries in /usr" sh -c '[ -z "$(find /usr -xdev -perm /6000 -type f -print -quit)" ]'
+check "Core dumps not stored" sh -c 'systemd-analyze cat-config systemd/coredump.conf | grep -qx "Storage=none"'
+
+section "Flatpak"
+check "Flathub limited to verified apps" sh -c 'flatpak remotes --system --columns=name,subset | grep -q "flathub.*verified"'
+check "Automatic Flatpak updates" systemctl is-enabled tungsten-flatpak-update.timer
+check "hardened_malloc in Flatpaks" grep -q libhardened_malloc /var/lib/flatpak/overrides/global
+if [ -n "$(flatpak list --user --app --columns=application 2>/dev/null)" ]; then
+  warn "Per-user Flatpak apps are installed; they cannot run (homes are noexec)"
+fi
+
+section "Services"
+for u in firewalld usbguard dnscrypt-proxy ntpd-rs auditd; do
+  check "$u running" systemctl is-active "$u"
+done
+check "Suspend and hibernation disabled" sh -c '[ "$(systemctl is-enabled sleep.target)" = masked ]'
+check "No user in the libvirt group (equivalent to root)" sh -c '[ -z "$(getent group libvirt | cut -d: -f4)" ]'
+
+section "Disk encryption and TPM (root-only)"
+root_checks=$(cat <<'EOF'
+pass() { printf '  \e[32mPASS\e[0m  %s\n' "$1"; }
+fail() { printf '  \e[31mFAIL\e[0m  %s\n' "$1"; exit_code=$((exit_code + 1)); }
+exit_code=0
+meta=$(cryptsetup luksDump --dump-json-metadata /dev/disk/by-partlabel/root 2>/dev/null)
+if jq -e '[.tokens[] | select(.type == "systemd-tpm2" and (."tpm2_pcrlock" == true))] | length > 0' <<<"$meta" >/dev/null; then
+  pass "Root partition bound to the TPM with a pcrlock policy"
+else
+  fail "Root partition not bound to the TPM (run0 tungsten-tpm-enroll)"
+fi
+if tpm2_getcap properties-variable 2>/dev/null | grep -q 'lockoutAuthSet: *1'; then
+  pass "TPM PIN lockout cannot be reset"
+else
+  fail "TPM lockout authorization is empty (run0 tungsten-tpm-enroll)"
+fi
+exit "$exit_code"
+EOF
+)
+run0 bash -c "$root_checks"
+fails=$((fails + $?))
+
+printf '\n%s failed check(s)\n' "$fails"
+exit "$fails"

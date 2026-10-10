@@ -34,6 +34,9 @@ CONFIG_LTO_NONE=y
 
 # --- Additional hardening ---
 CONFIG_ZERO_CALL_USED_REGS=y
+# Stack erasing: a GCC plugin in config.base; with Clang it needs
+# -fsanitize-coverage-stack-depth-callback-min (Clang 21+).
+CONFIG_KSTACK_ERASE=y
 # CONFIG_HIBERNATION is not set
 # CONFIG_KEXEC is not set
 # CONFIG_KEXEC_FILE is not set

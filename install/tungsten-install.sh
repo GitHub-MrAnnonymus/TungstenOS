@@ -159,5 +159,5 @@ Installed $IMAGE_ID $VER with extensions: ${EXTS[*]:-none}.
    It asks whether to require a PIN, and shows a pcrlock recovery PIN once;
    store that with the passphrase.
 4. Create your everyday account outside wheel, like secureblue recommends:
-     run0 homectl create <you> --storage=luks
+     run0 homectl create <you> --storage=luks --noexec=yes
 EOF

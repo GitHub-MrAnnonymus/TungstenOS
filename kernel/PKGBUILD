@@ -4,7 +4,7 @@
 pkgbase=linux-tungsten
 pkgver=7.2.8
 _nvver=615.78.08
-pkgrel=4
+pkgrel=5
 pkgdesc='TungstenOS kernel (Linux + selected linux-hardened patches, SELinux)'
 url='https://github.com/anthraxx/linux-hardened'
 arch=(x86_64)

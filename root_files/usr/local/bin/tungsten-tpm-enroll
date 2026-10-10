@@ -21,6 +21,16 @@ case "${1:-}" in
   *) echo "usage: $0 [--pin|--no-pin]" >&2; exit 2 ;;
 esac
 
+# PIN brute-force protection: the TPM allows 32 wrong PINs, then one more every two
+# hours. The lockout authorization is set to a random value that is never stored, so
+# nothing (including another OS booted on this machine) can reset that counter. A TPM
+# clear from the firmware setup still works and only costs the TPM unlock.
+if tpm2_getcap properties-variable | grep -q 'lockoutAuthSet: *0'; then
+  tpm2_dictionarylockout --setup-parameters --max-tries=32 --recovery-time=7200 \
+    --lockout-recovery-time=86400
+  tpm2_changeauth -c lockout "file:-" < <(head -c 32 /dev/urandom | base64 -w0)
+fi
+
 for u in firmware-code firmware-config secureboot-policy secureboot-authority; do
   systemctl start "systemd-pcrlock-$u.service"
 done

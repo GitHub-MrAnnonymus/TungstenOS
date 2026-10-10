@@ -130,15 +130,17 @@ locale-gen
 
 systemctl enable \
   greetd NetworkManager firewalld usbguard tungsten-usbguard-init dnscrypt-proxy ntpd-rs \
-  systemd-homed systemd-homed-firstboot auditd power-profiles-daemon da-lockout-clear-tpm \
+  systemd-homed systemd-homed-firstboot auditd power-profiles-daemon \
   libvirtd.socket tungsten-relabel \
-  systemd-sysupdate.timer systemd-boot-update tungsten-boot-check \
+  systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-flatpak-update.timer \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \
   tungsten-pcrlock-predict systemd-pcrlock-make-policy systemd-sysext
 systemctl disable systemd-timesyncd.service
 # Locale, keymap and timezone come from the image, and root stays locked: never ask.
 systemctl mask systemd-firstboot.service
+# See /etc/systemd/logind.conf
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 
 # SELinux: permissive until the desktop policy is complete.
 sed -i 's/^SELINUX=.*/SELINUX=permissive/; s/^SELINUXTYPE=.*/SELINUXTYPE='"$POLICY"'/' /etc/selinux/config
@@ -168,12 +170,15 @@ chmod 600 /etc/usbguard/IPCAccessControl.d/:usbguard
 
 cat >> /etc/fstab <<'FSTAB'
 tmpfs             /tmp              tmpfs  defaults,noexec,nosuid,nodev,mode=1777,size=4G                     0  0
+tmpfs             /dev/shm          tmpfs  defaults,noexec,nosuid,nodev                                       0  0
 # The only writable location mounted exec (the root partition is noexec).
 /var/lib/flatpak  /var/lib/flatpak  none   bind,exec,nosuid,nodev,x-mount.mkdir                               0  0
 FSTAB
 
 mkdir -p /etc/flatpak/remotes.d
 curl -fsSL --proto '=https' https://dl.flathub.org/repo/flathub.flatpakrepo -o /etc/flatpak/remotes.d/flathub.flatpakrepo
+# Only apps whose publisher Flathub has verified.
+echo 'Subset=verified' >> /etc/flatpak/remotes.d/flathub.flatpakrepo
 
 passwd -l root
 rm -rf /etc/machine-id /root/tungsten-build
@@ -346,12 +351,13 @@ CMDLINE=(
   random.trust_cpu=off random.trust_bootloader=off extra_latent_entropy
   # DMA
   iommu=force iommu.strict=1 iommu.passthrough=0 amd_iommu=force_isolation intel_iommu=on
+  amdgpu.iommu_perfopt=0
   efi=disable_early_pci_dma modprobe.blacklist=thunderbolt mem_encrypt=on
-  # CPU mitigations
   pti=on spectre_v2=on spec_store_bypass_disable=on l1d_flush=on l1tf=full,force
   gather_data_sampling=force tsx=off kvm.nx_huge_pages=force kvm.mitigate_smt_rsb=1
   # KVM
   kvm_amd.sev=1 kvm_amd.sev_es=1 kvm_amd.sev_snp=1 kvm-amd.nested=0 kvm-intel.nested=0
+  kvm-intel.vmentry_l1d_flush=always
   # Misc
   preempt=full loglevel=0 quiet splash
   # Splash on the firmware framebuffer: the initramfs has no GPU drivers (no kms hook)
