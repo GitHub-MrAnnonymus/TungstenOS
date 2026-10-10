@@ -1,0 +1,9 @@
+#!/bin/sh
+# Called by pam_exec at login. systemd-homed creates a home's file system without
+# SELinux labels, so everything in it would be unlabeled_t; label it once.
+home=$(getent passwd "$PAM_USER" | cut -d: -f6)
+[ -n "$home" ] && [ -d "$home" ] || exit 0
+case "$(stat -c %C "$home" 2>/dev/null)" in
+  *:unlabeled_t:*) restorecon -RF "$home" ;;
+esac
+exit 0

@@ -1,0 +1,21 @@
+# Session environment for every compositor started through uwsm (sourced by sh).
+export SDL_VIDEODRIVER="wayland"
+export QT_QPA_PLATFORM="wayland;xcb"
+export ELECTRON_OZONE_PLATFORM_HINT="auto"
+export GDK_SCALE=2
+export QT_QPA_PLATFORMTHEME="qtengine"
+export HYPRCURSOR_THEME="default"
+export XCURSOR_THEME="default"
+export HYPRCURSOR_SIZE=30
+export XCURSOR_SIZE=30
+
+# Mesa drivers for the integrated GPU (the NVIDIA extension provides the device links).
+if [ -e /dev/dri/amd-igpu ]; then
+	export VK_DRIVER_FILES="/usr/share/vulkan/icd.d/radeon_icd.json"
+	export LIBVA_DRIVER_NAME="radeonsi"
+	export __GLX_VENDOR_LIBRARY_NAME="mesa"
+elif [ -e /dev/dri/intel-igpu ]; then
+	export VK_DRIVER_FILES="/usr/share/vulkan/icd.d/intel_icd.x86_64.json"
+	export LIBVA_DRIVER_NAME="iHD"
+	export __GLX_VENDOR_LIBRARY_NAME="mesa"
+fi

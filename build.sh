@@ -54,7 +54,7 @@ PACKAGES=(
 
   # Desktop
   plymouth greetd greetd-dms-greeter flatpak
-  hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dms-shell quickshell
+  hyprland uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dms-shell quickshell
   matugen polkit alacritty zsh nautilus nwg-look adw-gtk-theme kdeconnect papirus-icon-theme
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
@@ -180,6 +180,9 @@ curl -fsSL --proto '=https' https://dl.flathub.org/repo/flathub.flatpakrepo -o /
 # Only apps whose publisher Flathub has verified.
 echo 'Subset=verified' >> /etc/flatpak/remotes.d/flathub.flatpakrepo
 
+# Label homed homes at login (see /usr/lib/tungsten/home-label).
+echo 'session    optional   pam_exec.so quiet /usr/lib/tungsten/home-label' >> /etc/pam.d/system-login
+
 passwd -l root
 rm -rf /etc/machine-id /root/tungsten-build
 CHROOT
@@ -259,7 +262,8 @@ build_extension() {
   [ -z "$dropped" ] || echo "::warning::$name: changes outside /usr are not part of the extension: $dropped"
   rm -rf "$E"/tree/usr/include "$E"/tree/usr/src "$E"/tree/usr/share/{doc,gtk-doc,info,man} \
          "$E"/tree/usr/lib/{cmake,pkgconfig}
-  find "$E"/tree/usr -type f -perm /6000 ! -path '*/usr/bin/nvidia-modprobe' -exec chmod ug-s {} +
+  # nvidia-modprobe needs no setuid bit: nvidia-utils' udev rule runs it as root.
+  find "$E"/tree/usr -type f -perm /6000 -exec chmod ug-s {} +
   [ -d "$E"/tree/usr/lib/tmpfiles.d ] && \
     sed -i -E '/^[zZ][[:space:]]+\/usr\S*[[:space:]]+[0-7]?[2467][0-7]{3}[[:space:]]/d' "$E"/tree/usr/lib/tmpfiles.d/*.conf
   mkdir -p "$E"/tree/usr/lib/extension-release.d

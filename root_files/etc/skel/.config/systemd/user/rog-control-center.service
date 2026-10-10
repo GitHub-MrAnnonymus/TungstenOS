@@ -3,6 +3,9 @@ ConditionPathExists=/usr/bin/rog-control-center
 Description=ROG Control Center
 After=graphical-session.target
 PartOf=graphical-session.target
+# Give up instead of restarting forever when asusd is not running (non-ASUS hardware)
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple

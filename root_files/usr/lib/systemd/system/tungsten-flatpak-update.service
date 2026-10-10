@@ -6,5 +6,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+# Also applies the verified-only Flathub restriction to remotes added before it existed.
+ExecStartPre=-/usr/bin/flatpak remote-modify --system --subset=verified flathub
 ExecStart=/usr/bin/flatpak update --system --noninteractive --assumeyes
 ExecStart=/usr/bin/flatpak uninstall --system --unused --noninteractive --assumeyes

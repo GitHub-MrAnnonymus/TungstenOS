@@ -1,0 +1,8 @@
+# Hyprland only. Render on the integrated GPU when one is present; NVIDIA stays secondary.
+_devices=
+if [ -e /dev/dri/amd-igpu ]; then _devices=/dev/dri/amd-igpu
+elif [ -e /dev/dri/intel-igpu ]; then _devices=/dev/dri/intel-igpu
+fi
+[ -e /dev/dri/nvidia-dgpu ] && _devices="${_devices:+$_devices:}/dev/dri/nvidia-dgpu"
+[ -n "$_devices" ] && export AQ_DRM_DEVICES="$_devices"
+unset _devices

@@ -13,7 +13,6 @@ mounted_noexec() { findmnt -no OPTIONS --target "$1" | tr , '\n' | grep -qx noex
 
 section "Boot and integrity"
 check "Secure Boot enabled" sh -c 'bootctl status 2>/dev/null | grep -q "Secure Boot: enabled"'
-check "/usr is verified by dm-verity" sh -c 'veritysetup status usr | grep -q "status:.*verified"'
 check "IPE enforcing" cmdline ipe.enforce=1
 check "Kernel lockdown (confidentiality)" grep -q '\[confidentiality\]' /sys/kernel/security/lockdown
 check "Module signatures enforced" cmdline module.sig_enforce=1
@@ -53,11 +52,16 @@ done
 check "Suspend and hibernation disabled" sh -c '[ "$(systemctl is-enabled sleep.target)" = masked ]'
 check "No user in the libvirt group (equivalent to root)" sh -c '[ -z "$(getent group libvirt | cut -d: -f4)" ]'
 
-section "Disk encryption and TPM (root-only)"
+section "Integrity, disk encryption and TPM (root-only)"
 root_checks=$(cat <<'EOF'
 pass() { printf '  \e[32mPASS\e[0m  %s\n' "$1"; }
 fail() { printf '  \e[31mFAIL\e[0m  %s\n' "$1"; exit_code=$((exit_code + 1)); }
 exit_code=0
+if veritysetup status usr 2>/dev/null | grep -q "status:.*verified"; then
+  pass "/usr is verified by dm-verity"
+else
+  fail "/usr is not verified by dm-verity"
+fi
 meta=$(cryptsetup luksDump --dump-json-metadata /dev/disk/by-partlabel/root 2>/dev/null)
 if jq -e '[.tokens[] | select(.type == "systemd-tpm2" and (."tpm2_pcrlock" == true))] | length > 0' <<<"$meta" >/dev/null; then
   pass "Root partition bound to the TPM with a pcrlock policy"
