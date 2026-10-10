@@ -151,6 +151,8 @@ semanage login -N -S "$POLICY" -m -s staff_u __default__
 semanage fcontext -N -S "$POLICY" -a -e /etc /usr/share/factory/etc
 # Local /etc changes live in the overlay's upper directory on the root partition.
 semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
+# logind reads boot loader entries on the ESP (reboot into a chosen entry).
+semanage boolean -N -S "$POLICY" -m --on systemd_logind_get_bootloader
 
 bash /root/tungsten-build/remove-suid.sh
 
@@ -181,7 +183,9 @@ curl -fsSL --proto '=https' https://dl.flathub.org/repo/flathub.flatpakrepo -o /
 echo 'Subset=verified' >> /etc/flatpak/remotes.d/flathub.flatpakrepo
 
 # Label homed homes at login (see /usr/lib/tungsten/home-label).
-echo 'session    optional   pam_exec.so quiet /usr/lib/tungsten/home-label' >> /etc/pam.d/system-login
+# Before pam_selinux opens the user's context, so it runs in the login domain.
+grep -q '^session *required *pam_selinux.so open' /etc/pam.d/system-login
+sed -i '/^session *required *pam_selinux.so open/i session    optional   pam_exec.so quiet /usr/lib/tungsten/home-label' /etc/pam.d/system-login
 
 passwd -l root
 rm -rf /etc/machine-id /root/tungsten-build

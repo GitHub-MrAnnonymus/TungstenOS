@@ -11,3 +11,22 @@ HOME_DIR/\.cache/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_ca
 
 # Flatpak deployments are hardlinks into the ostree repo, so the tree shares one type.
 /var/lib/flatpak(/.*)?					gen_context(system_u:object_r:bin_t)
+
+# Arch installs helper programs directly in /usr/lib (lib_t). Label the user-session
+# daemons as programs, as refpolicy does on other distributions' paths, so the user's
+# systemd starts them in the user domain instead of its own.
+/usr/lib/at-spi-bus-launcher			--	gen_context(system_u:object_r:bin_t)
+/usr/lib/at-spi2-registryd			--	gen_context(system_u:object_r:bin_t)
+/usr/lib/dconf-service				--	gen_context(system_u:object_r:bin_t)
+/usr/lib/flatpak-(portal|session-helper|oci-authenticator)	--	gen_context(system_u:object_r:bin_t)
+/usr/lib/gcr-(prompter|ssh-agent)		--	gen_context(system_u:object_r:bin_t)
+/usr/lib/glib-pacrunner				--	gen_context(system_u:object_r:bin_t)
+/usr/lib/gvfs[^/]*				--	gen_context(system_u:object_r:bin_t)
+/usr/lib/kf6/kiod6				--	gen_context(system_u:object_r:bin_t)
+/usr/lib/xdg-desktop-portal[^/]*		--	gen_context(system_u:object_r:bin_t)
+/usr/lib/xdg-(document-portal|permission-store)	--	gen_context(system_u:object_r:bin_t)
+
+# The login screen runs as the "greeter" user in staff_t; its home and cache are its
+# own user data.
+/var/lib/greeter(/.*)?				gen_context(system_u:object_r:user_home_t)
+/var/cache/dms-greeter(/.*)?			gen_context(system_u:object_r:user_home_t)

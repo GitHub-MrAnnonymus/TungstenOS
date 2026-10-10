@@ -4,6 +4,8 @@ export QT_QPA_PLATFORM="wayland;xcb"
 export ELECTRON_OZONE_PLATFORM_HINT="auto"
 export GDK_SCALE=2
 export QT_QPA_PLATFORMTHEME="qtengine"
+# No JIT in QML (Quickshell/DMS, KDE Connect): SELinux denies writable executable memory.
+export QV4_FORCE_INTERPRETER=1
 export HYPRCURSOR_THEME="default"
 export XCURSOR_THEME="default"
 export HYPRCURSOR_SIZE=30

@@ -9,11 +9,13 @@ policy_module(tungsten, 1.0.0)
 
 gen_require(`
 	attribute nsswitch_domain;
-	type auditd_t, firewalld_t, kmod_t, NetworkManager_t, policykit_t, policykit_auth_t;
+	type auditd_t, xdm_t, local_login_t, firewalld_t, kmod_t, NetworkManager_t, policykit_t, policykit_auth_t;
 	type systemd_homed_t, systemd_homed_runtime_t;
 	type systemd_userdbd_runtime_t, systemd_nsresourced_runtime_t;
 	type proc_t, devpts_t, var_run_t, user_home_dir_t, xdg_cache_t;
 	type sysctl_kernel_t, sysctl_vm_t, sysctl_vm_overcommit_t;
+	type usbguard_t, systemd_pcrphase_t, staff_systemd_t, staff_t, systemd_homework_t;
+	type systemd_hostnamed_t, var_lib_t, security_t, xdm_tmp_t, systemd_homed_record_t;
 ')
 
 # User and group lookups through nss-systemd (homed, userdbd, nsresourced varlink sockets)
@@ -35,3 +37,53 @@ dontaudit firewalld_t user_home_dir_t:dir search;
 
 allow kmod_t var_run_t:file { getattr open read };
 dontaudit NetworkManager_t xdg_cache_t:dir search;
+
+# /usr/lib/tungsten/home-label (pam_exec at login) relabels homed homes with restorecon.
+seutil_domtrans_setfiles(xdm_t)
+seutil_domtrans_setfiles(local_login_t)
+
+# Daemons that resolve users and groups (nss-systemd) but lack the attribute.
+auth_use_nsswitch(usbguard_t)
+auth_use_nsswitch(systemd_pcrphase_t)
+auth_use_nsswitch(staff_systemd_t)
+
+# systemd-pcrlock: predictions in /var/lib/pcrlock.d, the policy in /var/lib/systemd,
+# UKIs and add-ons on the ESP, file labels for its own files.
+files_rw_var_lib_dirs(systemd_pcrphase_t)
+allow systemd_pcrphase_t var_lib_t:file { create getattr open read write rename unlink };
+fs_read_dos_files(systemd_pcrphase_t)
+fs_getattr_xattr_fs(systemd_pcrphase_t)
+seutil_read_file_contexts(systemd_pcrphase_t)
+allow systemd_pcrphase_t security_t:file map;
+
+# systemd-homed / homework: mount and open the (now labeled) home, read OpenSSL config,
+# and the per-user "dont-suspend" FIFO.
+allow systemd_homework_t user_home_dir_t:dir { getattr mounton open read search };
+miscfiles_read_generic_certs(systemd_homework_t)
+allow systemd_homed_t systemd_homed_runtime_t:fifo_file { create getattr open read write unlink };
+
+# homed's signed user record in the home (~/.identity*) may hold password hashes; file
+# managers that list the home are refused quietly.
+dontaudit staff_t systemd_homed_record_t:dir { getattr open read search };
+dontaudit staff_t systemd_homed_record_t:file { getattr open read };
+
+fs_rw_cgroup_files(systemd_hostnamed_t)
+
+# No writable executable memory for user programs (allow_execmem stays off). libffi
+# (GTK apps such as Nautilus) reads the allow_execmem boolean and then uses trampolines
+# that need none; Qt's QML JIT is disabled with QV4_FORCE_INTERPRETER (uwsm env).
+selinux_get_all_booleans(staff_t)
+
+# PipeWire/WirePlumber read the user's and sessions' state from logind.
+systemd_read_logind_runtime_files(staff_t)
+
+# Hyprland replaces a stale Xwayland socket in /tmp/.X11-unix.
+allow staff_t xdm_tmp_t:sock_file { getattr setattr unlink };
+
+# udisks takes the cryptsetup lock in /run/cryptsetup.
+optional_policy(`
+	gen_require(`
+		type devicekit_disk_t;
+	')
+	lvm_manage_runtime_files(devicekit_disk_t)
+')
