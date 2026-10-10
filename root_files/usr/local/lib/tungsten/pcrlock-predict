@@ -7,8 +7,9 @@ POLICY=/var/lib/systemd/pcrlock.json
 D=/var/lib/pcrlock.d
 ESP=$(bootctl --print-esp-path)
 
-mkdir -p "$D"/610-boot-loader-code.pcrlock.d "$D"/650-uki.pcrlock.d "$D"/660-uki.pcrlock.d
-rm -f "$D"/610-boot-loader-code.pcrlock.d/*.pcrlock "$D"/650-uki.pcrlock.d/*.pcrlock "$D"/660-uki.pcrlock.d/*.pcrlock
+mkdir -p "$D"/610-boot-loader-code.pcrlock.d "$D"/650-uki.pcrlock.d
+rm -f "$D"/610-boot-loader-code.pcrlock.d/*.pcrlock "$D"/650-uki.pcrlock.d/*.pcrlock
+rm -rf "$D"/660-uki.pcrlock.d   # from older versions
 rm -rf "$D"/655-addon-*.pcrlock.d "$D"/655-addon-*.pcrlock
 
 # A TPM policy allows at most 8 alternatives per PCR, so identical copies of the boot
@@ -28,8 +29,10 @@ ukis=("$ESP"/EFI/Linux/tungsten*.efi)
 [ ${#ukis[@]} -gt 0 ] || { echo "no TungstenOS UKIs in $ESP/EFI/Linux" >&2; exit 1; }
 for uki in "${ukis[@]}"; do
   name=$(basename "$uki" .efi); name=${name%%+*}   # drop the boot-counting suffix
-  "$PCRLOCK" lock-pe  "$uki" --pcrlock="$D/650-uki.pcrlock.d/$name.pcrlock"
-  "$PCRLOCK" lock-uki "$uki" --pcrlock="$D/660-uki.pcrlock.d/$name.pcrlock"
+  # lock-uki records both the UKI's PE hash (PCR 4) and its sections (PCR 11); a
+  # separate lock-pe would count the PE hash twice. Numbered before the add-ons,
+  # which systemd-stub loads (and the firmware measures into PCR 4) after the UKI.
+  "$PCRLOCK" lock-uki "$uki" --pcrlock="$D/650-uki.pcrlock.d/$name.pcrlock"
 done
 
 # UKI add-ons (PCR 4): systemd-stub loads the global ones (loader/addons) with every

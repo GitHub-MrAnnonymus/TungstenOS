@@ -49,21 +49,20 @@ fi
 "$PCRLOCK" predict
 
 meta=$(cryptsetup luksDump --dump-json-metadata "$DEV")
-has_tpm=$(jq '[.tokens[] | select(.type == "systemd-tpm2")] | length' <<<"$meta")
 non_tpm=$(jq '[.tokens[] | select(.type == "systemd-tpm2") | .keyslots[]] as $tpm
   | [.keyslots | keys[] | select(. as $k | $tpm | index($k) | not)] | length' <<<"$meta")
-# Unlock with the existing TPM key if there is one, otherwise with the passphrase.
-unlock=(); [ "$has_tpm" -gt 0 ] && unlock=(--unlock-tpm2-device=auto)
+# Unlock with the passphrase (or recovery key): the TPM key is bound to a PCR 11
+# signature that is only valid in the initrd, so it cannot unlock from here.
 
 # A partition recreated by factory reset has only a TPM key: add a recovery key.
 if [ "$non_tpm" -eq 0 ]; then
   echo ">>> Adding a recovery key. Store it safely; it unlocks the system without the TPM."
-  systemd-cryptenroll "${unlock[@]}" --recovery-key "$DEV"
+  systemd-cryptenroll --recovery-key "$DEV"
 fi
 
 # Signed PCR 11 policy (any UKI signed by the build, initrd phase only) plus pcrlock
 # (firmware, Secure Boot, bootloader).
-systemd-cryptenroll "${unlock[@]}" --wipe-slot=tpm2 --tpm2-device=auto \
+systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto \
   --tpm2-public-key=/etc/systemd/tpm2-pcr-public-key.pem --tpm2-public-key-policyref=initrd \
   --tpm2-pcrlock="$POLICY" --tpm2-with-pin="$pin" "$DEV"
 echo "Enrolled."

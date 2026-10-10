@@ -100,6 +100,34 @@ optional_policy(`
 	allow staff_bubblewrap_t chromium_t:process2 { nnp_transition nosuid_transition };
 ')
 
+# Trivalent's own names for what refpolicy labels for "chromium": its profile
+# (~/.config/trivalent, created by the browser) and the cache its launcher creates in
+# /var/tmp (XDG_CACHE_HOME=/var/tmp/trivalent_cache).
+optional_policy(`
+	gen_require(`
+		type chromium_t, chromium_xdg_config_t, chromium_xdg_cache_t;
+		type xdg_config_t, tmp_t, etc_t, locale_t, xkb_var_lib_t, gnome_xdg_config_t;
+		type staff_gkeyringd_t, systemd_logind_t, systemd_logind_inhibit_runtime_t;
+	')
+	filetrans_pattern(chromium_t, xdg_config_t, chromium_xdg_config_t, dir, "trivalent")
+	filetrans_pattern(staff_t, tmp_t, chromium_xdg_cache_t, dir, "trivalent_cache")
+	allow staff_t chromium_xdg_cache_t:dir { create getattr search };
+
+	# Small things the browser does: dconf settings, keyboard map cache, locale watch,
+	# logind sleep inhibitor (video playback), gnome-keyring, inherited descriptors.
+	allow chromium_t gnome_xdg_config_t:dir search;
+	allow chromium_t gnome_xdg_config_t:file { getattr map open read };
+	allow chromium_t xkb_var_lib_t:lnk_file read;
+	allow chromium_t locale_t:dir watch;
+	allow chromium_t etc_t:file map;
+	allow chromium_t systemd_logind_t:fd use;
+	allow chromium_t systemd_logind_inhibit_runtime_t:fifo_file write;
+	allow staff_gkeyringd_t chromium_t:fd use;
+	allow staff_gkeyringd_t chromium_t:fifo_file write;
+	allow staff_t chromium_t:fd use;
+	allow chromium_t staff_t:netlink_kobject_uevent_socket { read write };
+')
+
 # The user's systemd: socket units of gpg-agent/keyboxd and gnome-keyring, the session
 # environment uwsm writes to $XDG_RUNTIME_DIR, and passing sockets to user services.
 optional_policy(`

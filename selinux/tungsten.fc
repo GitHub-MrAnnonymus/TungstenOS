@@ -30,3 +30,4 @@ HOME_DIR/\.cache/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_ca
 # own user data.
 /var/lib/greeter(/.*)?				gen_context(system_u:object_r:user_home_t)
 /var/cache/dms-greeter(/.*)?			gen_context(system_u:object_r:user_home_t)
+/var/tmp/trivalent_cache(/.*)?			gen_context(system_u:object_r:chromium_xdg_cache_t)
