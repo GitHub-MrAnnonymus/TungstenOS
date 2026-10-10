@@ -9,12 +9,17 @@ ESP=$(bootctl --print-esp-path)
 
 mkdir -p "$D"/610-boot-loader-code.pcrlock.d "$D"/650-uki.pcrlock.d "$D"/660-uki.pcrlock.d
 rm -f "$D"/610-boot-loader-code.pcrlock.d/*.pcrlock "$D"/650-uki.pcrlock.d/*.pcrlock "$D"/660-uki.pcrlock.d/*.pcrlock
-rm -rf "$D"/655-addon-*.pcrlock.d
+rm -rf "$D"/655-addon-*.pcrlock.d "$D"/655-addon-*.pcrlock
 
-n=0
+# A TPM policy allows at most 8 alternatives per PCR, so identical copies of the boot
+# loader are predicted once.
+n=0; seen=" "
 for loader in "$ESP"/EFI/systemd/systemd-bootx64.efi "$ESP"/EFI/BOOT/BOOTX64.EFI \
               /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed; do
   [ -f "$loader" ] || continue
+  sum=$(sha256sum "$loader" | cut -d' ' -f1)
+  case $seen in *" $sum "*) continue ;; esac
+  seen="$seen$sum "
   "$PCRLOCK" lock-pe "$loader" --pcrlock="$D/610-boot-loader-code.pcrlock.d/loader-$((n++)).pcrlock"
 done
 
@@ -27,13 +32,19 @@ for uki in "${ukis[@]}"; do
   "$PCRLOCK" lock-uki "$uki" --pcrlock="$D/660-uki.pcrlock.d/$name.pcrlock"
 done
 
-# UKI add-ons (PCR 4): systemd-stub loads the global ones in name order, then the
-# UKI's own .extra.d ones. Each is an optional component (the empty variant always
-# matches), so a boot with or without it fits the policy; any other add-on does not.
+# UKI add-ons (PCR 4): systemd-stub loads the global ones (loader/addons) with every
+# UKI, in name order, then the UKI's own .extra.d ones. Global add-ons are required
+# components. A UKI's own add-ons are optional (an empty variant always matches),
+# because the other A/B UKI boots without them; making the global ones optional too
+# would double the alternatives for PCR 4 past the limit of 8.
 # pcrlock assigns a log record only to the first matching variant in name order, and
 # not at all once the empty variant came first: "present" must sort before "absent".
 n=0
-for addon in "$ESP"/loader/addons/*.addon.efi "$ESP"/EFI/Linux/tungsten*.efi.extra.d/*.addon.efi; do
+for addon in "$ESP"/loader/addons/*.addon.efi; do
+  "$PCRLOCK" lock-pe "$addon" \
+    --pcrlock="$D/655-addon-$(printf %02d $((n++)))-$(basename "$addon" .addon.efi).pcrlock"
+done
+for addon in "$ESP"/EFI/Linux/tungsten*.efi.extra.d/*.addon.efi; do
   c="$D/655-addon-$(printf %02d $((n++)))-$(basename "$addon" .addon.efi).pcrlock.d"
   mkdir -p "$c"
   "$PCRLOCK" lock-pe "$addon" --pcrlock="$c/1-present.pcrlock"
