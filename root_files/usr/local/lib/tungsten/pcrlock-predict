@@ -30,12 +30,14 @@ done
 # UKI add-ons (PCR 4): systemd-stub loads the global ones in name order, then the
 # UKI's own .extra.d ones. Each is an optional component (the empty variant always
 # matches), so a boot with or without it fits the policy; any other add-on does not.
+# pcrlock assigns a log record only to the first matching variant in name order, and
+# not at all once the empty variant came first: "present" must sort before "absent".
 n=0
 for addon in "$ESP"/loader/addons/*.addon.efi "$ESP"/EFI/Linux/tungsten*.efi.extra.d/*.addon.efi; do
   c="$D/655-addon-$(printf %02d $((n++)))-$(basename "$addon" .addon.efi).pcrlock.d"
   mkdir -p "$c"
-  "$PCRLOCK" lock-pe "$addon" --pcrlock="$c/present.pcrlock"
-  echo '{"records":[]}' > "$c/absent.pcrlock"
+  "$PCRLOCK" lock-pe "$addon" --pcrlock="$c/1-present.pcrlock"
+  echo '{"records":[]}' > "$c/2-absent.pcrlock"
 done
 
 if [ "${1:-}" = --make-policy ] && [ -e "$POLICY" ]; then
