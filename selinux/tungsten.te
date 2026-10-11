@@ -397,3 +397,11 @@ optional_policy(`
 	allow { staff_dbusd_t staff_gkeyringd_t } staff_bubblewrap_t:fd use;
 	allow { staff_dbusd_t staff_gkeyringd_t } staff_bubblewrap_t:fifo_file write;
 ')
+
+# fstab bind-mounts /var/lib/flatpak (labeled bin_t, see tungsten.fc) onto itself to make
+# it the one executable writable location; systemd and mount(8) need mounton there.
+gen_require(`
+	type mount_t;
+')
+allow { init_t mount_t } bin_t:dir mounton;
+
