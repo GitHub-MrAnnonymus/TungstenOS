@@ -412,6 +412,8 @@ allow { init_t mount_t } bin_t:dir mounton;
 gen_require(`
 	type syslogd_t, systemd_tmpfiles_t, systemd_sysctl_t, systemd_generator_t;
 	type binfmt_misc_fs_t, dosfs_t, systemd_user_unit_t;
+	class service { start status };
+	class system { start status };
 ')
 
 # systemd checks access to units: the system bus (activation), polkit, and uwsm, which
