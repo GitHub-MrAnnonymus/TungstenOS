@@ -405,3 +405,63 @@ gen_require(`
 ')
 allow { init_t mount_t } bin_t:dir mounton;
 
+
+########################################
+# From the image's own policy in permissive mode (systemd unit checks, system tools).
+
+gen_require(`
+	type syslogd_t, systemd_tmpfiles_t, systemd_sysctl_t, systemd_generator_t;
+	type binfmt_misc_fs_t, dosfs_t, systemd_user_unit_t;
+')
+
+# systemd checks access to units: the system bus (activation), polkit, and uwsm, which
+# lists units at session start.
+init_get_all_units_status(system_dbusd_t)
+init_get_system_status(system_dbusd_t)
+init_get_all_units_status(policykit_t)
+init_get_all_units_status(staff_t)
+# The session bus starts user services (D-Bus activation, e.g. gvfs-daemon) through
+# the user's systemd, also as transient units.
+allow staff_dbusd_t systemd_user_unit_t:service { start status };
+allow staff_dbusd_t staff_systemd_t:system { start status };
+
+# journald: credentials in /run/credentials, memory pressure in its cgroup.
+allow syslogd_t tmpfs_t:dir search;
+fs_rw_cgroup_files(syslogd_t)
+
+# systemd-tmpfiles creates and fixes up directories of other packages at boot.
+corecmd_search_bin(systemd_tmpfiles_t)
+allow systemd_tmpfiles_t bin_t:dir { add_name write };
+allow systemd_tmpfiles_t auditd_etc_t:dir { getattr search };
+allow systemd_tmpfiles_t auditd_etc_t:file getattr;
+allow systemd_tmpfiles_t security_t:dir search;
+allow systemd_tmpfiles_t security_t:file { getattr setattr };
+allow systemd_tmpfiles_t user_home_t:dir { add_name getattr open read search setattr write };
+allow systemd_tmpfiles_t user_home_t:file { create getattr open setattr write };
+dontaudit systemd_tmpfiles_t dosfs_t:dir setattr;
+optional_policy(`
+	gen_require(`
+		type devicekit_var_lib_t, uuidd_var_lib_t, virt_var_lib_t;
+	')
+	allow systemd_tmpfiles_t { devicekit_var_lib_t uuidd_var_lib_t virt_var_lib_t }:dir { getattr open read search setattr };
+')
+# Flatpak reads the global override written by tmpfiles (see tungsten.fc).
+files_read_var_lib_files(staff_t)
+
+# systemd-sysctl writes drop-ins in /run/sysctl.d (e.g. systemd-coredump's core pattern).
+allow systemd_sysctl_t var_run_t:dir { add_name remove_name search write };
+allow systemd_sysctl_t var_run_t:file { create getattr open rename setattr unlink write };
+allow systemd_sysctl_t binfmt_misc_fs_t:dir search;
+
+# udev inspects the loop devices of system extensions (files in /var/lib/extensions.d).
+allow udev_t var_lib_t:file getattr;
+
+# systemd-coredump: its runtime directory, file labels.
+allow systemd_coredump_t init_runtime_t:dir { add_name create search write };
+seutil_read_file_contexts(systemd_coredump_t)
+
+# systemd-pcrlock removes component directories it regenerates.
+allow systemd_pcrphase_t var_lib_t:dir { remove_name rmdir };
+
+# The flatpak generator looks into root's cache.
+dontaudit systemd_generator_t xdg_cache_t:dir search;

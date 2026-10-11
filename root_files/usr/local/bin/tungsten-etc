@@ -13,7 +13,8 @@ rel() { local p=${1#/etc/}; p=${p#/}; [[ $p != *..* && -n $p ]] || { echo "inval
 case "${1:-}" in
   status)
     cd "$UPPER"
-    find . -mindepth 1 \( -type f -o -type l -o -type c \) -printf '%P\n' | sort | while read -r p; do
+    # Directories only root can read are skipped; run with run0 to see everything.
+    { find . -mindepth 1 \( -type f -o -type l -o -type c \) -printf '%P\n' 2>/dev/null || :; } | sort | while read -r p; do
       if [ -c "$p" ]; then echo "deleted   /etc/$p"
       elif [ -e "$LOWER/$p" ] || [ -L "$LOWER/$p" ]; then echo "modified  /etc/$p"
       else echo "added     /etc/$p"; fi
