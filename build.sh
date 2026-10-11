@@ -160,6 +160,12 @@ semanage boolean -N -S "$POLICY" -m --on xserver_allow_dri
 ctx=/etc/selinux/$POLICY/contexts/users/root
 grep -q '^system_r:init_t' "$ctx"
 sed -i 's/^system_r:init_t.*/system_r:init_t\t\tsysadm_r:sysadm_t/' "$ctx"
+# The policy store belongs to the image: installed systems would otherwise keep the
+# store of their first boot, and rebuilding from it (semodule -B) would write an old
+# policy into the /etc overlay that hides every later update. Read-only at runtime.
+mkdir -p /usr/lib/tungsten
+mv /var/lib/selinux /usr/lib/tungsten/selinux-store
+echo 'store-root = /usr/lib/tungsten/selinux-store' >> /etc/selinux/semanage.conf
 
 bash /root/tungsten-build/remove-suid.sh
 

@@ -320,3 +320,80 @@ optional_policy(`
 	')
 	allow staff_t virt_etc_rw_t:lnk_file read;
 ')
+
+########################################
+# From the first enforcing boot and a permissive boot with dontaudit rules disabled.
+
+gen_require(`
+	type auditctl_t, auditd_etc_t, proc_t, lvm_t, initrc_t, boot_t, security_t;
+	type selinux_config_t, systemd_coredump_t, systemd_machined_t, vsock_device_t;
+	type systemd_nsresourced_t, modules_object_t, systemd_notify_exec_t, howl_port_t;
+	type usbguard_tmpfs_t, systemd_logind_runtime_t, fs_t;
+')
+
+# auditd's rules are loaded by auditctl at boot.
+allow auditctl_t auditd_etc_t:file map;
+allow auditctl_t proc_t:filesystem getattr;
+
+# cryptsetup (lvm_t) and udev cookies created by boot scripts.
+allow lvm_t initrc_t:sem { associate read unix_read unix_write write };
+
+# polkit checks the SELinux state.
+selinux_get_fs_mount(policykit_t)
+allow { policykit_t policykit_auth_t } selinux_config_t:dir search;
+
+# systemd-tpm2-setup and systemd-pcrlock: the ESP mount point (/boot), the firmware
+# event log in securityfs, SELinux configuration for labeling their files.
+files_list_boot(systemd_pcrphase_t)
+fs_list_dos(systemd_pcrphase_t)
+allow systemd_pcrphase_t security_t:dir search;
+allow systemd_pcrphase_t security_t:file { getattr open read };
+seutil_read_config(systemd_pcrphase_t)
+seutil_search_default_contexts(systemd_pcrphase_t)
+
+# systemd-coredump checks the SELinux status before labeling.
+selinux_use_status_page(systemd_coredump_t)
+
+# homed / homework
+allow systemd_homed_t self:capability sys_resource;
+allow systemd_homework_t self:capability sys_resource;
+allow systemd_homework_t init_t:key search;
+allow systemd_homework_t selinux_config_t:dir search;
+
+# machined (VM and container registration) and nsresourced
+fs_rw_cgroup_files(systemd_machined_t)
+allow systemd_machined_t vsock_device_t:chr_file { ioctl open read };
+allow systemd_nsresourced_t fs_t:filesystem getattr;
+
+# The desktop session: delegated cgroup (uwsm, systemd-run --user), systemd-notify
+# (uwsm), mDNS for KDE Connect discovery, the user's own processes in the bwrap and
+# user manager domains (xdg-desktop-portal identifies sandboxed apps through /proc),
+# logind state, usbguard-notifier's shared memory directory, libffi trampolines.
+fs_rw_cgroup_files(staff_t)
+can_exec(staff_t, systemd_notify_exec_t)
+allow staff_t howl_port_t:udp_socket name_bind;
+allow staff_t modules_object_t:dir search;
+ps_process_pattern(staff_t, staff_systemd_t)
+allow staff_t systemd_logind_runtime_t:dir { getattr open read search };
+allow staff_t systemd_sessions_runtime_t:dir { getattr open read search };
+allow staff_t usbguard_tmpfs_t:dir search;
+allow staff_t user_tmpfs_t:file execute;
+systemd_connect_machined(staff_t)
+
+optional_policy(`
+	gen_require(`
+		type staff_bubblewrap_t;
+	')
+	ps_process_pattern(staff_t, staff_bubblewrap_t)
+	allow staff_t staff_bubblewrap_t:fifo_file { getattr write };
+	# bwrap itself: chroot into the new root, process limits, its own pipes
+	allow staff_bubblewrap_t self:cap_userns sys_chroot;
+	allow staff_bubblewrap_t self:process { getsched setrlimit setsched signal };
+	allow staff_bubblewrap_t self:fifo_file { read write };
+	fs_getattr_xattr_fs(staff_bubblewrap_t)
+	fs_getattr_tmpfs(staff_bubblewrap_t)
+	dev_read_urand(staff_bubblewrap_t)
+	# D-Bus activation and gnome-keyring from inside a sandbox
+	allow { staff_dbusd_t staff_gkeyringd_t } staff_bubblewrap_t:fd use;
+	allow { staff_dbusd_t staff_gkeyringd_t } staff_bubblewrap_t:fifo_file write;
+')
