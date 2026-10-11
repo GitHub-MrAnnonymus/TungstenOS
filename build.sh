@@ -144,6 +144,10 @@ systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target 
 
 # SELinux: enforcing.
 sed -i 's/^SELINUX=.*/SELINUX=enforcing/; s/^SELINUXTYPE=.*/SELINUXTYPE='"$POLICY"'/' /etc/selinux/config
+# Permissions the kernel knows but the policy does not define yet are allowed (as on
+# Fedora); with "deny" they are refused without any audit message, which breaks early
+# boot services (kmod-static-nodes, systemd-pcrmachine) whenever the kernel is newer.
+echo 'handle-unknown = allow' >> /etc/selinux/semanage.conf
 semodule -n -s "$POLICY" -X 300 -i /root/tungsten-build/tungsten.pp
 # Confined logins (staff_t) cannot create user namespaces themselves.
 semanage login -N -S "$POLICY" -m -s staff_u __default__

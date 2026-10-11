@@ -46,7 +46,7 @@ done
 
 DEFS=$(mktemp -d)
 keyfile=$DEFS/key
-trap 'shred -u "$keyfile" 2>/dev/null; rm -rf "$DEFS"' EXIT
+trap 'shred -u "$keyfile" 2>/dev/null || :; rm -rf "$DEFS"' EXIT
 cat > "$DEFS/00-esp.conf" <<EOF
 [Partition]
 Type=esp

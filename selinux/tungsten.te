@@ -467,3 +467,72 @@ allow systemd_pcrphase_t var_lib_t:dir { remove_name rmdir };
 
 # The flatpak generator looks into root's cache.
 dontaudit systemd_generator_t xdg_cache_t:dir search;
+
+########################################
+# From a fresh install of the current image in permissive mode.
+
+gen_require(`
+	type gnome_xdg_data_t, shadow_t, sysfs_t, kernel_t, systemd_userdbd_t;
+	type systemd_modules_load_t, var_spool_t, tmp_t, xkb_var_lib_t;
+	class dbus send_msg;
+	class system reload;
+')
+
+# systemd-homework creates the home's file system and copies the skeleton into it
+# before it is labeled (tungsten home-label relabels it at the first login).
+allow systemd_homework_t unlabeled_t:dir { add_name create getattr open read remove_name rename search setattr write };
+allow systemd_homework_t unlabeled_t:file { create getattr open read rename setattr unlink write };
+allow systemd_homework_t unlabeled_t:lnk_file { create getattr read setattr };
+allow systemd_homework_t var_t:dir { getattr open read search };
+allow systemd_homework_t self:process setsched;
+allow systemd_homework_t self:netlink_kobject_uevent_socket { create bind getattr read setopt };
+allow systemd_homed_t unlabeled_t:dir getattr;
+allow systemd_homed_t var_t:dir { add_name create getattr open read search write };
+allow systemd_homed_t { var_spool_t tmp_t }:dir { getattr open read search };
+auth_use_nsswitch(systemd_homed_t)
+allow policykit_auth_t systemd_homed_t:dbus send_msg;
+
+# Trivalent: NSS database in ~/.local/share/pki (created below gnome's data directory),
+# dconf, its app scope (a transient unit) and logind/systemd over D-Bus.
+optional_policy(`
+	gen_require(`
+		type chromium_t, chromium_xdg_config_t;
+	')
+	filetrans_pattern(chromium_t, gnome_xdg_data_t, chromium_xdg_config_t, dir, "pki")
+	allow chromium_t gnome_xdg_data_t:dir { getattr search };
+	allow chromium_t user_tmp_t:file { getattr map open read write };
+	allow chromium_t staff_systemd_t:system { start status };
+	allow chromium_t { systemd_logind_t init_t }:dbus send_msg;
+	dontaudit chromium_t proc_t:filesystem associate;
+')
+
+# The session
+allow staff_systemd_t gnome_xdg_data_t:dir { getattr search };
+allow staff_dbusd_t staff_systemd_t:system reload;
+allow staff_t initrc_t:dbus send_msg;
+
+# systemd-tmpfiles
+allow systemd_tmpfiles_t tmpfs_t:dir { add_name write };
+allow systemd_tmpfiles_t tmpfs_t:lnk_file read;
+allow systemd_tmpfiles_t bin_t:file { getattr open read };
+allow systemd_tmpfiles_t auditd_etc_t:file { open read };
+allow systemd_tmpfiles_t shadow_t:file { getattr open read };
+allow systemd_tmpfiles_t var_lib_t:file { create getattr open setattr write };
+allow systemd_tmpfiles_t xkb_var_lib_t:dir { getattr open read search };
+optional_policy(`
+	gen_require(`
+		type plymouthd_var_lib_t, NetworkManager_var_lib_t, accountsd_var_lib_t;
+	')
+	allow systemd_tmpfiles_t { plymouthd_var_lib_t NetworkManager_var_lib_t accountsd_var_lib_t }:dir { getattr open read search };
+')
+
+# systemd-sysctl, udev, nsresourced, userdbd, modules-load
+allow systemd_sysctl_t var_run_t:file read;
+allow systemd_sysctl_t binfmt_misc_fs_t:file { open read write };
+allow udev_t kernel_t:netlink_kobject_uevent_socket { read write };
+allow udev_t tmpfs_t:file { read write };
+fs_rw_cgroup_files({ systemd_userdbd_t systemd_nsresourced_t })
+fs_read_cgroup_files(systemd_modules_load_t)
+# nsresourced loads its BPF program (kernel BTF in /sys/kernel/btf/vmlinux)
+allow systemd_nsresourced_t sysfs_t:file { getattr open read };
+allow systemd_nsresourced_t self:capability2 perfmon;

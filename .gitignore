@@ -64,3 +64,4 @@ prepare_qemu_disk.sh
 
 # Python
 __pycache__/
+selinux/check.sh
