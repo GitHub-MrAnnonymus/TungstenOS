@@ -165,3 +165,158 @@ files_read_etc_runtime_files(usbguard_t)
 allow systemd_homework_t fsadm_run_t:dir { add_name getattr search write };
 allow systemd_homework_t fsadm_run_t:file { create getattr lock open read write };
 
+
+########################################
+# Rules from permissive-mode testing (tungsten-debug denial lists), needed for enforcing.
+
+gen_require(`
+	type getty_t, tmpfs_t, init_t, init_runtime_t, lastlog_t, systemd_logind_t;
+	type staff_dbusd_t, staff_gkeyringd_t, system_dbusd_t, sysadm_t;
+	type user_devpts_t, user_tty_device_t, user_home_t, user_tmp_t, user_tmpfs_t;
+	type cert_t, cgroup_t, locale_t, nsfs_t, sysctl_fs_t, unlabeled_t;
+	type systemd_homed_storage_t, systemd_log_t, systemd_user_runtime_dir_t, udev_t;
+	type event_device_t, mount_runtime_t, node_t, unreserved_port_t;
+	type systemd_sessions_runtime_t, systemd_unit_t, systemd_user_tmpfs_t, systemd_user_runtime_t;
+	type xdg_config_t, xdg_data_t, device_t, bin_t, auditd_etc_t, shell_exec_t, var_t;
+	attribute exec_type;
+	role sysadm_r;
+')
+
+# --- run0 ---
+# systemd runs run0's PAM session in a child of PID 1, so pam_selinux picks root's
+# default context "from init_t". build.sh points that at sysadm_t (refpolicy has the
+# user manager domain sysadm_systemd_t there). run0 executes the requested program
+# directly, so any program is an entrypoint for the admin domain.
+role sysadm_r types sysadm_t;
+allow init_t sysadm_t:process { transition noatsecure rlimitinh siginh setsched };
+allow sysadm_t exec_type:file entrypoint;
+allow sysadm_t init_t:fd use;
+allow sysadm_t init_t:process sigchld;
+allow sysadm_t init_t:unix_stream_socket { getattr ioctl read write };
+# The terminal and redirections of the calling session.
+allow sysadm_t { local_login_t staff_t xdm_t }:fd use;
+allow sysadm_t { user_devpts_t user_tty_device_t }:chr_file { getattr ioctl open read write };
+allow sysadm_t user_home_t:file { append getattr ioctl write };
+
+# --- Console and graphical login ---
+files_read_etc_runtime_files(auditd_t)
+files_read_etc_runtime_files(policykit_t)
+allow getty_t tmpfs_t:dir { getattr open read search };
+corecmd_exec_bin(local_login_t)
+allow local_login_t init_runtime_t:sock_file write;
+allow local_login_t lastlog_t:dir read;
+allow local_login_t systemd_logind_t:unix_stream_socket connectto;
+allow local_login_t systemd_homed_runtime_t:fifo_file write;
+allow local_login_t systemd_homed_t:fd use;
+allow local_login_t tmpfs_t:dir read;
+allow local_login_t xdm_t:key search;
+
+# --- systemd-homed / homework (privileged home management) ---
+miscfiles_read_generic_certs(systemd_homed_t)
+allow systemd_homed_t cgroup_t:file { getattr open read write };
+allow systemd_homed_t locale_t:dir search;
+allow systemd_homed_t locale_t:file { getattr map open read };
+allow systemd_homed_t nsfs_t:file getattr;
+allow systemd_homed_t self:process getcap;
+allow systemd_homed_t systemd_homed_storage_t:file write;
+allow systemd_homed_t systemd_homework_t:fd use;
+allow systemd_homed_t user_home_dir_t:dir { getattr open read };
+allow systemd_homed_t var_t:dir read;
+allow system_dbusd_t systemd_homed_runtime_t:fifo_file write;
+allow system_dbusd_t systemd_homed_t:fd use;
+dontaudit system_dbusd_t user_home_t:file write;
+allow systemd_homework_t init_t:key write;
+allow systemd_homework_t locale_t:dir search;
+allow systemd_homework_t locale_t:file { getattr map open read };
+allow systemd_homework_t nsfs_t:file { getattr open read };
+allow systemd_homework_t self:capability { dac_read_search setfcap setgid setuid };
+allow systemd_homework_t self:cap_userns { sys_admin sys_ptrace };
+allow systemd_homework_t self:process { getcap sigkill };
+allow systemd_homework_t self:user_namespace create;
+allow systemd_homework_t sysctl_fs_t:dir search;
+allow systemd_homework_t sysctl_fs_t:file { getattr ioctl open read };
+allow systemd_homework_t systemd_homed_runtime_t:dir mounton;
+allow systemd_homework_t systemd_homed_t:unix_dgram_socket sendto;
+allow systemd_homework_t unlabeled_t:dir { mounton search };
+allow udev_t systemd_homed_storage_t:file getattr;
+
+# --- Other system services ---
+fs_rw_cgroup_files(systemd_logind_t)
+allow systemd_pcrphase_t nsfs_t:file getattr;
+# The userspace measurement log (/run/log/systemd/tpm2-measure.log) for predictions.
+allow systemd_pcrphase_t systemd_log_t:file { getattr open read };
+allow systemd_user_runtime_dir_t tmpfs_t:filesystem { quotaget quotamod };
+allow systemd_user_runtime_dir_t user_tmp_t:lnk_file unlink;
+
+# --- The user's systemd and session bus ---
+allow staff_systemd_t staff_t:fd use;
+allow staff_systemd_t staff_t:fifo_file write;
+allow staff_systemd_t staff_t:process2 nnp_transition;
+allow staff_systemd_t staff_gkeyringd_t:unix_stream_socket { bind create getattr listen setopt };
+allow staff_t staff_systemd_t:unix_dgram_socket sendto;
+allow staff_dbusd_t staff_t:unix_stream_socket { accept getattr getopt read write };
+
+# --- The desktop session (staff_t) ---
+# File change notifications (inotify) on the user's own and system files.
+allow staff_t { bin_t device_t user_runtime_t systemd_user_runtime_t systemd_sessions_runtime_t user_tmp_t }:dir watch;
+allow staff_t { xdg_config_t xdg_data_t user_tmp_t mount_runtime_t }:file watch;
+allow staff_t systemd_sessions_runtime_t:file { getattr open read };
+allow staff_t mount_runtime_t:file { getattr open read };
+allow staff_t systemd_unit_t:lnk_file read;
+allow staff_t nsfs_t:file getattr;
+# Input devices handed over by logind (keyboard LEDs).
+allow staff_t event_device_t:chr_file write;
+# Shared memory with the user's systemd, and memory-mapping own files.
+allow staff_t systemd_user_tmpfs_t:file { ioctl map read write };
+allow staff_t { user_home_t user_tmp_t }:file map;
+# libffi without writable+executable memory: code mapped from a second shm mapping.
+allow staff_t user_tmpfs_t:file execmod;
+# xdg-document-portal mounts its FUSE file system in $XDG_RUNTIME_DIR.
+allow staff_t user_tmp_t:dir mounton;
+# The polkit authentication agent and helper.
+allow staff_t policykit_auth_t:unix_stream_socket connectto;
+allow staff_t var_run_t:sock_file write;
+# Listening sockets on unprivileged ports (KDE Connect: 1714-1764).
+allow staff_t node_t:{ tcp_socket udp_socket } node_bind;
+allow staff_t unreserved_port_t:{ tcp_socket udp_socket } name_bind;
+dontaudit staff_t auditd_etc_t:dir { getattr open read search };
+dontaudit staff_t auditd_etc_t:file getattr;
+dontaudit staff_t systemd_homed_record_t:dir write;
+dontaudit staff_t systemd_homed_record_t:file write;
+
+# --- bwrap (Flatpak, glycin, Trivalent's launcher) ---
+optional_policy(`
+	gen_require(`
+		type staff_bubblewrap_t;
+	')
+	allow staff_bubblewrap_t self:process getsched;
+	allow staff_bubblewrap_t staff_t:netlink_kobject_uevent_socket { read write };
+	allow staff_bubblewrap_t user_tmpfs_t:file map;
+')
+
+# --- Trivalent (chromium_t) ---
+optional_policy(`
+	gen_require(`
+		type chromium_t, chromium_xdg_config_t;
+	')
+	# NSS certificate database in ~/.local/share/pki
+	filetrans_pattern(chromium_t, xdg_data_t, chromium_xdg_config_t, dir, "pki")
+	# Wayland socket and buffers shared with the compositor
+	allow chromium_t user_tmp_t:sock_file write;
+	allow chromium_t user_tmpfs_t:file { getattr map read };
+	allow chromium_t staff_t:file { getattr open read };
+')
+
+optional_policy(`
+	gen_require(`
+		type gpg_t;
+	')
+	allow staff_systemd_t gpg_t:unix_stream_socket { bind create getattr listen setopt };
+')
+
+optional_policy(`
+	gen_require(`
+		type virt_etc_rw_t;
+	')
+	allow staff_t virt_etc_rw_t:lnk_file read;
+')

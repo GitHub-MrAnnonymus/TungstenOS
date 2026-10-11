@@ -25,8 +25,7 @@ check "Unprivileged BPF disabled" sh -c '[ "$(cat /proc/sys/kernel/unprivileged_
 check "ptrace restricted to admins (Yama 2+)" sh -c '[ "$(cat /proc/sys/kernel/yama/ptrace_scope)" -ge 2 ]'
 
 section "Mandatory access control"
-if [ "$(getenforce 2>/dev/null)" = Enforcing ]; then pass "SELinux enforcing"
-else warn "SELinux is $(getenforce 2>/dev/null || echo off) (permissive until the desktop policy is complete)"; fi
+check "SELinux enforcing" sh -c '[ "$(getenforce)" = Enforcing ]'
 check "Login confined (not unconfined_t)" sh -c '! id -Z | grep -q unconfined_t'
 
 section "Execution and memory"

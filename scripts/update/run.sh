@@ -65,13 +65,14 @@ run kernel          kernel/update-kernel.sh
 run secureblue      scripts/update/secureblue.sh
 run hardened_malloc scripts/update/hardened-malloc.sh
 run dms-greeter     scripts/update/greeter.sh
+run qt-rebuild      scripts/update/qt-rebuild.sh
 push_branch
 
 changed=$(git diff --name-only "$START" HEAD)
 groups=()
 grep -qE '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' <<<"$changed" && groups+=(kernel)
 grep -qE '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' <<<"$changed" && groups+=(selinux)
-grep -qE '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as)/' <<<"$changed" && groups+=(misc)
+grep -qE '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine)/' <<<"$changed" && groups+=(misc)
 echo "groups=${groups[*]}" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 
 if [ ${#failed[@]} -gt 0 ]; then

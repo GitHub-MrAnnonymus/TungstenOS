@@ -54,7 +54,7 @@ PACKAGES=(
 
   # Desktop
   plymouth greetd greetd-dms-greeter flatpak
-  hyprland uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dms-shell quickshell
+  hyprland uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dms-shell quickshell qtengine
   matugen polkit alacritty zsh nautilus nwg-look adw-gtk-theme kdeconnect papirus-icon-theme
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
@@ -142,8 +142,8 @@ systemctl mask systemd-firstboot.service
 # See /etc/systemd/logind.conf
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 
-# SELinux: permissive until the desktop policy is complete.
-sed -i 's/^SELINUX=.*/SELINUX=permissive/; s/^SELINUXTYPE=.*/SELINUXTYPE='"$POLICY"'/' /etc/selinux/config
+# SELinux: enforcing.
+sed -i 's/^SELINUX=.*/SELINUX=enforcing/; s/^SELINUXTYPE=.*/SELINUXTYPE='"$POLICY"'/' /etc/selinux/config
 semodule -n -s "$POLICY" -X 300 -i /root/tungsten-build/tungsten.pp
 # Confined logins (staff_t) cannot create user namespaces themselves.
 semanage login -N -S "$POLICY" -m -s staff_u __default__
@@ -153,6 +153,13 @@ semanage fcontext -N -S "$POLICY" -a -e /etc /usr/share/factory/etc
 semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
 # logind reads boot loader entries on the ESP (reboot into a chosen entry).
 semanage boolean -N -S "$POLICY" -m --on systemd_logind_get_bootloader
+# The compositor (staff_t) maps GPU buffers.
+semanage boolean -N -S "$POLICY" -m --on xserver_allow_dri
+# run0: PID 1 runs its PAM session, so pam_selinux looks up root's context "from init_t";
+# use the admin domain instead of the user manager domain (selinux/tungsten.te).
+ctx=/etc/selinux/$POLICY/contexts/users/root
+grep -q '^system_r:init_t' "$ctx"
+sed -i 's/^system_r:init_t.*/system_r:init_t\t\tsysadm_r:sysadm_t/' "$ctx"
 
 bash /root/tungsten-build/remove-suid.sh
 

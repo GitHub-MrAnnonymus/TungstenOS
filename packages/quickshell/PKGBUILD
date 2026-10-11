@@ -1,10 +1,13 @@
 # Arch Linux's quickshell package plus a fix for a use-after-free that crashes it under
 # hardened_malloc (https://github.com/quickshell-mirror/quickshell/issues/947).
 # Drop this package once a release contains the fix.
+# It uses Qt's private API, so it must be rebuilt for every Qt minor release:
+# scripts/update/qt-rebuild.sh updates _qtver and pkgrel.
 
 pkgname=quickshell
 pkgver=0.3.1
-pkgrel=1.1
+pkgrel=1.2
+_qtver=6.12
 pkgdesc='Flexible toolkit for making desktop shells with QtQuick'
 arch=(x86_64)
 url="https://git.outfoxxed.me/$pkgname/$pkgname"
@@ -22,7 +25,7 @@ depends=(cpptrace libcpptrace.so
          mesa
          pam libpam.so
          polkit
-         qt6-base
+         "qt6-base>=$_qtver" "qt6-base<${_qtver%.*}.$(( ${_qtver#*.} + 1 ))"
          qt6-declarative
          qt6-svg
          qt6-wayland

@@ -31,3 +31,9 @@ HOME_DIR/\.cache/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_ca
 /var/lib/greeter(/.*)?				gen_context(system_u:object_r:user_home_t)
 /var/cache/dms-greeter(/.*)?			gen_context(system_u:object_r:user_home_t)
 /var/tmp/trivalent_cache(/.*)?			gen_context(system_u:object_r:chromium_xdg_cache_t)
+HOME_DIR/\.local/share/pki(/.*)?			gen_context(system_u:object_r:chromium_xdg_config_t)
+
+# Run by pam_exec in the login domains; glycin's image loaders, started through bwrap,
+# return to the user domain as programs.
+/usr/lib/tungsten/home-label			--	gen_context(system_u:object_r:bin_t)
+/usr/lib/glycin-loaders(/.*)?				gen_context(system_u:object_r:bin_t)

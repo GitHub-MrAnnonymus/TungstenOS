@@ -25,7 +25,7 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 | Operating system | Read-only EROFS `/usr` image verified by dm-verity; the verity root hash is embedded in the signed UKI |
 | Code integrity | IPE restricts kernel modules and firmware to the verified image and its extensions; module signatures are enforced |
 | Execution control | The writable root partition, homes, `/tmp` and `/dev/shm` are mounted `noexec`, and SELinux denies confined users execution from their home and `/tmp`; the only writable executable location is system-wide Flatpak |
-| Mandatory access control | SELinux (refpolicy) with all logins confined as `staff_u`; permissive until the desktop policy is complete |
+| Mandatory access control | SELinux (refpolicy) in enforcing mode, with all logins confined as `staff_u` and `run0` in the admin domain |
 | User namespaces | Enabled, but creation is permitted only to SELinux domains that need it (browser sandbox, bubblewrap) |
 | Privileges | No setuid or setgid binaries; administration through `run0` and polkit |
 | Kernel | Linux stable with selected [linux-hardened](https://github.com/anthraxx/linux-hardened) patches, built with Clang (kCFI/FineIBT), reduced attack surface and lockdown in confidentiality mode |
