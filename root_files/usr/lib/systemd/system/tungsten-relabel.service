@@ -1,13 +1,25 @@
+# On the first boot (and after a factory reset) the root partition is new: systemd-repart
+# creates it in the initrd, where no SELinux policy is loaded, so everything on it is
+# unlabeled_t. Label it before any early service touches it: with an enforcing policy,
+# kmod-static-nodes, systemd-tpm2-setup, systemd-pcrmachine (which forces a reboot when it
+# fails) and journald's files on /var would otherwise be denied.
 [Unit]
 Description=Apply SELinux labels to the root partition
 DefaultDependencies=no
-After=local-fs.target
-Before=sysinit.target systemd-tmpfiles-setup.service
+RequiresMountsFor=/var /etc
+Before=sysinit.target local-fs.target
+Before=kmod-static-nodes.service systemd-modules-load.service
+Before=systemd-tmpfiles-setup-dev-early.service systemd-tmpfiles-setup-dev.service systemd-tmpfiles-setup.service
+Before=systemd-journal-flush.service systemd-random-seed.service systemd-sysusers.service
+Before=systemd-tpm2-setup.service systemd-pcrmachine.service systemd-pcrphase-sysinit.service
+Before=systemd-userdbd.service systemd-machine-id-commit.service
 ConditionSecurity=selinux
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+# The top directories first (the script itself reads /etc/selinux/config through them).
+ExecStartPre=/usr/bin/restorecon -F / /etc /var /var/lib
 ExecStart=/usr/lib/tungsten/relabel
 
 [Install]

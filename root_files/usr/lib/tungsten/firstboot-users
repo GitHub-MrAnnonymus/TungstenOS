@@ -13,6 +13,13 @@ if homectl list --no-legend 2>/dev/null | grep -q .; then
   exit 0   # accounts exist already (or were provisioned via credentials)
 fi
 
+# Plymouth owns the console until the login screen starts and would swallow the prompts
+# and the typed answers; PID 1's status messages would scroll over them.
+plymouth quit 2>/dev/null || :
+kill -s RTMIN+21 1 2>/dev/null || :          # status messages off
+trap 'kill -s RTMIN+20 1 2>/dev/null || :' EXIT
+clear 2>/dev/null || :
+
 ask_name() {
   local prompt=$1 default=${2:-} name
   while :; do
