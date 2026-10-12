@@ -224,6 +224,24 @@ jobs:
             mv -f "$p" "$p.sig" repo/
           done
           cd repo
+          # Only the newest version of each package stays. repo-add takes its arguments in
+          # name order, where 7.2.10 sorts before 7.2.8, and would let the older version
+          # replace (and with --remove delete) the newer one.
+          declare -A newest
+          for p in ./*.pkg.tar.zst; do
+            info=$(bsdtar -xOf "$p" .PKGINFO)
+            name=$(sed -n 's/^pkgname = //p' <<<"$info")
+            ver=$(sed -n 's/^pkgver = //p' <<<"$info")
+            if [ -z "${newest[$name]:-}" ]; then newest[$name]="$ver $p"; continue; fi
+            read -r best bestfile <<<"${newest[$name]}"
+            if [ "$(vercmp "$ver" "$best")" -gt 0 ]; then
+              echo "replacing $(basename "$bestfile") with $(basename "$p")"
+              rm -f "$bestfile" "$bestfile.sig"; newest[$name]="$ver $p"
+            else
+              echo "keeping $(basename "$bestfile") over $(basename "$p")"
+              rm -f "$p" "$p.sig"
+            fi
+          done
           # Rebuilt from the files present, so the database always matches them.
           rm -f tungsten.db.tar.zst tungsten.files.tar.zst
           repo-add --remove --sign --key "$KEY" tungsten.db.tar.zst ./*.pkg.tar.zst

@@ -633,3 +633,9 @@ allow { system_dbusd_t init_t sysadm_t } staff_t:fifo_file { getattr ioctl read 
 allow { system_dbusd_t init_t } { user_devpts_t user_tty_device_t }:chr_file { getattr ioctl read write };
 allow { system_dbusd_t init_t sysadm_t } { user_home_t user_tmp_t }:file { append getattr ioctl read write };
 
+
+# run0's password agent watches /run/systemd/ask-password for prompts of system services.
+gen_require(`
+	type systemd_passwd_runtime_t;
+')
+allow staff_t systemd_passwd_runtime_t:dir { getattr open read search watch };
