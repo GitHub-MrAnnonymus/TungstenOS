@@ -516,7 +516,9 @@ allow systemd_tmpfiles_t tmpfs_t:dir { add_name write };
 allow systemd_tmpfiles_t tmpfs_t:lnk_file read;
 allow systemd_tmpfiles_t bin_t:file { getattr open read };
 allow systemd_tmpfiles_t auditd_etc_t:file { open read };
-allow systemd_tmpfiles_t shadow_t:file { getattr open read };
+# Checks permissions on /etc/gshadow; reading shadow files is reserved (neverallow).
+allow systemd_tmpfiles_t shadow_t:file getattr;
+dontaudit systemd_tmpfiles_t shadow_t:file { open read };
 allow systemd_tmpfiles_t var_lib_t:file { create getattr open setattr write };
 allow systemd_tmpfiles_t xkb_var_lib_t:dir { getattr open read search };
 optional_policy(`
