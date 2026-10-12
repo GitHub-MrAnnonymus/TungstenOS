@@ -1,0 +1,25 @@
+#!/bin/bash
+# Locks every gnome-keyring collection while the session is locked, so the secrets are not
+# decrypted in memory while the machine is unattended. Watches the session's LockedHint
+# and Lock signal at logind; the lock screen unlocks the keyrings again through PAM
+# (/etc/pam.d/dankshell), otherwise the next app that needs a secret asks for the password.
+set -euo pipefail
+
+session=$(busctl --system call org.freedesktop.login1 /org/freedesktop/login1 \
+  org.freedesktop.login1.Manager GetSession s "${XDG_SESSION_ID:?}" | awk '{print $2}' | tr -d '"')
+
+lock_keyrings() {
+  local collections
+  read -ra collections < <(busctl --user get-property org.freedesktop.secrets /org/freedesktop/secrets \
+    org.freedesktop.Secret.Service Collections 2>/dev/null | cut -d' ' -f3-) || return 0
+  [ ${#collections[@]} -gt 0 ] || return 0
+  busctl --user call org.freedesktop.secrets /org/freedesktop/secrets \
+    org.freedesktop.Secret.Service Lock ao "${#collections[@]}" "${collections[@]//\"/}" >/dev/null \
+    && echo "locked ${#collections[@]} keyring collection(s)"
+}
+
+gdbus monitor --system --dest org.freedesktop.login1 --object-path "$session" | while read -r line; do
+  case $line in
+    *"'LockedHint': <true>"*|*".Session.Lock ()"*) lock_keyrings ;;
+  esac
+done

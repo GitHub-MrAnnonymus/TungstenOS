@@ -37,6 +37,7 @@ HOME_DIR/\.local/share/pki(/.*)?			gen_context(system_u:object_r:chromium_xdg_co
 # return to the user domain as programs.
 /usr/lib/tungsten/home-label			--	gen_context(system_u:object_r:bin_t)
 /usr/lib/tungsten/firstboot-users		--	gen_context(system_u:object_r:bin_t)
+/usr/lib/tungsten/keyring-lock			--	gen_context(system_u:object_r:bin_t)
 /usr/lib/glycin-loaders(/.*)?				gen_context(system_u:object_r:bin_t)
 # The global override is configuration written by tmpfiles, not a program.
 /var/lib/flatpak/overrides(/.*)?			gen_context(system_u:object_r:var_lib_t)

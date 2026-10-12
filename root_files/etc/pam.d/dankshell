@@ -1,0 +1,7 @@
+#%PAM-1.0
+# The DankMaterialShell lock screen: the same checks as a login (pam_faillock, the failure
+# delay, systemd-homed), then gnome-keyring unlocks the keyrings that were locked with the
+# session (tungsten-keyring-lock.service), using the password just typed.
+auth       include      system-auth
+auth       optional     pam_gnome_keyring.so
+account    include      system-auth

@@ -1,0 +1,11 @@
+[Unit]
+Description=Lock the keyrings while the session is locked
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/lib/tungsten/keyring-lock
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target

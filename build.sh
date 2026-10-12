@@ -139,6 +139,8 @@ systemctl enable \
 systemctl disable systemd-timesyncd.service
 # Locale, keymap and timezone come from the image, and root stays locked: never ask.
 systemctl mask systemd-firstboot.service
+# Locks the keyrings while a session is locked (all users).
+systemctl --global enable tungsten-keyring-lock.service
 # See /etc/systemd/logind.conf
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 
@@ -215,6 +217,13 @@ sed -i '/^session *required *pam_selinux.so open/i session    optional   pam_exe
 # 3 failures, but its counters live in /run; every failure also waits 3 seconds.
 grep -q '^auth *required *pam_faillock.so *preauth' /etc/pam.d/system-auth
 sed -i '/^auth *required *pam_faillock.so *preauth/a auth       optional                    pam_faildelay.so     delay=3000000' /etc/pam.d/system-auth
+
+# gnome-keyring: the login password unlocks the login keyring.
+grep -q '^auth *include *system-local-login' /etc/pam.d/greetd
+grep -q pam_gnome_keyring /etc/pam.d/greetd || {
+  sed -i '/^auth *include *system-local-login/a auth       optional     pam_gnome_keyring.so' /etc/pam.d/greetd
+  sed -i '/^session *include *system-local-login/a session    optional     pam_gnome_keyring.so auto_start' /etc/pam.d/greetd
+}
 
 # The administrator (wheel) only authorizes run0/polkit; it may not log in at the login
 # screen (a console login still works).
