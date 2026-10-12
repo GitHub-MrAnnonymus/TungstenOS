@@ -578,3 +578,31 @@ optional_policy(`
 	')
 	allow virtd_t init_tmpfs_t:file { getattr open read };
 ')
+
+########################################
+# From the first enforcing boot (denials hidden by dontaudit rules).
+
+gen_require(`
+	type mount_t, fuse_device_t;
+	role staff_r;
+')
+
+# run0 asks PID 1 over D-Bus to start its unit; a denied message makes dbus-broker drop
+# the connection ("Connection reset by peer") without an audit record.
+init_dbus_chat(staff_t)
+
+# systemd-coredump reads /etc/selinux/config to find the policy for labeling (without it:
+# "Failed to initialize SELinux labeling handle: No such file or directory").
+seutil_read_config(systemd_coredump_t)
+seutil_search_default_contexts(systemd_coredump_t)
+
+# User FUSE mounts (xdg-document-portal, gvfsd-fuse): fusermount3 carries
+# cap_sys_admin as a file capability. Run it in the mount domain, which may use that
+# capability, instead of granting sys_admin to staff_t. It mounts in $XDG_RUNTIME_DIR and
+# hands the /dev/fuse descriptor back over the caller's socket.
+mount_run(staff_t, staff_r)
+allow mount_t fuse_device_t:chr_file { getattr ioctl open read write };
+allow mount_t user_tmp_t:dir { getattr mounton search };
+allow mount_t staff_t:fd use;
+allow mount_t staff_t:unix_stream_socket { getattr read write };
+allow mount_t staff_t:fifo_file { read write };
