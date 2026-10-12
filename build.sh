@@ -159,6 +159,12 @@ semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
 semanage boolean -N -S "$POLICY" -m --on systemd_logind_get_bootloader
 # The compositor (staff_t) maps GPU buffers.
 semanage boolean -N -S "$POLICY" -m --on xserver_allow_dri
+# Not even root (sysadm_t) can switch to permissive, load another policy or change
+# booleans at runtime; the policy changes only with an image update. Booting with
+# enforcing=0 needs a kernel command line change, i.e. an unsigned add-on, which Secure
+# Boot rejects.
+semanage boolean -N -S "$POLICY" -m --on secure_mode_policyload
+semanage boolean -N -S "$POLICY" -m --on secure_mode_setbool
 # run0: PID 1 runs its PAM session, so pam_selinux looks up root's context "from init_t";
 # use the admin domain instead of the user manager domain (selinux/tungsten.te).
 ctx=/etc/selinux/$POLICY/contexts/users/root
@@ -204,6 +210,16 @@ echo 'Subset=verified' >> /etc/flatpak/remotes.d/flathub.flatpakrepo
 # Before pam_selinux opens the user's context, so it runs in the login domain.
 grep -q '^session *required *pam_selinux.so open' /etc/pam.d/system-login
 sed -i '/^session *required *pam_selinux.so open/i session    optional   pam_exec.so quiet /usr/lib/tungsten/home-label' /etc/pam.d/system-login
+
+# Brute force: pam_faillock (system-auth) already locks an account for 10 minutes after
+# 3 failures, but its counters live in /run; every failure also waits 3 seconds.
+grep -q '^auth *required *pam_faillock.so *preauth' /etc/pam.d/system-auth
+sed -i '/^auth *required *pam_faillock.so *preauth/a auth       optional                    pam_faildelay.so     delay=3000000' /etc/pam.d/system-auth
+
+# The administrator (wheel) only authorizes run0/polkit; it may not log in at the login
+# screen (a console login still works).
+grep -q '^account *include *system-local-login' /etc/pam.d/greetd
+sed -i '/^account *include *system-local-login/i account    requisite    pam_succeed_if.so quiet user notingroup wheel' /etc/pam.d/greetd
 
 passwd -l root
 rm -rf /etc/machine-id /root/tungsten-build

@@ -26,6 +26,8 @@ check "ptrace restricted to admins (Yama 2+)" sh -c '[ "$(cat /proc/sys/kernel/y
 
 section "Mandatory access control"
 check "SELinux enforcing" sh -c '[ "$(getenforce)" = Enforcing ]'
+check "SELinux cannot be switched off at runtime (secure_mode_policyload)" \
+  sh -c '[ "$(cat /sys/fs/selinux/booleans/secure_mode_policyload)" = "1 1" ]'
 check "Login confined (not unconfined_t)" sh -c '! id -Z | grep -q unconfined_t'
 
 section "Execution and memory"

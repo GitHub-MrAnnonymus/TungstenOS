@@ -27,7 +27,8 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 | Execution control | The writable root partition, homes, `/tmp` and `/dev/shm` are mounted `noexec`, and SELinux denies confined users execution from their home and `/tmp`; the only writable executable location is system-wide Flatpak |
 | Mandatory access control | SELinux (refpolicy) in enforcing mode, with all logins confined as `staff_u` and `run0` in the admin domain |
 | User namespaces | Enabled, but creation is permitted only to SELinux domains that need it (browser sandbox, bubblewrap) |
-| Privileges | No setuid or setgid binaries; administration through `run0` and polkit |
+| Privileges | No setuid or setgid binaries; administration through `run0` and polkit with a separate administrator account that cannot log in at the login screen |
+| Password guessing | 3 failed attempts lock an account for 10 minutes (`pam_faillock`), every failure waits 3 seconds, and systemd-homed allows at most 10 password checks per 5 minutes per account, also across reboots |
 | Kernel | Linux stable with selected [linux-hardened](https://github.com/anthraxx/linux-hardened) patches, built with Clang (kCFI/FineIBT), reduced attack surface and lockdown in confidentiality mode |
 | Disk encryption | LUKS2 bound to the TPM through a signed PCR 11 policy valid only in the initrd, plus a systemd-pcrlock policy for firmware, Secure Boot and bootloader (optional PIN); the TPM rate-limits PIN guesses and its lockout cannot be reset; each home is a separate systemd-homed LUKS image |
 | Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded into every process (`/etc/ld.so.preload`), with [no_rlimit_as](https://github.com/HastD/no_rlimit_as) so address-space limits cannot break it; also preloaded into Flatpak apps |
@@ -161,14 +162,10 @@ Before writing, the script checks the TPM event log and warns if the selection w
 ### First boot
 
 1. Unlock the root partition with the recovery passphrase.
-2. Create the first user when prompted. This account is added to `wheel` and is the administrator.
-3. Bind the root partition to the TPM. This shows a pcrlock recovery PIN once; store it with the passphrase. After a factory reset, the same command also creates a recovery key.
+2. Create two accounts when prompted: an administrator and your everyday account, with different passwords. The administrator is in `wheel`; its password authorizes `run0` and polkit prompts, and it cannot log in at the login screen (only on a console). Someone who learns the everyday password still cannot become root.
+3. Log in with the everyday account and bind the root partition to the TPM (`run0` asks for the administrator's password). This shows a pcrlock recovery PIN once; store it with the passphrase. After a factory reset, the same command also creates a recovery key.
    ```sh
    run0 tungsten-tpm-enroll
-   ```
-4. Create a separate everyday account outside `wheel`:
-   ```sh
-   run0 homectl create <name> --storage=luks --noexec=yes
    ```
 
 ## Updates

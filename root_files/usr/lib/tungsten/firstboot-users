@@ -1,0 +1,46 @@
+#!/bin/bash
+# First boot (systemd-homed-firstboot.service): creates two systemd-homed accounts.
+#  - an administrator (wheel): only authorizes run0 and polkit prompts with its own
+#    password, may log in on a console but not at the login screen;
+#  - the everyday account (not wheel), used for the desktop.
+# Someone who learns the everyday password still cannot become root.
+# homed's own rate limit is stored in the account record, so unlike pam_faillock's
+# counters it survives reboots: at most 10 password checks per 5 minutes.
+set -euo pipefail
+LIMITS=(--rate-limit-interval=300 --rate-limit-burst=10)
+
+if homectl list --no-legend 2>/dev/null | grep -q .; then
+  exit 0   # accounts exist already (or were provisioned via credentials)
+fi
+
+ask_name() {
+  local prompt=$1 default=${2:-} name
+  while :; do
+    read -r -p "$prompt${default:+ [$default]}: " name
+    name=${name:-$default}
+    if [[ $name =~ ^[a-z_][a-z0-9_-]{0,30}$ ]] && ! getent passwd "$name" >/dev/null; then
+      echo "$name"; return
+    fi
+    echo "Use lowercase letters, digits, - and _, starting with a letter, and a name not in use." >&2
+  done
+}
+
+cat <<'TEXT'
+
+Welcome to TungstenOS. Two accounts are created now:
+
+ 1. An administrator. Its password is asked when you run run0 or when a settings
+    dialog needs authorization. It cannot log in at the login screen.
+ 2. Your everyday account, for the desktop.
+
+Use different passwords for the two.
+
+TEXT
+admin=$(ask_name "Administrator account name" admin)
+homectl create "$admin" --real-name=Administrator --storage=luks \
+  --member-of=wheel --noexec=yes "${LIMITS[@]}"
+echo
+user=$(ask_name "Your everyday account name")
+homectl create "$user" --storage=luks --noexec=yes "${LIMITS[@]}"
+echo
+echo "Done. Log in as $user at the login screen."
