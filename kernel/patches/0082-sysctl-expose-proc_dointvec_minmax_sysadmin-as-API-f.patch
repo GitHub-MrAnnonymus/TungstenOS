@@ -51,7 +51,7 @@ index f15732e..1b8a2a6 100644
  	{
  		.procname	= "printk",
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 5761345..3a43c1f 100644
+index 54dcb0b..549c3c8 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
 @@ -867,6 +867,35 @@ int proc_douintvec(const struct ctl_table *table, int dir, void *buffer,

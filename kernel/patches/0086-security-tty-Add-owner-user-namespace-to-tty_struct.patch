@@ -26,7 +26,7 @@ Signed-off-by: Matt Brown <matt@nmatt.com>
  2 files changed, 4 insertions(+)
 
 diff --git a/drivers/tty/tty_io.c b/drivers/tty/tty_io.c
-index 4889076..992843a 100644
+index b7472f4..382febf 100644
 --- a/drivers/tty/tty_io.c
 +++ b/drivers/tty/tty_io.c
 @@ -171,6 +171,7 @@ static void free_tty_struct(struct tty_struct *tty)
@@ -37,7 +37,7 @@ index 4889076..992843a 100644
  	kfree(tty);
  }
  
-@@ -3130,6 +3131,7 @@ struct tty_struct *alloc_tty_struct(struct tty_driver *driver, int idx)
+@@ -3148,6 +3149,7 @@ struct tty_struct *alloc_tty_struct(struct tty_driver *driver, int idx)
  	tty->index = idx;
  	tty_line_name(driver, idx, tty->name);
  	tty->dev = tty_get_device(tty);
@@ -46,7 +46,7 @@ index 4889076..992843a 100644
  	return tty;
  }
 diff --git a/include/linux/tty.h b/include/linux/tty.h
-index 0a46e40..99c7338 100644
+index ad4e4a8..77747db 100644
 --- a/include/linux/tty.h
 +++ b/include/linux/tty.h
 @@ -14,6 +14,7 @@
@@ -57,7 +57,7 @@ index 0a46e40..99c7338 100644
  
  
  /*
-@@ -240,6 +241,7 @@ struct tty_struct {
+@@ -241,6 +242,7 @@ struct tty_struct {
  	struct list_head tty_files;
  
  	struct work_struct SAK_work;

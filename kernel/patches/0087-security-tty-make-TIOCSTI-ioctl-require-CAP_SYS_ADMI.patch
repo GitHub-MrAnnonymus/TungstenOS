@@ -98,10 +98,10 @@ index 78051f2..a02683f 100644
  ===================
  
 diff --git a/drivers/tty/tty_io.c b/drivers/tty/tty_io.c
-index 992843a..4f8f6f5 100644
+index 382febf..f907440 100644
 --- a/drivers/tty/tty_io.c
 +++ b/drivers/tty/tty_io.c
-@@ -2257,6 +2257,7 @@ static int tty_fasync(int fd, struct file *filp, int on)
+@@ -2259,6 +2259,7 @@ static int tty_fasync(int fd, struct file *filp, int on)
  }
  
  static bool tty_legacy_tiocsti __read_mostly = IS_ENABLED(CONFIG_LEGACY_TIOCSTI);
@@ -109,7 +109,7 @@ index 992843a..4f8f6f5 100644
  /**
   * tiocsti - fake input character
   * @tty: tty to fake input into
-@@ -2278,6 +2279,12 @@ static int tiocsti(struct tty_struct *tty, u8 __user *p)
+@@ -2280,6 +2281,12 @@ static int tiocsti(struct tty_struct *tty, u8 __user *p)
  	if (!tty_legacy_tiocsti && !capable(CAP_SYS_ADMIN))
  		return -EIO;
  
@@ -122,7 +122,7 @@ index 992843a..4f8f6f5 100644
  	if ((current->signal->tty != tty) && !capable(CAP_SYS_ADMIN))
  		return -EPERM;
  	if (get_user(ch, p))
-@@ -3644,6 +3651,15 @@ static const struct ctl_table tty_table[] = {
+@@ -3664,6 +3671,15 @@ static const struct ctl_table tty_table[] = {
  		.extra1		= SYSCTL_ZERO,
  		.extra2		= SYSCTL_ONE,
  	},

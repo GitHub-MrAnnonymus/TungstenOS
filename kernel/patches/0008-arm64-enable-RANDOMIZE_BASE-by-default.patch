@@ -8,10 +8,10 @@ Subject: [PATCH 008/101] arm64: enable RANDOMIZE_BASE by default
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index db96417..2f41658 100644
+index ed96edc..61f5bc0 100644
 --- a/arch/arm64/Kconfig
 +++ b/arch/arm64/Kconfig
-@@ -2364,6 +2364,7 @@ config RELOCATABLE
+@@ -2394,6 +2394,7 @@ config RELOCATABLE
  config RANDOMIZE_BASE
  	bool "Randomize the address of the kernel image"
  	select RELOCATABLE

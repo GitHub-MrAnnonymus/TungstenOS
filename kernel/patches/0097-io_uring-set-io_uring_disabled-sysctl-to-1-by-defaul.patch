@@ -19,7 +19,7 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@ssi.gouv.fr>
  1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
-index 6b7db9a..31747ca 100644
+index c5404fb..e6e0f66 100644
 --- a/io_uring/io_uring.c
 +++ b/io_uring/io_uring.c
 @@ -126,7 +126,7 @@ static __read_mostly DEFINE_STATIC_KEY_DEFERRED_FALSE(io_key_has_sqarray, HZ);

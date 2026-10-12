@@ -22,7 +22,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  2 files changed, 43 insertions(+), 3 deletions(-)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index 38df8eb..33542e9 100644
+index 681492f..3d911a4 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -245,6 +245,12 @@ static inline bool kmem_cache_debug(struct kmem_cache *s)
@@ -56,7 +56,7 @@ index 38df8eb..33542e9 100644
  		kasan_unpoison_new_object(s, object);
  		s->ctor(object);
  		kasan_poison_new_object(s, object);
-@@ -4570,7 +4576,7 @@ static __fastpath_inline
+@@ -4580,7 +4586,7 @@ static __fastpath_inline
  bool slab_post_alloc_hook(struct kmem_cache *s, gfp_t flags, size_t size,
  			  void **p, const struct slab_alloc_context *ac)
  {
@@ -65,7 +65,7 @@ index 38df8eb..33542e9 100644
  	unsigned int zero_size = s->object_size;
  	gfp_t init_flags = flags & gfp_allowed_mask;
  	bool kasan_init = false;
-@@ -4933,6 +4939,17 @@ static __fastpath_inline void *slab_alloc_node(struct kmem_cache *s,
+@@ -4943,6 +4949,17 @@ static __fastpath_inline void *slab_alloc_node(struct kmem_cache *s,
  
  	maybe_wipe_obj_freeptr(s, object);
  
@@ -83,7 +83,7 @@ index 38df8eb..33542e9 100644
  out:
  	/*
  	 * In case this fails due to memcg_slab_post_alloc_hook(),
-@@ -7387,6 +7404,21 @@ static bool __kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags,
+@@ -7406,6 +7423,21 @@ static bool __kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags,
  		stat_add(s, ALLOC_SLOWPATH, i);
  	}
  

@@ -13,7 +13,7 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@ssi.gouv.fr>
  1 file changed, 36 insertions(+), 1 deletion(-)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index 0a3b2fa..40135f9 100644
+index 5a85c83..86ae00d 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -946,10 +946,45 @@ static inline void set_canary(struct kmem_cache *s, void *object, unsigned long

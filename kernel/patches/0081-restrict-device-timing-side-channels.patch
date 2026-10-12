@@ -19,7 +19,7 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@ssi.gouv.fr>
  6 files changed, 58 insertions(+), 3 deletions(-)
 
 diff --git a/fs/inode.c b/fs/inode.c
-index 95e981b..7e95858 100644
+index c6b08e8..0f33fbc 100644
 --- a/fs/inode.c
 +++ b/fs/inode.c
 @@ -163,6 +163,10 @@ late_initcall(mg_debugfs_init);

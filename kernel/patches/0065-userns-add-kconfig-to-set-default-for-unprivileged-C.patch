@@ -22,10 +22,10 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  2 files changed, 20 insertions(+)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index 365a853..b9d8b5c 100644
+index abace4f..c8b7f4e 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1449,6 +1449,22 @@ config USER_NS
+@@ -1454,6 +1454,22 @@ config USER_NS
  
  	  If unsure, say N.
  

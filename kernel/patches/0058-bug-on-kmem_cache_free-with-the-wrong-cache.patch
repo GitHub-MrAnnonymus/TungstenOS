@@ -15,10 +15,10 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@ssi.gouv.fr>
  1 file changed, 4 insertions(+)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index ee4a0ca..2b0c63e 100644
+index bc3ccb8..7b00246 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -6482,6 +6482,9 @@ static noinline void warn_free_bad_obj(struct kmem_cache *s, void *obj)
+@@ -6501,6 +6501,9 @@ static noinline void warn_free_bad_obj(struct kmem_cache *s, void *obj)
  
  	cachep = slab->slab_cache;
  
@@ -28,7 +28,7 @@ index ee4a0ca..2b0c63e 100644
  	if (WARN_ONCE(cachep != s,
  			"kmem_cache_free(%s, %p): object belongs to different cache %s\n",
  			s->name, obj, cachep ? cachep->name : "(NULL)")) {
-@@ -6489,6 +6492,7 @@ static noinline void warn_free_bad_obj(struct kmem_cache *s, void *obj)
+@@ -6508,6 +6511,7 @@ static noinline void warn_free_bad_obj(struct kmem_cache *s, void *obj)
  			print_tracking(cachep, obj);
  		return;
  	}

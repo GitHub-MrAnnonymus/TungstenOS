@@ -8,10 +8,10 @@ Subject: [PATCH 042/101] stop hiding UID16 behind EXPERT
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index 1fd8624..e4faf86 100644
+index 8ec603c..38d962c 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1715,7 +1715,7 @@ menuconfig EXPERT
+@@ -1720,7 +1720,7 @@ menuconfig EXPERT
  	  Only use this if you really know what you are doing.
  
  config UID16

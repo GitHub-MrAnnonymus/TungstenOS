@@ -12,7 +12,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/mm/slab_common.c b/mm/slab_common.c
-index 03ecac1..21e459a 100644
+index 2475fc0..a7f3fc7 100644
 --- a/mm/slab_common.c
 +++ b/mm/slab_common.c
 @@ -37,7 +37,7 @@

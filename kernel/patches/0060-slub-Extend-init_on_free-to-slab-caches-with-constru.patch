@@ -18,10 +18,10 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  2 files changed, 27 insertions(+), 3 deletions(-)
 
 diff --git a/mm/slab.h b/mm/slab.h
-index f5e336b..3661f12 100644
+index ba08da0..0116f9b 100644
 --- a/mm/slab.h
 +++ b/mm/slab.h
-@@ -740,9 +740,15 @@ static inline bool slab_want_init_on_alloc(gfp_t flags, struct kmem_cache *c)
+@@ -756,9 +756,15 @@ static inline bool slab_want_init_on_alloc(gfp_t flags, struct kmem_cache *c)
  static inline bool slab_want_init_on_free(struct kmem_cache *c)
  {
  	if (static_branch_maybe(CONFIG_INIT_ON_FREE_DEFAULT_ON,
@@ -41,7 +41,7 @@ index f5e336b..3661f12 100644
  }
  
 diff --git a/mm/slub.c b/mm/slub.c
-index 2b0c63e..38df8eb 100644
+index 7b00246..681492f 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -2678,6 +2678,8 @@ bool slab_free_hook(struct kmem_cache *s, void *x, bool init,

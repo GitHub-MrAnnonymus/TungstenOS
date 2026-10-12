@@ -8,10 +8,10 @@ Subject: [PATCH 021/101] disable AIO by default
  1 file changed, 1 deletion(-)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index 55baff5..3c9fa44 100644
+index 124bd52..62a2e33 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1909,7 +1909,6 @@ config SHMEM
+@@ -1914,7 +1914,6 @@ config SHMEM
  
  config AIO
  	bool "Enable AIO support"

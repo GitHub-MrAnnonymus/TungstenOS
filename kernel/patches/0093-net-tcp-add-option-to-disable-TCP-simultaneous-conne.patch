@@ -63,7 +63,7 @@ index f7af028..6897b93 100644
  	If enabled, provide RFC2861 behavior and time out the congestion
  	window after an idle period.  An idle period is defined at
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 436495f..7baa749 100644
+index 4416cdf..5bab7d7 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -285,6 +285,7 @@ static_assert((1 << ATO_BITS) > TCP_DELACK_MAX);
@@ -126,7 +126,7 @@ index e921cb3..0d58f66 100644
  
  static struct ctl_table ipv4_net_table[] = {
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 92bc607..bfe7c46 100644
+index 99baf14..b632f84 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -85,6 +85,7 @@
@@ -137,7 +137,7 @@ index 92bc607..bfe7c46 100644
  
  #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
  #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
-@@ -7022,7 +7023,7 @@ consume:
+@@ -7028,7 +7029,7 @@ consume:
  		SKB_DR_SET(reason, TCP_RFC7323_PAWS);
  		goto discard_and_undo;
  	}

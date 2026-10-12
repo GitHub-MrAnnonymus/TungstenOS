@@ -8,10 +8,10 @@ Subject: [PATCH 043/101] disable UID16 by default
  1 file changed, 1 deletion(-)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index e4faf86..365a853 100644
+index 38d962c..abace4f 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1717,7 +1717,6 @@ menuconfig EXPERT
+@@ -1722,7 +1722,6 @@ menuconfig EXPERT
  config UID16
  	bool "Enable 16-bit UID system calls"
  	depends on HAVE_UID16 && MULTIUSER

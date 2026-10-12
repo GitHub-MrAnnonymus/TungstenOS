@@ -9,7 +9,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index 3791d69..afbce86 100644
+index 130b6fe..f6deeb9 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -995,13 +995,13 @@ static inline void *restore_red_left(struct kmem_cache *s, void *p)
@@ -29,7 +29,7 @@ index 3791d69..afbce86 100644
  
  /*
   * Object debugging
-@@ -7467,10 +7467,10 @@ EXPORT_SYMBOL(kmem_cache_alloc_bulk_noprof);
+@@ -7486,10 +7486,10 @@ EXPORT_SYMBOL(kmem_cache_alloc_bulk_noprof);
   * and increases the number of allocations possible without having to
   * take the list_lock.
   */

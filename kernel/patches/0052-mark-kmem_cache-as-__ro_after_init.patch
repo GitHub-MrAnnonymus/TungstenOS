@@ -8,7 +8,7 @@ Subject: [PATCH 052/101] mark kmem_cache as __ro_after_init
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/mm/slab_common.c b/mm/slab_common.c
-index 21e459a..3ec77b5 100644
+index a7f3fc7..24f07d3 100644
 --- a/mm/slab_common.c
 +++ b/mm/slab_common.c
 @@ -40,7 +40,7 @@

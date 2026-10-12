@@ -51,10 +51,10 @@ index c6994e5..78051f2 100644
  
  
 diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-index 48d851f..b82bab9 100644
+index 858c59b..1058966 100644
 --- a/include/linux/perf_event.h
 +++ b/include/linux/perf_event.h
-@@ -1792,6 +1792,14 @@ static inline int perf_is_paranoid(void)
+@@ -1776,6 +1776,14 @@ static inline int perf_is_paranoid(void)
  
  extern int perf_allow_kernel(void);
  
@@ -70,7 +70,7 @@ index 48d851f..b82bab9 100644
  {
  	if (sysctl_perf_event_paranoid > 0 && !perfmon_capable())
 diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 60e6080..1131944 100644
+index 4959b28..0dc6476 100644
 --- a/kernel/events/core.c
 +++ b/kernel/events/core.c
 @@ -492,8 +492,13 @@ static __always_inline bool is_guest_mediated_pmu_loaded(void)
@@ -87,7 +87,7 @@ index 60e6080..1131944 100644
  
  /* Minimum for 512 kiB + 1 user control page. 'free' kiB per user. */
  static int sysctl_perf_event_mlock __read_mostly = 512 + (PAGE_SIZE / 1024);
-@@ -13918,7 +13923,7 @@ SYSCALL_DEFINE5(perf_event_open,
+@@ -13878,7 +13883,7 @@ SYSCALL_DEFINE5(perf_event_open,
  		return err;
  
  	/* Do we allow access to perf_event_open(2) ? */
