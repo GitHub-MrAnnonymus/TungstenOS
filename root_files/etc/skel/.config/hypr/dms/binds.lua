@@ -40,7 +40,7 @@ hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd([[dms ipc call brightness decre
 
 -- === Window Management ===
 hl.bind("SUPER + Q", hl.dsp.window.close())
-hl.bind("SUPER + F", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
+hl.bind("SUPER + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
 hl.bind("SUPER + SHIFT + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
 hl.bind("SUPER + SHIFT + T", hl.dsp.window.float({ action = "toggle" }))
 hl.bind("SUPER + W", hl.dsp.group.toggle())
@@ -144,7 +144,7 @@ hl.bind("SUPER + bracketright", hl.dsp.layout("preselect r"))
 
 -- === Sizing & Layout ===
 hl.bind("SUPER + R", hl.dsp.layout("togglesplit"))
-hl.bind("SUPER + CTRL + F", hl.dsp.window.fullscreen({ mode = "maximized", action = "set" }))
+hl.bind("SUPER + D", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
 
 -- === Move/resize windows with mainMod + LMB/RMB and dragging ===
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Move window" })

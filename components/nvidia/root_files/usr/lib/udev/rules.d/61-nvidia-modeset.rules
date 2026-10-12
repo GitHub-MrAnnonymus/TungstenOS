@@ -1,0 +1,5 @@
+# nvidia-modprobe is not setuid, so applications cannot create the modeset device node
+# on demand. nvidia-utils' 60-nvidia.rules creates the control and UVM nodes when
+# nvidia_drm loads; this adds /dev/nvidia-modeset, also as root.
+ACTION=="add", SUBSYSTEM=="module", KERNEL=="nvidia_modeset", TEST!="/dev/nvidia-modeset", \
+    RUN+="/usr/bin/nvidia-modprobe -m"

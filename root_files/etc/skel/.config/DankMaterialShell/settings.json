@@ -173,7 +173,7 @@
       "visible": true,
       "popupGapsAuto": true,
       "popupGapsManual": 4,
-      "maximizeDetection": true,
+      "maximizeDetection": false,
       "useOverlayLayer": false,
       "scrollEnabled": true,
       "scrollXBehavior": "column",

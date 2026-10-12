@@ -538,3 +538,43 @@ fs_read_cgroup_files(systemd_modules_load_t)
 # nsresourced loads its BPF program (kernel BTF in /sys/kernel/btf/vmlinux)
 allow systemd_nsresourced_t sysfs_t:file { getattr open read };
 allow systemd_nsresourced_t self:capability2 perfmon;
+
+########################################
+# From the first boot with (nearly) complete rules, in permissive mode.
+
+gen_require(`
+	type home_root_t, policy_config_t, virt_var_lib_t;
+	class system { start status };
+')
+
+# run0 asks PID 1 to start a transient unit (polkit decides whether it may); polkit
+# looks up the unit of the calling process.
+allow staff_t init_t:system start;
+init_start_transient_units(staff_t)
+init_get_system_status(policykit_t)
+
+# run0 tungsten-tpm-enroll / tungsten-audit: the TPM, as root in sysadm_t.
+dev_rw_tpm(sysadm_t)
+# tungsten-audit runs bootctl status as the user (EFI variables are world-readable).
+fs_read_efivarfs_files(staff_t)
+dontaudit staff_t policy_config_t:dir getattr;
+
+allow staff_dbusd_t gnome_xdg_data_t:dir search;
+allow systemd_homework_t home_root_t:dir mounton;
+allow systemd_nsresourced_t sysfs_t:file map;
+allow udev_t kernel_t:netlink_kobject_uevent_socket getattr;
+allow udev_t tmpfs_t:file getattr;
+allow systemd_sysctl_t var_run_t:dir create;
+allow systemd_sysctl_t binfmt_misc_fs_t:file getattr;
+allow systemd_coredump_t init_runtime_t:sock_file { create getattr setattr unlink };
+allow systemd_tmpfiles_t tmpfs_t:lnk_file { create getattr };
+allow systemd_tmpfiles_t init_runtime_t:sock_file getattr;
+allow systemd_tmpfiles_t virt_var_lib_t:dir { relabelfrom relabelto };
+
+# libvirtd reads its secrets encryption key from its systemd credentials directory.
+optional_policy(`
+	gen_require(`
+		type virtd_t, init_tmpfs_t;
+	')
+	allow virtd_t init_tmpfs_t:file { getattr open read };
+')
