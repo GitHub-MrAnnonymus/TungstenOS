@@ -462,7 +462,7 @@ allow systemd_coredump_t init_runtime_t:dir { add_name create search write };
 seutil_read_file_contexts(systemd_coredump_t)
 
 # systemd-pcrlock removes component directories it regenerates.
-allow systemd_pcrphase_t var_lib_t:dir { remove_name rmdir };
+allow systemd_pcrphase_t var_lib_t:dir { create remove_name rmdir };
 
 # The flatpak generator looks into root's cache.
 dontaudit systemd_generator_t xdg_cache_t:dir search;
@@ -639,3 +639,37 @@ gen_require(`
 	type systemd_passwd_runtime_t;
 ')
 allow staff_t systemd_passwd_runtime_t:dir { getattr open read search watch };
+
+# From a fresh install (permissive boot).
+
+gen_require(`
+	type chkpwd_t, home_root_t, mount_t, plymouth_t, tty_device_t, unlabeled_t, var_t;
+	type systemd_generator_t, systemd_machine_id_setup_t, fs_t, nsfs_t;
+	class process2 nnp_transition;
+')
+
+# Polkit's password helper (run0) runs with NoNewPrivileges: it checks local passwords
+# through unix_chkpwd, and pam_faillock keeps its failure counters in /run/faillock.
+allow policykit_auth_t chkpwd_t:process2 nnp_transition;
+auth_manage_faillog(policykit_auth_t)
+allow policykit_auth_t self:capability { chown fowner };
+
+# homework creates the home's mount point in /home and copies the skeleton into the
+# not yet labeled file system; homed removes a home's leftover directory in /var/cache.
+allow systemd_homework_t home_root_t:dir { add_name create remove_name rmdir setattr write };
+allow systemd_homework_t unlabeled_t:{ dir file } ioctl;
+allow systemd_homework_t self:netlink_kobject_uevent_socket getopt;
+allow systemd_homed_t var_t:dir { remove_name rmdir };
+
+# gvfsd-fuse and the document portal use the /dev/fuse descriptor fusermount3 hands back.
+allow staff_t mount_t:fd use;
+
+# firstboot-users ends Plymouth's splash on tty1 to prompt for the accounts.
+term_use_unallocated_ttys(plymouth_t)
+
+# systemd-machine-id-setup checks its capabilities and which file system /etc is on.
+allow systemd_machine_id_setup_t self:process getcap;
+allow systemd_machine_id_setup_t { fs_t nsfs_t }:filesystem getattr;
+
+# The flatpak generator tries to create root's cache; it works without it.
+dontaudit systemd_generator_t user_home_dir_t:dir { add_name create write };

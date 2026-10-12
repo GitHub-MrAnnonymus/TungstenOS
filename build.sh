@@ -62,7 +62,7 @@ PACKAGES=(
   power-profiles-daemon trivalent qemu-desktop libvirt virt-manager bazaar
 
   # Tools
-  less git jq fastfetch tmux helix rsync unzip zip arch-repro-status
+  less git jq fastfetch tmux helix rsync unzip zip arch-repro-status nano neovim
 )
 # Retried: a mirror dropping connections aborts the whole transaction.
 for try in 1 2 3; do
@@ -86,6 +86,9 @@ pacman --config "$PACMAN_CONF" --root "$WORKDIR" -Sl tungsten | grep -c '^tungst
 
 # --- Configuration ---
 cp -r "$SRC"/root_files/. "$WORKDIR"/
+# gnome-keyring creates ~/.local/share/keyrings on the first login; without ~/.local it
+# would create that in the home's top directory type, which its domain may not use.
+install -d -m 700 "$WORKDIR"/etc/skel/.local/share/keyrings
 # Staged outside /tmp: arch-chroot mounts an empty tmpfs there.
 STAGE=/root/tungsten-build
 install -Dm644 "$SEBUILD"/tungsten.pp "$WORKDIR$STAGE"/tungsten.pp
@@ -161,6 +164,10 @@ semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
 semanage boolean -N -S "$POLICY" -m --on systemd_logind_get_bootloader
 # The compositor (staff_t) maps GPU buffers.
 semanage boolean -N -S "$POLICY" -m --on xserver_allow_dri
+# systemd-tmpfiles creates the directories of /var (libvirt, AccountsService, udisks2,
+# xkb, the greeter's cache, ...) on a fresh root partition: each package's tmpfiles.d
+# entry needs the target type, which refpolicy grants only per service.
+semanage boolean -N -S "$POLICY" -m --on systemd_tmpfiles_manage_all
 # Not even root (sysadm_t) can switch to permissive, load another policy or change
 # booleans at runtime; the policy changes only with an image update. Booting with
 # enforcing=0 needs a kernel command line change, i.e. an unsigned add-on, which Secure
