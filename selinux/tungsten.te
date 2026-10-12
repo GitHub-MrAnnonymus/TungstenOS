@@ -224,7 +224,6 @@ allow systemd_homed_t user_home_dir_t:dir { getattr open read };
 allow systemd_homed_t var_t:dir read;
 allow system_dbusd_t systemd_homed_runtime_t:fifo_file write;
 allow system_dbusd_t systemd_homed_t:fd use;
-dontaudit system_dbusd_t user_home_t:file write;
 allow systemd_homework_t init_t:key write;
 allow systemd_homework_t locale_t:dir search;
 allow systemd_homework_t locale_t:file { getattr map open read };
@@ -606,3 +605,31 @@ allow mount_t user_tmp_t:dir { getattr mounton search };
 allow mount_t staff_t:fd use;
 allow mount_t staff_t:unix_stream_socket { getattr read write };
 allow mount_t staff_t:fifo_file { read write };
+# The portals and gvfs are started by the user's systemd, so fusermount3 inherits its
+# descriptors; it checks that the mount point is writable; the user manager watches it.
+allow mount_t staff_systemd_t:fd use;
+allow mount_t staff_systemd_t:unix_stream_socket { getattr read write };
+allow mount_t user_tmp_t:dir write;
+ps_process_pattern(staff_systemd_t, mount_t)
+
+# fontconfig tries to update the system font cache's timestamp; users may not change it.
+gen_require(`
+	type fonts_cache_t;
+')
+dontaudit staff_t fonts_cache_t:dir setattr;
+optional_policy(`
+	gen_require(`
+		type chromium_t;
+	')
+	dontaudit chromium_t fonts_cache_t:dir setattr;
+')
+
+# run0 passes its stdin/stdout/stderr (terminal, pipe or redirected file) with the
+# StartTransientUnit call; dbus-broker receives the descriptors and hands them to PID 1,
+# which gives them to the command in sysadm_t. A refused descriptor makes the broker drop
+# the connection ("Connection reset by peer"), with the denial hidden by dontaudit.
+allow { system_dbusd_t init_t sysadm_t } staff_t:fd use;
+allow { system_dbusd_t init_t sysadm_t } staff_t:fifo_file { getattr ioctl read write };
+allow { system_dbusd_t init_t } { user_devpts_t user_tty_device_t }:chr_file { getattr ioctl read write };
+allow { system_dbusd_t init_t sysadm_t } { user_home_t user_tmp_t }:file { append getattr ioctl read write };
+
