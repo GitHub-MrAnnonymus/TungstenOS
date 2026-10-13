@@ -51,7 +51,7 @@ auth_use_nsswitch(staff_systemd_t)
 # systemd-pcrlock: predictions in /var/lib/pcrlock.d, the policy in /var/lib/systemd,
 # UKIs and add-ons on the ESP, file labels for its own files.
 files_rw_var_lib_dirs(systemd_pcrphase_t)
-allow systemd_pcrphase_t var_lib_t:file { create getattr open read write rename unlink };
+allow systemd_pcrphase_t var_lib_t:file { create getattr open read write rename setattr unlink };
 fs_read_dos_files(systemd_pcrphase_t)
 fs_getattr_xattr_fs(systemd_pcrphase_t)
 seutil_read_file_contexts(systemd_pcrphase_t)
@@ -708,3 +708,18 @@ dontaudit systemd_tmpfiles_t syslogd_runtime_t:sock_file getattr;
 # are still unlabeled when PID 1 starts the generators: the kernel resolves the program
 # loader (/lib64/ld-linux-x86-64.so.2) and #!/bin/sh through them.
 allow init_t unlabeled_t:lnk_file { getattr read };
+
+# firstboot-users logs systemd-machine-id-setup's output to a file and runs it from the
+# console; it needs neither.
+dontaudit systemd_machine_id_setup_t var_lib_t:file append;
+dontaudit systemd_machine_id_setup_t tty_device_t:chr_file { read write };
+
+# glibc enables the shadow stack (SHSTK) for any program whose startup objects are all
+# marked, and refuses a later dlopen() of an unmarked library unless
+# GLIBC_TUNABLES=glibc.cpu.x86_shstk=permissive (system.conf) applies. Domain transitions
+# set AT_SECURE, which makes glibc ignore GLIBC_TUNABLES; systemd-modules-load and udev
+# dlopen() libkmod, which needs the unmarked libzstd. Let PID 1's environment through.
+gen_require(`
+	type udev_t;
+')
+allow init_t { kmod_t udev_t }:process noatsecure;
