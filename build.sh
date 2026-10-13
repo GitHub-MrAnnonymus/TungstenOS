@@ -238,7 +238,12 @@ grep -q '^account *include *system-local-login' /etc/pam.d/greetd
 sed -i '/^account *include *system-local-login/i account    requisite    pam_succeed_if.so quiet user notingroup wheel' /etc/pam.d/greetd
 
 passwd -l root
-rm -rf /etc/machine-id /root/tungsten-build
+rm -rf /root/tungsten-build
+# "uninitialized": the first boot (ConditionFirstBoot) mounts a transient ID over this
+# labeled file and systemd-machine-id-commit saves it into the /etc overlay. Without the
+# file, PID 1 creates it in the overlay before the new root partition is labeled, and the
+# overlay keeps that unlabeled inode, so saving the ID fails on the first boot.
+printf 'uninitialized\n' > /etc/machine-id
 CHROOT
 
 # Programs that will not start because a library is missing or too old (repository skew).
