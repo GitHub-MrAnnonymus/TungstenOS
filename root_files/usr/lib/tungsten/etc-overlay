@@ -7,6 +7,16 @@ LOWER=$ROOT/usr/share/factory/etc
 
 mkdir -p "$STATE/upper" "$STATE/work" "$ROOT/etc"
 
+# A new root partition (first boot, factory reset) has no /bin, /lib64, ... links into
+# /usr yet; tmpfiles creates them, but only after PID 1 has run the generators, which
+# then cannot find the program loader (exit status 127): no fstab mounts, no serial
+# getty. Create them from the same list before switching root.
+while read -r type path _ _ _ _ target; do
+    [ "$type" = L ] || continue
+    case "$path" in /*/*|*..*) continue ;; esac
+    [ -e "$ROOT$path" ] || [ -L "$ROOT$path" ] || ln -s "$target" "$ROOT$path"
+done < "$ROOT/usr/lib/tmpfiles.d/tungsten-factory.conf"
+
 # Resets requested by `tungsten-etc reset`, applied before the overlay is mounted.
 if [ -f "$STATE/reset" ]; then
     while IFS= read -r path; do

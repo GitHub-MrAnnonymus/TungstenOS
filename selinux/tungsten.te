@@ -703,3 +703,8 @@ gen_require(`
 ')
 dontaudit systemd_tmpfiles_t { auditd_etc_t auditd_log_t }:dir read;
 dontaudit systemd_tmpfiles_t syslogd_runtime_t:sock_file getattr;
+
+# On the first boot the root partition's /bin, /lib64, ... links (created in the initrd)
+# are still unlabeled when PID 1 starts the generators: the kernel resolves the program
+# loader (/lib64/ld-linux-x86-64.so.2) and #!/bin/sh through them.
+allow init_t unlabeled_t:lnk_file { getattr read };

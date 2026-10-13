@@ -132,7 +132,7 @@ printf 'timeout 3\neditor no\n' > "$ESP/loader/loader.conf"
 if [ "$VM" = 1 ]; then
   if command -v ukify >/dev/null; then
     mkdir -p "$ESP/loader/addons"
-    ukify build --cmdline='console=ttyS0,115200 console=tty0 plymouth.ignore-serial-consoles' \
+    ukify build --cmdline='console=ttyS0,115200 console=tty0 plymouth.ignore-serial-consoles systemd.wants=serial-getty@ttyS0.service' \
       --output="$ESP/loader/addons/vm-serial-console.addon.efi" >/dev/null
   else
     echo "ukify not found (package systemd-ukify): no serial console login in the terminal." >&2

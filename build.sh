@@ -264,6 +264,15 @@ find "$WORKDIR"/usr/lib -name '*.a' -type f -delete
 echo "Largest directories in /usr:"
 du -x --max-depth=3 "$WORKDIR"/usr 2>/dev/null | sort -rn | sed -n '2,21p' | numfmt --field=1 --from-unit=1024 --to=iec | sed "s#$WORKDIR##"
 
+# --- Package database: read-only in /usr, so `pacman -Q` describes exactly this image ---
+# (sync: the repositories' package lists at build time, for -Qm/-Qn and -Si). Extensions
+# add their own packages' entries (build_extension). /var/lib/pacman stays for the
+# extension builds but is not part of the installed system.
+mkdir -p "$WORKDIR"/usr/lib/pacman
+cp -a "$WORKDIR"/var/lib/pacman/local "$WORKDIR"/var/lib/pacman/sync "$WORKDIR"/usr/lib/pacman/
+grep -q '^#DBPath' "$WORKDIR"/etc/pacman.conf
+sed -i 's|^#DBPath.*|DBPath      = /usr/lib/pacman/|' "$WORKDIR"/etc/pacman.conf
+
 # --- Hermetic /usr: everything outside /usr is recreated from /usr on boot ---
 FACTORY="$WORKDIR"/usr/share/factory
 TMPFILES="$WORKDIR"/usr/lib/tmpfiles.d/tungsten-factory.conf
@@ -316,6 +325,12 @@ build_extension() {
 
   # Copy without xattrs: overlayfs metadata must not reach the image.
   cp -dR --preserve=mode,ownership,timestamps,links "$E"/rw/upper/usr "$E"/tree/usr
+  # The extension's packages in the package database (the base's entries are in the base).
+  if [ -d "$E"/rw/upper/var/lib/pacman/local ]; then
+    mkdir -p "$E"/tree/usr/lib/pacman/local
+    cp -dR --preserve=mode,ownership,timestamps "$E"/rw/upper/var/lib/pacman/local/. \
+      "$E"/tree/usr/lib/pacman/local/
+  fi
   find "$E"/tree/usr -type c -delete
   local dropped; dropped=$(find "$E"/rw/upper/etc -mindepth 1 -maxdepth 1 ! -name ld.so.cache ! -name pacman.d -printf '/etc/%P ' 2>/dev/null || :)
   [ -z "$dropped" ] || echo "::warning::$name: changes outside /usr are not part of the extension: $dropped"
