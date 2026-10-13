@@ -51,7 +51,7 @@ auth_use_nsswitch(staff_systemd_t)
 # systemd-pcrlock: predictions in /var/lib/pcrlock.d, the policy in /var/lib/systemd,
 # UKIs and add-ons on the ESP, file labels for its own files.
 files_rw_var_lib_dirs(systemd_pcrphase_t)
-allow systemd_pcrphase_t var_lib_t:file { create getattr open read write rename setattr unlink };
+allow systemd_pcrphase_t var_lib_t:file { create getattr link open read write rename setattr unlink };
 fs_read_dos_files(systemd_pcrphase_t)
 fs_getattr_xattr_fs(systemd_pcrphase_t)
 seutil_read_file_contexts(systemd_pcrphase_t)
@@ -720,6 +720,16 @@ dontaudit systemd_machine_id_setup_t tty_device_t:chr_file { read write };
 # set AT_SECURE, which makes glibc ignore GLIBC_TUNABLES; systemd-modules-load and udev
 # dlopen() libkmod, which needs the unmarked libzstd. Let PID 1's environment through.
 gen_require(`
-	type udev_t;
+	type udev_t, systemd_modules_load_t;
 ')
-allow init_t { kmod_t udev_t }:process noatsecure;
+allow init_t { systemd_modules_load_t udev_t }:process noatsecure;
+
+# systemctl in the admin shell runs the password agent, which watches the admin's
+# ask-password directory in /run/user/0.
+allow sysadm_t user_tmp_t:dir watch;
+
+# pacman (read-only database) lets gpg try to update the keyring's trust database.
+gen_require(`
+	type gpg_t;
+')
+dontaudit gpg_t etc_t:file write;
