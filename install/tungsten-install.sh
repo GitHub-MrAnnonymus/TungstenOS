@@ -129,10 +129,14 @@ mkdir -p "$ESP/loader"
 printf 'timeout 3\neditor no\n' > "$ESP/loader/loader.conf"
 # VM images: a login on the serial port, which install/run-vm.sh connects to the host
 # terminal (copy and paste work there). Unsigned add-ons load only without Secure Boot.
-if [ "$VM" = 1 ] && command -v ukify >/dev/null; then
-  mkdir -p "$ESP/loader/addons"
-  ukify build --cmdline='console=ttyS0,115200 console=tty0 plymouth.ignore-serial-consoles' \
-    --output="$ESP/loader/addons/vm-serial-console.addon.efi" >/dev/null
+if [ "$VM" = 1 ]; then
+  if command -v ukify >/dev/null; then
+    mkdir -p "$ESP/loader/addons"
+    ukify build --cmdline='console=ttyS0,115200 console=tty0 plymouth.ignore-serial-consoles' \
+      --output="$ESP/loader/addons/vm-serial-console.addon.efi" >/dev/null
+  else
+    echo "ukify not found (package systemd-ukify): no serial console login in the terminal." >&2
+  fi
 fi
 umount "$ESP"; rmdir "$ESP"
 if [ "$VM" = 1 ]; then

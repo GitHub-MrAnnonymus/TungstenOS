@@ -673,3 +673,10 @@ allow systemd_machine_id_setup_t { fs_t nsfs_t }:filesystem getattr;
 
 # The flatpak generator tries to create root's cache; it works without it.
 dontaudit systemd_generator_t user_home_dir_t:dir { add_name create write };
+
+# The lock screen (quickshell, staff_t) authenticates through pam_systemd_home, which
+# hands it homed's "don't suspend" pipe; homework reads the home's volume key it put in
+# the kernel keyring when it resizes an active home.
+allow staff_t systemd_homed_t:fd use;
+allow staff_t systemd_homed_runtime_t:fifo_file write;
+allow systemd_homework_t self:key read;

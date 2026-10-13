@@ -13,6 +13,18 @@ if homectl list --no-legend 2>/dev/null | grep -q .; then
   exit 0   # accounts exist already (or were provisioned via credentials)
 fi
 
+# homed binds each account to the machine ID. On the first boot that ID is still the
+# transient one (systemd-machine-id-commit saves it only later); accounts bound to an
+# ID that is never saved are "unfixated" from the next boot on and their passwords no
+# longer work for run0 or console logins. Save it now, and create nothing otherwise.
+if mountpoint -q /etc/machine-id; then
+  systemd-machine-id-setup --commit
+fi
+if mountpoint -q /etc/machine-id || ! systemd-id128 machine-id >/dev/null; then
+  echo "The machine ID could not be saved; not creating accounts." >&2
+  exit 1
+fi
+
 # Plymouth owns the console until the login screen starts and would swallow the prompts
 # and the typed answers; PID 1's status messages would scroll over them.
 plymouth quit 2>/dev/null || :
@@ -44,8 +56,10 @@ Use different passwords for the two.
 
 TEXT
 admin=$(ask_name "Administrator account name" admin)
+# The administrator's home holds nothing, but polkit and run0 mount it to check the
+# password; homed's default size (a share of all free space) would fill the disk.
 homectl create "$admin" --real-name=Administrator --storage=luks \
-  --member-of=wheel --noexec=yes "${LIMITS[@]}"
+  --member-of=wheel --noexec=yes --disk-size=2G --rebalance-weight=off "${LIMITS[@]}"
 echo
 user=$(ask_name "Your everyday account name")
 homectl create "$user" --storage=luks --noexec=yes "${LIMITS[@]}"

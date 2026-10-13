@@ -45,7 +45,7 @@ PACKAGES=(
 
   # Kernel, firmware, graphics
   linux-tungsten linux-firmware sof-firmware amd-ucode intel-ucode mkinitcpio
-  mesa vulkan-radeon vulkan-intel intel-media-driver
+  mesa vulkan-radeon vulkan-intel intel-media-driver fwupd
 
   tpm2-tss tpm2-tools hardened_malloc no_rlimit_as usbguard usbguard-notifier
 
