@@ -680,3 +680,26 @@ dontaudit systemd_generator_t user_home_dir_t:dir { add_name create write };
 allow staff_t systemd_homed_t:fd use;
 allow staff_t systemd_homed_runtime_t:fifo_file write;
 allow systemd_homework_t self:key read;
+
+# home-label (pam_exec, in the login domain) checks whether a new home is still
+# unlabeled before it runs restorecon.
+allow { local_login_t xdm_t } unlabeled_t:dir { getattr search };
+
+# Removing /run/user/<uid> at logout looks at what is in it.
+gen_require(`
+	type systemd_user_runtime_dir_t, gconf_tmp_t;
+')
+allow systemd_user_runtime_dir_t gconf_tmp_t:dir getattr;
+
+# homectl: the administrator manages accounts, the user reads and changes their own
+# (homed asks polkit for every change).
+systemd_dbus_chat_homed({ sysadm_t staff_t })
+systemd_stream_connect_homed(sysadm_t)
+
+# systemd-tmpfiles-clean looks into audit's directories and at the journal's socket;
+# nothing there is ours to clean.
+gen_require(`
+	type auditd_etc_t, auditd_log_t, syslogd_runtime_t;
+')
+dontaudit systemd_tmpfiles_t { auditd_etc_t auditd_log_t }:dir read;
+dontaudit systemd_tmpfiles_t syslogd_runtime_t:sock_file getattr;

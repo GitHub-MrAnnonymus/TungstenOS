@@ -5,8 +5,12 @@
 # (/etc/pam.d/dankshell), otherwise the next app that needs a secret asks for the password.
 set -euo pipefail
 
-session=$(busctl --system call org.freedesktop.login1 /org/freedesktop/login1 \
-  org.freedesktop.login1.Manager GetSession s "${XDG_SESSION_ID:?}" | awk '{print $2}' | tr -d '"')
+# The user's graphical session at logind (services of the user manager do not get
+# XDG_SESSION_ID): "user/self" resolves to the caller's user, its Display property is
+# (session id, object path).
+session=$(busctl --system get-property org.freedesktop.login1 /org/freedesktop/login1/user/self \
+  org.freedesktop.login1.User Display | awk '{print $3}' | tr -d '"')
+[ -n "$session" ] && [ "$session" != / ] || { echo "no graphical session at logind" >&2; exit 1; }
 
 lock_keyrings() {
   local collections

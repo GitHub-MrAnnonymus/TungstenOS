@@ -5,24 +5,14 @@
 #  - the everyday account (not wheel), used for the desktop.
 # Someone who learns the everyday password still cannot become root.
 # homed's own rate limit is stored in the account record, so unlike pam_faillock's
-# counters it survives reboots: at most 10 password checks per 5 minutes.
+# counters it survives reboots: at most 10 password checks per 5 minutes, 30 for the
+# administrator (every run0 or polkit prompt checks its password about twice).
 set -euo pipefail
 LIMITS=(--rate-limit-interval=300 --rate-limit-burst=10)
+ADMIN_LIMITS=(--rate-limit-interval=300 --rate-limit-burst=30)
 
 if homectl list --no-legend 2>/dev/null | grep -q .; then
   exit 0   # accounts exist already (or were provisioned via credentials)
-fi
-
-# homed binds each account to the machine ID. On the first boot that ID is still the
-# transient one (systemd-machine-id-commit saves it only later); accounts bound to an
-# ID that is never saved are "unfixated" from the next boot on and their passwords no
-# longer work for run0 or console logins. Save it now, and create nothing otherwise.
-if mountpoint -q /etc/machine-id; then
-  systemd-machine-id-setup --commit
-fi
-if mountpoint -q /etc/machine-id || ! systemd-id128 machine-id >/dev/null; then
-  echo "The machine ID could not be saved; not creating accounts." >&2
-  exit 1
 fi
 
 # Plymouth owns the console until the login screen starts and would swallow the prompts
@@ -31,6 +21,23 @@ plymouth quit 2>/dev/null || :
 kill -s RTMIN+21 1 2>/dev/null || :          # status messages off
 trap 'kill -s RTMIN+20 1 2>/dev/null || :' EXIT
 clear 2>/dev/null || :
+
+# homed binds each account to the machine ID. On the first boot that ID is still the
+# transient one, saved only later by systemd-machine-id-commit; accounts bound to an ID
+# that is never saved are "unfixated" from the next boot on, and their passwords no
+# longer work for run0 or console logins. Save it now, and create nothing otherwise.
+# Its output is kept in /var/lib/tungsten/firstboot.log: the first boot's journal may
+# not reach the disk.
+if mountpoint -q /etc/machine-id; then
+  { date; findmnt /etc/machine-id; systemd-machine-id-setup --commit; echo "exit $?"; } \
+    </dev/null >>/var/lib/tungsten/firstboot.log 2>&1 || :
+fi
+if mountpoint -q /etc/machine-id || ! systemd-id128 machine-id >/dev/null; then
+  echo "The machine ID could not be saved; no accounts were created." >&2
+  echo "See: journalctl -m -b -u systemd-homed-firstboot -u systemd-machine-id-commit" >&2
+  read -r -t 300 -p "Press Enter to continue. " _ || :
+  exit 1
+fi
 
 ask_name() {
   local prompt=$1 default=${2:-} name
@@ -59,7 +66,7 @@ admin=$(ask_name "Administrator account name" admin)
 # The administrator's home holds nothing, but polkit and run0 mount it to check the
 # password; homed's default size (a share of all free space) would fill the disk.
 homectl create "$admin" --real-name=Administrator --storage=luks \
-  --member-of=wheel --noexec=yes --disk-size=2G --rebalance-weight=off "${LIMITS[@]}"
+  --member-of=wheel --noexec=yes --disk-size=2G --rebalance-weight=off "${ADMIN_LIMITS[@]}"
 echo
 user=$(ask_name "Your everyday account name")
 homectl create "$user" --storage=luks --noexec=yes "${LIMITS[@]}"

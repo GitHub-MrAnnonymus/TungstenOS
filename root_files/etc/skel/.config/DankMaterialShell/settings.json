@@ -99,6 +99,7 @@
   "batteryAutoPowerSaver": true,
   "lockBeforeSuspend": true,
   "lockPamExternallyManaged": true,
+  "lockPamPath": "/etc/pam.d/dankshell",
   "notificationHistoryMaxAgeDays": 1,
   "osdPowerProfileEnabled": true,
   "barConfigs": [
