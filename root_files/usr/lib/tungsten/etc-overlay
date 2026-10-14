@@ -6,6 +6,22 @@ STATE=$ROOT/var/lib/tungsten/etc
 LOWER=$ROOT/usr/share/factory/etc
 
 mkdir -p "$STATE/upper" "$STATE/work" "$ROOT/etc"
+# journald keeps the journal on disk only if /var/log/journal exists when it starts; on
+# a new root partition it may not create it (its domain may not write to unlabeled /var),
+# and the journal of the whole first boot would stay in memory. Owner, mode and ACLs
+# follow from tmpfiles.
+if [ ! -d "$ROOT/var/log/journal" ]; then
+    mkdir -p "$ROOT/var/log/journal"
+    getfattr -h -n security.selinux "$ROOT/var" >/dev/null 2>&1 ||
+        setfattr -h -n security.selinux -v system_u:object_r:var_t "$ROOT/var"
+    setfattr -h -n security.selinux -v system_u:object_r:var_log_t "$ROOT/var/log"
+    setfattr -h -n security.selinux -v system_u:object_r:systemd_journal_t "$ROOT/var/log/journal"
+fi
+# The overlay's top directory (/etc) takes the upper directory's label; on a new root
+# partition that is still unlabeled when the first services read /etc.
+if ! getfattr -h -n security.selinux "$STATE/upper" >/dev/null 2>&1; then
+    setfattr -h -n security.selinux -v system_u:object_r:etc_t "$STATE/upper"
+fi
 
 # A new root partition (first boot, factory reset) has no /bin, /lib64, ... links into
 # /usr yet; tmpfiles creates them, but only after PID 1 has run the generators, which

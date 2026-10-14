@@ -673,6 +673,11 @@ allow systemd_machine_id_setup_t { fs_t nsfs_t }:filesystem getattr;
 
 # The flatpak generator tries to create root's cache; it works without it.
 dontaudit systemd_generator_t user_home_dir_t:dir { add_name create write };
+# On the first boot /root does not exist yet; it tries to create it.
+gen_require(`
+	type root_t;
+')
+dontaudit systemd_generator_t root_t:dir { add_name create write };
 
 # The lock screen (quickshell, staff_t) authenticates through pam_systemd_home, which
 # hands it homed's "don't suspend" pipe; homework reads the home's volume key it put in
@@ -733,3 +738,7 @@ gen_require(`
 	type gpg_t;
 ')
 dontaudit gpg_t etc_t:file write;
+
+# systemctl --machine=user@ from the admin shell: dbus-broker receives its socket.
+allow system_dbusd_t sysadm_t:fd use;
+allow system_dbusd_t sysadm_t:unix_stream_socket { getattr read write };
