@@ -12,6 +12,11 @@ build() {
     add_symlink /etc/systemd/system/sysinit.target.wants/tungsten-ipe-policy.service \
         /usr/lib/systemd/system/tungsten-ipe-policy.service
 
+    # No boot without SELinux (see the unit)
+    add_systemd_unit tungsten-selinux-required.service
+    add_symlink /etc/systemd/system/sysinit.target.wants/tungsten-selinux-required.service \
+        /usr/lib/systemd/system/tungsten-selinux-required.service
+
     # /etc overlay: image defaults below, local changes on the root partition above
     add_module overlay
     add_binary /usr/lib/tungsten/etc-overlay

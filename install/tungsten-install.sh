@@ -1,9 +1,27 @@
 #!/usr/bin/env bash
 # Installs TungstenOS onto a whole disk from a live Arch ISO.
-# Usage: tungsten-install.sh <disk|image-file> <release-dir>
+# Usage: tungsten-install.sh [options] <disk|image-file> <release-dir>
 # An image file (for a VM) is created as a sparse 48G file; firmware variables are left alone.
+# Without options it asks; the installer TUI (tungsten-installer) answers through options:
+#   --yes                    do not ask for confirmation before erasing the disk
+#   --extensions=a,b|none    system extensions to install (default: ask)
+#   --passphrase-file=FILE   recovery passphrase for the root partition (default: ask)
+#   --no-enroll              do not offer Secure Boot key enrollment
+#   --no-summary             do not print the next steps
 set -euo pipefail
 
+YES=0 EXT_ARG= PASS_FILE= ENROLL=1 SUMMARY=1
+while [[ ${1:-} == --* ]]; do
+  case $1 in
+    --yes) YES=1 ;;
+    --extensions=*) EXT_ARG=${1#*=} ;;
+    --passphrase-file=*) PASS_FILE=${1#*=} ;;
+    --no-enroll) ENROLL=0 ;;
+    --no-summary) SUMMARY=0 ;;
+    *) echo "unknown option $1" >&2; exit 2 ;;
+  esac
+  shift
+done
 DISK=${1:?target disk, e.g. /dev/nvme0n1, or a VM image file}
 REL=$(realpath "${2:?directory with the release files}")
 [ "$EUID" -eq 0 ] || { echo "Run as root" >&2; exit 1; }
@@ -27,15 +45,24 @@ BOOT="$REL/${IMAGE_ID}_${VER}.systemd-bootx64.efi"
 for f in "$VERITY" "$UKI" "$BOOT"; do [ -f "$f" ] || { echo "missing $f" >&2; exit 1; }; done
 (cd "$REL" && sha256sum --check --ignore-missing SHA256SUMS)
 
-echo "This ERASES $DISK and installs $IMAGE_ID $VER."
-read -r -p "Type the disk path again to continue: " confirm
-[ "$confirm" = "$DISK" ] || exit 1
+if [ "$YES" = 0 ]; then
+  echo "This ERASES $DISK and installs $IMAGE_ID $VER."
+  read -r -p "Type the disk path again to continue: " confirm
+  [ "$confirm" = "$DISK" ] || exit 1
+fi
 
 # System extensions; the default answer follows the detected hardware.
 detect_nvidia() { grep -qsx 0x10de /sys/bus/pci/devices/*/vendor; }
 detect_asus()   { grep -qsi asus /sys/class/dmi/id/sys_vendor; }
 EXTS=()
+if [ -n "$EXT_ARG" ]; then
+  [ "$EXT_ARG" = none ] || IFS=, read -ra EXTS <<<"$EXT_ARG"
+  for e in "${EXTS[@]}"; do
+    [ -f "$REL/${e}_${VER}.raw" ] || { echo "no extension $e in $REL" >&2; exit 1; }
+  done
+fi
 for e in nvidia asus; do
+  [ -z "$EXT_ARG" ] || break
   [ -f "$REL/${e}_${VER}.raw" ] || continue
   if "detect_$e"; then
     read -r -p "Install the $e extension? (detected) [Y/n] " a; [ "${a,,}" = n ] || EXTS+=("$e")
@@ -110,8 +137,12 @@ done
 
 # Remains enrolled as the recovery key. Offline mode builds the partitions without
 # mounting anything on this system.
-read -r -s -p "Recovery passphrase for the root partition: " pass; echo
-(umask 077; printf '%s' "$pass" > "$keyfile")
+if [ -n "$PASS_FILE" ]; then
+  (umask 077; cat "$PASS_FILE" > "$keyfile")
+else
+  read -r -s -p "Recovery passphrase for the root partition: " pass; echo
+  (umask 077; printf '%s' "$pass" > "$keyfile")
+fi
 [ "$VM" = 1 ] && truncate -s 48G "$DISK"
 systemd-repart --dry-run=no --empty=force --definitions="$DEFS" \
   --key-file="$keyfile" --offline=yes "$DISK"
@@ -148,11 +179,12 @@ efibootmgr --create --disk "$DISK" --part 1 --label TungstenOS --loader '\EFI\sy
 
 # Secure Boot enrollment requires Setup Mode.
 SB_ENROLLED=0
-if [ "$(od -An -t u1 -j4 -N1 /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | tr -d ' ')" = 1 ]; then
+if [ "$ENROLL" = 1 ] && [ "$(od -An -t u1 -j4 -N1 /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | tr -d ' ')" = 1 ]; then
   read -r -p "Firmware is in Setup Mode. Enroll TungstenOS Secure Boot keys now? [Y/n] " a
   if [ "${a,,}" != n ]; then "$(dirname -- "$0")/enroll-secureboot.sh" && SB_ENROLLED=1; fi
 fi
 
+[ "$SUMMARY" = 1 ] || exit 0
 cat <<EOF
 Installed $IMAGE_ID $VER with extensions: ${EXTS[*]:-none}.
 1. Secure Boot: $( [ "$SB_ENROLLED" = 1 ] && echo "keys enrolled; enable Secure Boot in firmware setup if needed." || echo "put the firmware in Setup Mode, boot the live ISO again and run install/enroll-secureboot.sh." )

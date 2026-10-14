@@ -3,16 +3,21 @@
 # --- LSMs ---
 # CONFIG_SECURITY_APPARMOR is not set
 CONFIG_SECURITY_SELINUX=y
-CONFIG_SECURITY_SELINUX_BOOTPARAM=y
-# Allows permissive mode; disable once the policy is complete.
-CONFIG_SECURITY_SELINUX_DEVELOP=y
+# SELinux cannot be switched off: no selinux=0, no enforcing=0 or permissive mode
+# (setenforce 0). A command line without selinux in lsm= stops the boot in the initrd
+# (tungsten-selinux-required.service).
+# CONFIG_SECURITY_SELINUX_BOOTPARAM is not set
+# CONFIG_SECURITY_SELINUX_DEVELOP is not set
 CONFIG_DEFAULT_SECURITY_SELINUX=y
 CONFIG_LSM="landlock,lockdown,yama,integrity,selinux,bpf,ipe"
 CONFIG_AUDIT=y
 CONFIG_AUDITSYSCALL=y
 
-# Unprivileged user namespaces are gated by SELinux, not disabled.
+# Unprivileged user namespaces are gated by SELinux, not disabled: linux-hardened's
+# kernel.unprivileged_userns_clone (default 0) is set to 1 by
+# /usr/lib/sysctl.d/60-tungsten-userns.conf.
 CONFIG_USER_NS=y
+# CONFIG_USER_NS_UNPRIVILEGED is not set
 # CONFIG_OVERLAY_FS_UNPRIVILEGED is not set
 
 # --- Integrity ---

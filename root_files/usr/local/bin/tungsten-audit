@@ -42,6 +42,7 @@ section "Flatpak"
 check "Flathub limited to verified apps" sh -c 'flatpak remotes --system --columns=name,subset | grep -q "flathub.*verified"'
 check "Automatic Flatpak updates" systemctl is-enabled tungsten-flatpak-update.timer
 check "hardened_malloc in Flatpaks" grep -q libhardened_malloc /var/lib/flatpak/overrides/global
+check "Flatpaks cannot read the keyring directly" grep -qx "org.freedesktop.secrets=none" /var/lib/flatpak/overrides/global
 if [ -n "$(flatpak list --user --app --columns=application 2>/dev/null)" ]; then
   warn "Per-user Flatpak apps are installed; they cannot run (homes are noexec)"
 fi

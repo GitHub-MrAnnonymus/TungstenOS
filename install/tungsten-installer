@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+# TungstenOS installer: a terminal UI (gum) around tungsten-install.sh and
+# enroll-secureboot.sh. Started on tty1 of the installer ISO (build-iso.sh); also usable
+# from any Arch live system: tungsten-installer [release-dir]
+set -uo pipefail
+HERE=$(dirname -- "$(realpath "$0")")
+REL=${1:-/run/archiso/bootmnt/tungsten}
+LOG=/run/tungsten-install.log
+EFIVARS=/sys/firmware/efi/efivars
+GLOBAL=8be4df61-93ca-11d2-aa0d-00e098032b8c
+
+ACCENT=212 MUTED=245 WARN=203 OK=78
+export GUM_CHOOSE_CURSOR_FOREGROUND=$ACCENT GUM_CHOOSE_SELECTED_FOREGROUND=$ACCENT
+export GUM_CONFIRM_SELECTED_BACKGROUND=$ACCENT GUM_INPUT_CURSOR_FOREGROUND=$ACCENT
+export GUM_SPIN_SPINNER_FOREGROUND=$ACCENT GUM_INPUT_PROMPT_FOREGROUND=$ACCENT
+
+header() {
+  clear
+  gum style --border rounded --border-foreground "$ACCENT" --padding "1 4" --margin "1 2" \
+    --align center --width 64 \
+    "$(gum style --bold --foreground "$ACCENT" 'T U N G S T E N   O S')" \
+    "$(gum style --foreground "$MUTED" "${VER:+Release $VER · }$1")"
+}
+say()  { gum style --margin "0 2" --width 68 "$@"; }
+warn() { gum style --margin "0 2" --width 68 --foreground "$WARN" --bold "$@"; }
+fail() {
+  header "Installation failed"
+  warn "$1"
+  [ -s "$LOG" ] && { echo; gum style --margin "0 2" --foreground "$MUTED" "Last lines of $LOG:"; tail -n 15 "$LOG" | gum style --margin "0 4" --foreground "$MUTED"; }
+  echo; gum confirm --affirmative "Restart installer" --negative "Shell" && exec "$0" "$REL"
+  exit 1
+}
+pause() { echo; gum style --margin "0 2" --foreground "$MUTED" "Press Enter to continue"; read -r _; }
+# Runs a command behind a spinner, its output appended to the log; returns its status.
+run() { local title=$1; shift; gum spin --title "$title" -- bash -c 'l=$1; shift; "$@" >>"$l" 2>&1' _ "$LOG" "$@"; }
+
+[ "$EUID" -eq 0 ] || { echo "Run as root" >&2; exit 1; }
+command -v gum >/dev/null || { echo "gum is missing (pacman -S gum)" >&2; exit 1; }
+
+# --- Release on the medium ---
+shopt -s nullglob
+usrs=("$REL"/tungsten_*_*.usr.raw)
+[ ${#usrs[@]} -eq 1 ] || fail "No TungstenOS release found in $REL."
+VER=$(basename "${usrs[0]}"); VER=${VER#tungsten_}; VER=${VER%%_*}
+
+header "Installer"
+say "Welcome. This installs TungstenOS on a whole disk: a verified, read-only system" \
+    "with automatic A/B updates, full disk encryption and SELinux." "" \
+    "Nothing is written until you confirm the summary at the end."
+[ -d "$EFIVARS" ] || fail "This computer was not started in UEFI mode. Enable UEFI boot (disable CSM/Legacy) in the firmware setup and start the installer again."
+pause
+
+header "Checking the release"
+: > "$LOG"
+run "Verifying the release files (SHA256SUMS)…" \
+  sh -c 'cd "$1" && sha256sum --check --ignore-missing --quiet SHA256SUMS' _ "$REL" \
+  || fail "The release files on this medium are damaged (checksum mismatch). Write the ISO again."
+
+# --- Target disk ---
+boot_disk=$(lsblk -no PKNAME "$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null)" 2>/dev/null | head -1)
+mapfile -t disks < <(lsblk -dnpo NAME,SIZE,TYPE,TRAN,MODEL | awk -v b="/dev/$boot_disk" \
+  '$3 == "disk" && $1 != b && $1 !~ /zram|loop/ { name=$1; $3=""; printf "%s\n", $0 }')
+[ ${#disks[@]} -gt 0 ] || fail "No disk found to install on."
+header "Target disk"
+say "Choose the disk for TungstenOS. $(gum style --foreground "$WARN" --bold 'Everything on it will be erased.')"
+echo
+choice=$(printf '%s\n' "${disks[@]}" | gum choose --header "  Disks:" --height 10) || exit 1
+DISK=${choice%% *}
+
+# --- Extensions ---
+EXTS=()
+avail=()
+for f in "$REL"/*_"$VER".raw; do
+  n=$(basename "$f"); n=${n%%_*}; [ "$n" = tungsten ] || avail+=("$n")
+done
+if [ ${#avail[@]} -gt 0 ]; then
+  preselect=()
+  grep -qsx 0x10de /sys/bus/pci/devices/*/vendor && preselect+=(nvidia)
+  grep -qsi asus /sys/class/dmi/id/sys_vendor && preselect+=(asus)
+  header "Hardware support"
+  say "System extensions add drivers and tools for specific hardware. The detected" \
+      "hardware is preselected; Space toggles, Enter continues."
+  echo
+  sel=$(printf '%s\n' "${avail[@]}" | gum choose --no-limit --height 6 \
+        --selected "$(IFS=,; echo "${preselect[*]:-}")") || exit 1
+  mapfile -t EXTS <<<"$sel"
+  [ -n "${EXTS[0]:-}" ] || EXTS=()
+fi
+
+# --- Recovery passphrase ---
+header "Disk encryption"
+say "The system partition is encrypted. After the first boot you can bind it to this" \
+    "computer's TPM (run0 tungsten-tpm-enroll); this passphrase stays as the recovery" \
+    "key. $(gum style --bold 'Store it safely: without it and the TPM, the data is lost.')"
+echo
+while :; do
+  p1=$(gum input --password --placeholder "Recovery passphrase (12+ characters)" --width 60) || exit 1
+  p2=$(gum input --password --placeholder "Repeat the passphrase" --width 60) || exit 1
+  if [ "$p1" != "$p2" ]; then warn "The passphrases do not match."
+  elif [ ${#p1} -lt 12 ]; then warn "Use at least 12 characters."
+  else break; fi
+done
+PASSFILE=$(mktemp -p /run tungsten-pass.XXXXXX)
+trap 'shred -u "$PASSFILE" 2>/dev/null || :' EXIT
+printf '%s' "$p1" > "$PASSFILE"; unset p1 p2
+
+# --- Secure Boot ---
+SB_TRUST= SB_THIRD=0
+setup_mode=$(od -An -t u1 -j4 -N1 "$EFIVARS/SetupMode-$GLOBAL" 2>/dev/null | tr -d ' ')
+if [ "$setup_mode" = 1 ]; then
+  header "Secure Boot"
+  say "The firmware is in Setup Mode, so the TungstenOS keys can be enrolled now. Then" \
+      "the firmware only starts software signed by them (and what else you choose)."
+  echo
+  t=$(gum choose --header "  Trust:" \
+      "TungstenOS + Microsoft (recommended: GPU/NVMe firmware, Windows)" \
+      "TungstenOS only (strictest; firmware drivers may be refused)" \
+      "Do not enroll now") || exit 1
+  case $t in
+    "TungstenOS + Microsoft"*) SB_TRUST=microsoft
+      gum confirm --default=false --affirmative "Trust" --negative "Don't" \
+        "Also trust Microsoft's third-party CA (shim, other Linux distributions)?" && SB_THIRD=1 ;;
+    "TungstenOS only"*) SB_TRUST=tungsten ;;
+  esac
+fi
+
+# --- Summary ---
+header "Summary"
+model=$(lsblk -dno SIZE,MODEL "$DISK" | xargs)
+gum style --margin "0 2" --padding "1 2" --border normal --border-foreground "$MUTED" --width 64 \
+  "$(gum style --bold 'Disk')          $DISK ($model)" \
+  "$(gum style --bold 'Release')       $VER" \
+  "$(gum style --bold 'Extensions')    ${EXTS[*]:-none}" \
+  "$(gum style --bold 'Encryption')    recovery passphrase set" \
+  "$(gum style --bold 'Secure Boot')   ${SB_TRUST:-not enrolled}$( [ "$SB_THIRD" = 1 ] && echo ' + third-party CA')"
+echo
+warn "All data on $DISK will be erased."
+echo
+typed=$(gum input --placeholder "Type ${DISK##*/} to install, Esc to cancel" --width 60) || exit 1
+[ "$typed" = "${DISK##*/}" ] || fail "Cancelled: the disk name did not match. Nothing was written."
+
+# --- Install ---
+header "Installing"
+ext_arg=none; [ ${#EXTS[@]} -gt 0 ] && ext_arg=$(IFS=,; echo "${EXTS[*]}")
+run "Writing TungstenOS $VER to $DISK… (several minutes)" \
+  "$HERE/tungsten-install.sh" --yes --no-enroll --no-summary \
+    --extensions="$ext_arg" --passphrase-file="$PASSFILE" "$DISK" "$REL" \
+  || fail "Writing the system failed."
+shred -u "$PASSFILE"
+gum style --margin "0 2" --foreground "$OK" "✓ System written"
+
+if [ -n "$SB_TRUST" ]; then
+  args=(--trust="$SB_TRUST"); [ "$SB_THIRD" = 1 ] && args+=(--third-party-ca)
+  run "Enrolling Secure Boot keys…" "$HERE/enroll-secureboot.sh" "${args[@]}"
+  rc=$?
+  if [ "$rc" = 3 ]; then
+    warn "This computer loaded firmware drivers (option ROMs: GPU, NVMe or network) during" \
+         "this boot that your selection would no longer trust. The firmware may then show" \
+         "no picture or not find the disk, until the keys are cleared (sometimes only by" \
+         "a CMOS reset)."
+    if gum confirm --default=false --affirmative "Enroll anyway" --negative "Skip enrollment" "Enroll anyway?"; then
+      run "Enrolling Secure Boot keys…" "$HERE/enroll-secureboot.sh" "${args[@]}" --accept-option-rom-risk
+      rc=$?
+    else rc=skip; fi
+  fi
+  case $rc in
+    0) gum style --margin "0 2" --foreground "$OK" "✓ Secure Boot keys enrolled" ;;
+    skip) SB_TRUST= ;;
+    *) fail "Enrolling the Secure Boot keys failed. The system is installed; you can enroll later from this ISO (enroll-secureboot.sh)." ;;
+  esac
+fi
+
+# --- Done ---
+header "Done"
+gum style --margin "0 2" --foreground "$OK" --bold "TungstenOS $VER is installed."
+echo
+say "Next steps:" \
+    "  1. $( [ -n "$SB_TRUST" ] && echo 'Enable Secure Boot in the firmware setup if it is not on.' || echo 'Secure Boot keys were not enrolled: put the firmware in Setup Mode and start this ISO again to enroll them.')" \
+    "  2. Remove the installation medium, boot and enter the recovery passphrase." \
+    "  3. The first boot creates your administrator and everyday accounts." \
+    "  4. Then bind the disk to the TPM: run0 tungsten-tpm-enroll"
+echo
+if gum confirm --affirmative "Reboot" --negative "Shell" "Reboot now?"; then
+  systemctl reboot
+fi

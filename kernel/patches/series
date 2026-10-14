@@ -65,8 +65,8 @@
 0061-slub-Add-support-for-verifying-slab-sanitization.patch
 0062-security-perf-Allow-further-restriction-of-perf_even.patch
 0063-enable-SECURITY_PERF_EVENTS_RESTRICT-by-default.patch
-# 0064-userns-add-sysctl-to-disallow-unprivileged-CLONE_NEW.patch
-# 0065-userns-add-kconfig-to-set-default-for-unprivileged-C.patch
+0064-userns-add-sysctl-to-disallow-unprivileged-CLONE_NEW.patch
+0065-userns-add-kconfig-to-set-default-for-unprivileged-C.patch
 0066-Add-the-extra_latent_entropy-kernel-parameter.patch
 0067-ata-avoid-null-pointer-dereference-on-bug.patch
 0068-sanity-check-for-negative-length-in-nla_memcpy.patch

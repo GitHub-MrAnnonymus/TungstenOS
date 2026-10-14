@@ -1,9 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Daniel Micay <danielmicay@gmail.com>
 Date: Tue, 16 May 2017 17:51:48 -0400
-X-TungstenOS-Note: kernel/sysctl.c hunks dropped. 0083 adds the deny_new_usb entry there and
- 0084 moves it out again, so together they leave that file unchanged; keeping them
- would conflict with the disabled unprivileged_userns_clone patch (0064).
 Subject: [PATCH 083/101] usb: add toggle for disabling newly added USB devices
 
 Based on the public grsecurity patches.
@@ -16,6 +13,7 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@oss.cyber.gouv.fr>
 ---
  drivers/usb/core/hub.c |  9 +++++++++
  include/linux/usb.h    |  3 +++
+ kernel/sysctl.c        | 14 ++++++++++++++
  3 files changed, 26 insertions(+)
 
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
@@ -59,3 +57,35 @@ index 49ab8db..f2a0543 100644
  #endif  /* __KERNEL__ */
  
  #endif
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 3a43c1f..862f0fd 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -25,6 +25,9 @@
+ #ifdef CONFIG_USER_NS
+ #include <linux/user_namespace.h>
+ #endif
++#if IS_ENABLED(CONFIG_USB)
++#include <linux/usb.h>
++#endif
+ 
+ /* shared constants to be used in various sysctls */
+ const int sysctl_vals[] = { 0, 1, 2, 3, 4, 100, 200, 1000, 3000, INT_MAX, 65535, -1 };
+@@ -1432,6 +1435,17 @@ static const struct ctl_table sysctl_subsys_table[] = {
+ 		.extra1		= SYSCTL_NEG_ONE,
+ 		.extra2		= SYSCTL_ONE,
+ 	},
++#endif
++#if IS_ENABLED(CONFIG_USB)
++	{
++		.procname	= "deny_new_usb",
++		.data		= &deny_new_usb,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax_sysadmin,
++		.extra1		= SYSCTL_ZERO,
++		.extra2		= SYSCTL_ONE,
++	},
+ #endif
+ 	{
+ 		.procname	= "ngroups_max",

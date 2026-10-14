@@ -141,6 +141,14 @@ Run *Build packages* with **all** selected before the first image build. Only pa
 
 ## Installation
 
+### Installer ISO
+
+`install/build-iso.sh` builds an installer ISO on an Arch Linux host (packages `archiso`, `libisoburn`): it downloads and verifies the latest release, builds archiso's `releng` profile with the installer added, and puts the release files on the ISO under `/tungsten`. The ISO boots with Secure Boot off or with the firmware in Setup Mode, and starts `tungsten-installer` on the first console: a terminal UI that asks for the disk, extensions, recovery passphrase and Secure Boot keys, shows a summary, and only then writes the disk. In virt-manager, use a Q35 machine with UEFI (`OVMF_CODE.secboot.4m.fd` with the empty `OVMF_VARS.4m.fd` template, so the firmware starts in Setup Mode), an emulated TPM 2.0, and the ISO as a CD-ROM.
+
+On the first boot of the installed system, a wizard on the console asks for the time zone, the computer name, the administrator and the everyday account.
+
+### Manual installation
+
 Download a release's files, verify them, and run the installer from an Arch Linux live ISO:
 
 ```sh

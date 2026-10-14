@@ -63,6 +63,7 @@ PACKAGES=(
 
   # Tools
   less git jq fastfetch tmux helix rsync unzip zip arch-repro-status nano neovim
+  gum  # first-boot wizard (/usr/lib/tungsten/firstboot-users)
 )
 # Retried: a mirror dropping connections aborts the whole transaction.
 for try in 1 2 3; do

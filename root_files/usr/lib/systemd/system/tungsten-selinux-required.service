@@ -1,0 +1,15 @@
+# The kernel cannot be told to ignore lsm=: a later lsm= without selinux (from a signed
+# add-on) would start the system without SELinux. Refuse to leave the initrd then; with
+# rd.emergency=halt the machine stops instead of unlocking and booting the root partition.
+[Unit]
+Description=Require SELinux
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+Before=initrd.target cryptsetup-pre.target
+OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/sh -ec 'grep -qw selinux /sys/kernel/security/lsm || { echo "SELinux is not active (lsm= on the kernel command line); refusing to boot." > /dev/kmsg; exit 1; }'

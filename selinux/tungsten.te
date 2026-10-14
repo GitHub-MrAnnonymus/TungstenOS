@@ -742,3 +742,19 @@ dontaudit gpg_t etc_t:file write;
 # systemctl --machine=user@ from the admin shell: dbus-broker receives its socket.
 allow system_dbusd_t sysadm_t:fd use;
 allow system_dbusd_t sysadm_t:unix_stream_socket { getattr read write };
+
+# The session queries firewalld (status, zones); firewalld asks polkit before changes.
+optional_policy(`
+	firewalld_dbus_chat(staff_t)
+')
+
+# Bazaar (libdex) copies app icons from the system Flatpak directory with their
+# metadata; restoring the source label (bin_t) on the copy in the cache is refused and
+# not needed.
+dontaudit staff_t bin_t:file relabelto;
+
+# Chromium writes its own /proc/<pid> settings (oom_score_adj).
+gen_require(`
+	type proc_t;
+')
+dontaudit staff_t proc_t:filesystem associate;

@@ -39,36 +39,116 @@ if mountpoint -q /etc/machine-id || ! systemd-id128 machine-id >/dev/null; then
   exit 1
 fi
 
-ask_name() {
-  local prompt=$1 default=${2:-} name
+# --- Wizard (gum) ---
+ACCENT=212 MUTED=245 WARN=203 OK=78
+export GUM_CHOOSE_CURSOR_FOREGROUND=$ACCENT GUM_INPUT_CURSOR_FOREGROUND=$ACCENT \
+  GUM_INPUT_PROMPT_FOREGROUND=$ACCENT GUM_SPIN_SPINNER_FOREGROUND=$ACCENT \
+  GUM_FILTER_INDICATOR_FOREGROUND=$ACCENT GUM_FILTER_MATCH_FOREGROUND=$ACCENT \
+  GUM_CONFIRM_SELECTED_BACKGROUND=$ACCENT
+LOG=/run/tungsten-firstboot.log
+STEPS=4
+
+header() {
+  clear
+  gum style --border rounded --border-foreground "$ACCENT" --padding "1 4" --margin "1 2" \
+    --align center --width 64 \
+    "$(gum style --bold --foreground "$ACCENT" 'W E L C O M E   T O   T U N G S T E N')" \
+    "$(gum style --foreground "$MUTED" "$1")"
+}
+say()  { gum style --margin "0 2" --width 68 "$@"; }
+warn() { gum style --margin "0 2" --width 68 --foreground "$WARN" "$@"; }
+
+ask_name() {   # prompt placeholder [default]
+  local name
   while :; do
-    read -r -p "$prompt${default:+ [$default]}: " name
-    name=${name:-$default}
+    name=$(gum input --prompt "$1 › " --placeholder "$2" --value "${3:-}" --width 60) || continue
     if [[ $name =~ ^[a-z_][a-z0-9_-]{0,30}$ ]] && ! getent passwd "$name" >/dev/null; then
       echo "$name"; return
     fi
-    echo "Use lowercase letters, digits, - and _, starting with a letter, and a name not in use." >&2
+    warn "Lowercase letters, digits, - and _, starting with a letter; not a name in use." >&2
   done
 }
+ask_password() {   # who
+  local p1 p2
+  while :; do
+    p1=$(gum input --password --prompt "Password › " --placeholder "$1's password" --width 60) || continue
+    p2=$(gum input --password --prompt "Repeat › " --placeholder "the same password again" --width 60) || continue
+    if [ -z "$p1" ]; then warn "The password must not be empty." >&2
+    elif [ "$p1" != "$p2" ]; then warn "The passwords do not match." >&2
+    else printf '%s' "$p1"; return; fi
+  done
+}
+# Creates a home with NEWPASSWORD; prints homed's reason and returns 1 if it refuses.
+create_home() {   # title password homectl-args...
+  local title=$1 pw=$2; shift 2
+  : > "$LOG"
+  if NEWPASSWORD=$pw gum spin --title "$title" -- bash -c 'l=$1; shift; "$@" >>"$l" 2>&1' _ "$LOG" homectl create "$@"; then
+    return 0
+  fi
+  warn "$(tail -n 3 "$LOG")" >&2
+  return 1
+}
 
-cat <<'TEXT'
-
-Welcome to TungstenOS. Two accounts are created now:
-
- 1. An administrator. Its password is asked when you run run0 or when a settings
-    dialog needs authorization. It cannot log in at the login screen.
- 2. Your everyday account, for the desktop.
-
-Use different passwords for the two.
-
-TEXT
-admin=$(ask_name "Administrator account name" admin)
-# The administrator's home holds nothing, but polkit and run0 mount it to check the
-# password; homed's default size (a share of all free space) would fill the disk.
-homectl create "$admin" --real-name=Administrator --storage=luks \
-  --member-of=wheel --noexec=yes --disk-size=2G --rebalance-weight=off "${ADMIN_LIMITS[@]}"
+# 1. Time zone and computer name (written to /etc by systemd-firstboot, no services needed)
+header "Step 1 of $STEPS · Time zone"
+say "Type to search, Enter to choose."
 echo
-user=$(ask_name "Your everyday account name")
-homectl create "$user" --storage=luks --noexec=yes "${LIMITS[@]}"
+# From tzdata directly: timedatectl asks timedated, which may not run this early.
+zones() { awk '$1 == "Z" {print $2} $1 == "L" {print $3}' /usr/share/zoneinfo/tzdata.zi | sort -u; }
+tz=$(zones | gum filter --height 12 --placeholder "e.g. Europe/Belgrade" --value "") || tz=UTC
+header "Step 1 of $STEPS · Computer name"
+say "The name this computer uses on networks."
 echo
-echo "Done. Log in as $user at the login screen."
+host=""
+until [[ $host =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]]; do
+  host=$(gum input --prompt "Name › " --value "tungsten" --width 60) || host=tungsten
+done
+systemd-firstboot --force --timezone="$tz" --hostname="$host" >/dev/null 2>&1 \
+  || warn "Could not set the time zone or name; change them later with timedatectl and hostnamectl."
+hostname "$host" 2>/dev/null || :
+
+# 2. Administrator
+header "Step 2 of $STEPS · Administrator"
+say "The administrator only authorizes: its password is asked when you run run0 or a" \
+    "settings dialog needs permission. It cannot log in at the login screen, so someone" \
+    "who learns your everyday password still cannot change the system." "" \
+    "$(gum style --bold 'Use a different password than for your everyday account.')"
+echo
+admin=$(ask_name "Name" "admin" admin)
+while :; do
+  admin_pw=$(ask_password "$admin")
+  # The administrator's home holds nothing, but polkit and run0 mount it to check the
+  # password; homed's default size (a share of all free space) would fill the disk.
+  create_home "Creating $admin…" "$admin_pw" "$admin" --real-name=Administrator \
+    --storage=luks --member-of=wheel --noexec=yes --disk-size=2G --rebalance-weight=off \
+    "${ADMIN_LIMITS[@]}" && break
+done
+
+# 3. Everyday account
+header "Step 3 of $STEPS · Your account"
+say "The account you use every day. Its home is encrypted with your password and locked" \
+    "whenever you log out."
+echo
+full=$(gum input --prompt "Full name › " --placeholder "shown at the login screen" --width 60) || full=
+suggest=$(printf '%s' "${full%% *}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')
+user=$(ask_name "User name" "lowercase, e.g. ${suggest:-alex}" "$suggest")
+while :; do
+  user_pw=$(ask_password "$user")
+  if [ "$user_pw" = "$admin_pw" ]; then
+    warn "That is the administrator's password; choose a different one." >&2; continue
+  fi
+  args=(); [ -n "$full" ] && args+=(--real-name="$full")
+  create_home "Creating $user…" "$user_pw" "$user" "${args[@]}" \
+    --storage=luks --noexec=yes "${LIMITS[@]}" && break
+done
+unset admin_pw user_pw
+
+# 4. Done
+header "Step 4 of $STEPS · Ready"
+gum style --margin "0 2" --foreground "$OK" --bold "All set. Log in as $user at the login screen."
+echo
+say "Next, bind the disk to this computer's TPM so it unlocks without the recovery" \
+    "passphrase (it asks for the administrator's password):" "" \
+    "$(gum style --foreground "$ACCENT" '    run0 tungsten-tpm-enroll')"
+echo
+gum spin --spinner dot --title "Starting the login screen…" -- sleep 3

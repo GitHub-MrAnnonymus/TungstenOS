@@ -1,9 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Levente Polyak <levente@leventepolyak.net>
 Date: Sun, 6 Sep 2020 21:08:16 +0200
-X-TungstenOS-Note: kernel/sysctl.c hunks dropped. 0083 adds the deny_new_usb entry there and
- 0084 moves it out again, so together they leave that file unchanged; keeping them
- would conflict with the disabled unprivileged_userns_clone patch (0064).
 Subject: [PATCH 084/101] usb: implement dedicated subsystem sysctl tables
 
 This moves the usb related sysctl knobs to an own usb local sysctl table
@@ -18,6 +15,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  drivers/usb/core/sysctl.c | 35 +++++++++++++++++++++++++++++++++++
  drivers/usb/core/usb.c    |  9 +++++++++
  include/linux/usb.h       | 10 +++++++++-
+ kernel/sysctl.c           | 14 --------------
  6 files changed, 54 insertions(+), 18 deletions(-)
  create mode 100644 drivers/usb/core/sysctl.c
 
@@ -151,3 +149,35 @@ index f2a0543..12c707a 100644
  
  #endif  /* __KERNEL__ */
  
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 862f0fd..3a43c1f 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -25,9 +25,6 @@
+ #ifdef CONFIG_USER_NS
+ #include <linux/user_namespace.h>
+ #endif
+-#if IS_ENABLED(CONFIG_USB)
+-#include <linux/usb.h>
+-#endif
+ 
+ /* shared constants to be used in various sysctls */
+ const int sysctl_vals[] = { 0, 1, 2, 3, 4, 100, 200, 1000, 3000, INT_MAX, 65535, -1 };
+@@ -1435,17 +1432,6 @@ static const struct ctl_table sysctl_subsys_table[] = {
+ 		.extra1		= SYSCTL_NEG_ONE,
+ 		.extra2		= SYSCTL_ONE,
+ 	},
+-#endif
+-#if IS_ENABLED(CONFIG_USB)
+-	{
+-		.procname	= "deny_new_usb",
+-		.data		= &deny_new_usb,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec_minmax_sysadmin,
+-		.extra1		= SYSCTL_ZERO,
+-		.extra2		= SYSCTL_ONE,
+-	},
+ #endif
+ 	{
+ 		.procname	= "ngroups_max",

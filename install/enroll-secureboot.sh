@@ -1,7 +1,22 @@
 #!/usr/bin/env bash
 # Enrolls the TungstenOS Secure Boot keys, optionally with Microsoft's certificates.
 # Requires root and the firmware in Setup Mode.
+# Without options it asks; the installer TUI answers through options:
+#   --trust=tungsten|microsoft   which keys to trust (microsoft: Microsoft's default set)
+#   --third-party-ca             also trust Microsoft UEFI CA 2023 (shim, other distros)
+#   --accept-option-rom-risk     enroll even if this boot loaded option ROMs the selection
+#                                would no longer trust (otherwise exit status 3)
 set -euo pipefail
+TRUST= THIRD_PARTY=0 ACCEPT_OPROM=0
+while [[ ${1:-} == --* ]]; do
+  case $1 in
+    --trust=tungsten|--trust=microsoft) TRUST=${1#*=} ;;
+    --third-party-ca) THIRD_PARTY=1 ;;
+    --accept-option-rom-risk) ACCEPT_OPROM=1 ;;
+    *) echo "unknown option $1" >&2; exit 2 ;;
+  esac
+  shift
+done
 cd "$(dirname -- "$0")/../keys"
 [ "$EUID" -eq 0 ] || { echo "Run as root" >&2; exit 1; }
 
@@ -19,12 +34,18 @@ fi
 command -v efi-updatevar >/dev/null || pacman -Sy --noconfirm --needed efitools
 
 # --- Trust selection ---
-echo
-echo "Which keys should this machine trust?"
-echo "  1) TungstenOS only        Only TungstenOS boots. Firmware will refuse option ROMs"
-echo "                            (GPU/NVMe/NIC firmware drivers) and every other OS."
-echo "  2) TungstenOS + Microsoft  Also trust Microsoft's certificates (choose which next)."
-read -r -p "Choice [1/2]: " choice
+case $TRUST in
+  tungsten) choice=1 ;;
+  microsoft) choice=2 ;;
+  *)
+    echo
+    echo "Which keys should this machine trust?"
+    echo "  1) TungstenOS only        Only TungstenOS boots. Firmware will refuse option ROMs"
+    echo "                            (GPU/NVMe/NIC firmware drivers) and every other OS."
+    echo "  2) TungstenOS + Microsoft  Also trust Microsoft's certificates (choose which next)."
+    read -r -p "Choice [1/2]: " choice
+    ;;
+esac
 
 declare -a names files selected
 if [ "$choice" = 2 ]; then
@@ -41,7 +62,11 @@ if [ "$choice" = 2 ]; then
     rest=${e#*|}
     selected+=("${e%%|*}"); names+=("${rest%%|*}"); files+=("${rest##*|}")
   done
-  while :; do
+  if [ -n "$TRUST" ]; then
+    # Microsoft's default set; the third-party CA only on request.
+    [ "$THIRD_PARTY" = 1 ] && selected[4]=1
+  fi
+  while [ -z "$TRUST" ]; do
     echo
     for i in "${!names[@]}"; do
       mark=" "; [ "${selected[$i]}" = 1 ] && mark="x"
@@ -74,7 +99,11 @@ oprom_ok=0
 for i in "${!files[@]}"; do
   [ "${selected[$i]}" = 1 ] && case "${files[$i]}" in *option-rom*|*uefi-ca-2011*) oprom_ok=1 ;; esac
 done
-if [ "$oproms" -gt 0 ] && [ "$oprom_ok" = 0 ]; then
+if [ "$oproms" -gt 0 ] && [ "$oprom_ok" = 0 ] && [ -n "$TRUST" ] && [ "$ACCEPT_OPROM" = 0 ]; then
+  echo "This boot loaded $oproms option ROM(s) that the selection would no longer trust." >&2
+  exit 3
+fi
+if [ "$oproms" -gt 0 ] && [ "$oprom_ok" = 0 ] && [ -z "$TRUST" ]; then
   echo
   echo "WARNING: this machine loaded $oproms option ROM(s) during this boot (GPU, NVMe or NIC"
   echo "firmware drivers). Without 'Option ROM UEFI CA 2023' or 'Microsoft UEFI CA 2011' in db,"
