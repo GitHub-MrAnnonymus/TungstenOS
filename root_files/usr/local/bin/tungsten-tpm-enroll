@@ -42,9 +42,11 @@ done
 # it also needs the signed PCR 11 policy below (policyref "initrd").
 if [ -e "$POLICY" ]; then
   # Updating the policy needs a boot matching its prediction; otherwise use the
-  # recovery PIN shown at the first enrollment.
-  "$PCRLOCK" make-policy --policy="$POLICY" \
-    || "$PCRLOCK" make-policy --policy="$POLICY" --recovery-pin=query
+  # recovery PIN shown at the first enrollment. --force: make-policy compares the new
+  # prediction only with pcrlock.json and skips the TPM write if they are identical, but
+  # pcrlock.json can be ahead of the TPM's NV index after a failed write.
+  "$PCRLOCK" make-policy --force --policy="$POLICY" \
+    || "$PCRLOCK" make-policy --force --policy="$POLICY" --recovery-pin=query
 else
   echo ">>> Creating the pcrlock policy. Store the recovery PIN shown below; it is"
   echo ">>> needed to update the policy if the TPM state ever stops matching."

@@ -2,13 +2,16 @@
 # Copies your DankMaterialShell look (settings, colors, wallpapers) to the login screen.
 # Usage: run0 tungsten-greeter-sync [user]      (default: the user who ran run0)
 #
-# The login screen shows a per-user slot, /var/cache/dms-greeter/users/<user>/, once that
-# user is selected. dms-greeter's own "sync --profile" links the slot into the home and
-# opens the home to the greeter group with ACLs; with systemd-homed the home is encrypted
-# and locked while logged out, and the ACLs would let the login screen (and anything in the
-# greeter group) read it. This writes a snapshot instead, as root and read-only for the
-# login screen: the everyday session cannot change what the login screen loads without the
-# administrator's password. Run it again after changing the wallpaper or theme.
+# The copy becomes the login screen's default look: /var/cache/dms-greeter/theme/, with
+# settings.json, session.json and colors.json at the top of the cache pointing into it.
+# (dank-greeter's per-user slots, users/<user>/, apply only to accounts it lists, and it
+# lists UIDs 1000-59999; systemd-homed accounts have UIDs from 60001.)
+# dms-greeter's own "sync --profile" links into the home and opens the home to the greeter
+# group with ACLs; with systemd-homed the home is encrypted and locked while logged out,
+# and the ACLs would let the login screen (and anything in the greeter group) read it.
+# This writes a snapshot instead, as root and read-only for the login screen: the everyday
+# session cannot change what the login screen loads without the administrator's password.
+# Run it again after changing the wallpaper or theme.
 set -euo pipefail
 [ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }
 user=${1:-${SUDO_USER:-}}
@@ -22,8 +25,9 @@ for f in "$settings" "$session" "$colors"; do
   [ -r "$f" ] || { echo "$f not found: log in as $user first (the home is locked otherwise)" >&2; exit 1; }
 done
 
-slot=/var/cache/dms-greeter/users/$user
-stage=$(mktemp -d /var/cache/dms-greeter/users/.sync.XXXXXX)
+CACHE=/var/cache/dms-greeter
+slot=$CACHE/theme
+stage=$(mktemp -d "$CACHE/.theme.XXXXXX")
 trap 'rm -rf "$stage"' EXIT
 
 # Copies a file referenced by the user's settings into the slot; prints the new path, or
@@ -81,5 +85,8 @@ rm -rf "$slot.old"
 mv "$stage" "$slot"
 rm -rf "$slot.old"
 trap - EXIT
-restorecon -R "$slot" 2>/dev/null || :
+for f in settings.json session.json colors.json; do
+  ln -sfn "theme/$f" "$CACHE/$f"
+done
+restorecon -R "$slot" "$CACHE"/settings.json "$CACHE"/session.json "$CACHE"/colors.json 2>/dev/null || :
 echo "The login screen now shows $user's look ($(ls "$slot" | wc -l) files in $slot)."

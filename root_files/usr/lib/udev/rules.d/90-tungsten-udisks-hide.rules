@@ -1,0 +1,20 @@
+# Keep the system's own partitions out of file managers (udisks): the ESP, the encrypted
+# root partition, both A/B /usr slots with their verity hash and signature partitions,
+# and the system extensions' images (loop devices with the same partition types).
+# Discoverable Partitions Specification type UUIDs, x86-64.
+SUBSYSTEM!="block", GOTO="tungsten_udisks_end"
+
+# ESP, root, usr, usr-verity, usr-verity-sig
+ENV{ID_PART_ENTRY_TYPE}=="c12a7328-f81f-11d2-ba4b-00a0c93ec93b", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_TYPE}=="4f68bce3-e8cd-4db1-96e7-fbcaf984b709", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_TYPE}=="8484680c-9521-48c6-9c11-b0720656f69e", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_TYPE}=="77ff5f63-e7b6-4633-acf4-1565b864c0e6", ENV{UDISKS_IGNORE}="1"
+ENV{ID_PART_ENTRY_TYPE}=="e7bb33fb-06cf-4e81-8273-e543b413e2e2", ENV{UDISKS_IGNORE}="1"
+
+# The loop devices of system extensions (/var/lib/extensions.d/*.raw) and the
+# device-mapper devices for verity and the root partition.
+KERNEL=="loop*", ATTR{loop/backing_file}=="/var/lib/extensions*", ENV{UDISKS_IGNORE}="1"
+ENV{DM_UUID}=="CRYPT-VERITY-*", ENV{UDISKS_IGNORE}="1"
+ENV{DM_NAME}=="root|usr", ENV{UDISKS_IGNORE}="1"
+
+LABEL="tungsten_udisks_end"

@@ -801,3 +801,31 @@ gen_require(`
 ')
 dev_rw_dri(staff_bubblewrap_t)
 allow staff_bubblewrap_t dma_device_t:chr_file { getattr ioctl map open read write };
+
+# systemd-pcrlock make-policy also writes the policy as a credential to the ESP
+# (loader/credentials/pcrlock.<token>.cred), which the initrd uses to unlock the root
+# partition. To find the ESP it resolves the root's block device (udev database,
+# /dev/block links) and probes the partition table; refused silently (dontaudit), the TPM
+# got the new policy but the ESP kept the old one, and the next boot fell back to the
+# passphrase.
+udev_read_runtime_files(systemd_pcrphase_t)
+dev_list_all_dev_nodes(systemd_pcrphase_t)
+dev_getattr_all_blk_files(systemd_pcrphase_t)
+storage_raw_read_fixed_disk(systemd_pcrphase_t)
+fs_manage_dos_dirs(systemd_pcrphase_t)
+fs_manage_dos_files(systemd_pcrphase_t)
+
+# Flatpak binds host directories (the GTK settings, read-only; global override) over
+# mount points that bwrap creates in the app's data directory, ~/.var/app/<app>/.
+gen_require(`
+	type gnome_xdg_config_t, xdg_config_t, xdg_data_t, user_home_dir_t;
+')
+allow staff_bubblewrap_t { user_home_dir_t user_home_t xdg_config_t xdg_data_t }:dir { add_name create getattr mounton open read search write };
+allow staff_bubblewrap_t { user_home_t xdg_config_t xdg_data_t }:file { create getattr mounton open };
+allow staff_bubblewrap_t gnome_xdg_config_t:dir { getattr mounton open read search };
+allow staff_bubblewrap_t gnome_xdg_config_t:file { getattr open read };
+
+# The session watches its own files with inotify: DankMaterialShell reloads its colors
+# (~/.cache/DankMaterialShell/dms-colors.json) and settings when they change.
+allow staff_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:dir watch;
+allow staff_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:file watch;

@@ -135,7 +135,7 @@ locale-gen
 systemctl enable \
   greetd NetworkManager firewalld usbguard tungsten-usbguard-init dnscrypt-proxy ntpd-rs \
   systemd-homed systemd-homed-firstboot auditd power-profiles-daemon \
-  libvirtd.socket tungsten-relabel \
+  libvirtd.socket tungsten-relabel tungsten-clear-console \
   systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-flatpak-update.timer \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \

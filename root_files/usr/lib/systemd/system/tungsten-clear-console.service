@@ -1,0 +1,17 @@
+# The session's start messages (uwsm) stay on tty1 underneath the graphical session and
+# Plymouth. Plymouth exits just before the machine powers off and uncovers them; clear
+# the console (and its scrollback, hide the cursor) once the session and the login
+# screen are gone, before the shutdown splash.
+[Unit]
+Description=Clear the console before the shutdown splash
+DefaultDependencies=no
+After=display-manager.service user.slice systemd-user-sessions.service
+Before=plymouth-poweroff.service plymouth-reboot.service plymouth-halt.service plymouth-kexec.service
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sh -c 'printf "\\033[H\\033[2J\\033[3J\\033[?25l" > /dev/tty1'
+
+[Install]
+WantedBy=poweroff.target reboot.target halt.target kexec.target
