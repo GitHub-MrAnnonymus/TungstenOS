@@ -793,3 +793,11 @@ allow staff_bubblewrap_t user_tmp_t:lnk_file { getattr read };
 allow staff_bubblewrap_t user_tmp_t:sock_file { getattr read write };
 allow staff_bubblewrap_t staff_t:unix_stream_socket connectto;
 allow staff_t locale_t:dir watch;
+
+# Flatpak apps with --device=dri: bwrap binds the GPU nodes (dri_device_t) and
+# /dev/udmabuf (dma_device_t) into the sandbox, where the app renders with them.
+gen_require(`
+	type dma_device_t;
+')
+dev_rw_dri(staff_bubblewrap_t)
+allow staff_bubblewrap_t dma_device_t:chr_file { getattr ioctl map open read write };
