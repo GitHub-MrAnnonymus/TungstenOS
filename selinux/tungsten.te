@@ -778,3 +778,18 @@ gen_require(`
 	type staff_bubblewrap_t;
 ')
 allow staff_bubblewrap_t bin_t:file lock;
+
+# Flatpak: bwrap reads and writes the instance files in $XDG_RUNTIME_DIR/.flatpak/<id>
+# (info, bwrapinfo.json), takes temporary files as descriptors, and binds the runtime
+# sockets (p11-kit, Wayland, PipeWire, the D-Bus proxy) into the sandbox, where the app
+# connects to the services of the session (staff_t). flatpak-session-helper watches the
+# time zone database.
+gen_require(`
+	type user_tmp_t, locale_t;
+')
+allow staff_bubblewrap_t user_tmp_t:dir { getattr open read search mounton };
+allow staff_bubblewrap_t user_tmp_t:file { getattr open read write ioctl lock map };
+allow staff_bubblewrap_t user_tmp_t:lnk_file { getattr read };
+allow staff_bubblewrap_t user_tmp_t:sock_file { getattr read write };
+allow staff_bubblewrap_t staff_t:unix_stream_socket connectto;
+allow staff_t locale_t:dir watch;
