@@ -1,0 +1,90 @@
+# TungstenOS boot splash: the W filament of the logo heats up with boot progress
+# (ember, tungsten orange, white) and cools down at shutdown. Layers rendered from
+# branding/make-logo.py: frame.png (the cell, dark), cold.png (ember filament),
+# hot.png (glowing filament), glow.png (halo).
+
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+
+size = Math.Int(Math.Min(Window.GetWidth(), Window.GetHeight()) * 0.30);
+x = Window.GetX() + Window.GetWidth() / 2 - size / 2;
+y = Window.GetY() + Window.GetHeight() / 2 - size / 2;
+
+fun layer(file, z) {
+  s = Sprite(Image(file).Scale(size, size));
+  s.SetPosition(x, y, z);
+  return s;
+}
+frame = layer("frame.png", 1);
+cold = layer("cold.png", 2);
+glow = layer("glow.png", 3);
+hot = layer("hot.png", 4);
+
+progress = 0;
+shown = 0;
+ticks = 0;
+mode = Plymouth.GetMode();
+cooling = (mode != "boot" && mode != "resume");
+
+fun progress_cb(duration, value) {
+  global.progress = value;
+}
+Plymouth.SetBootProgressFunction(progress_cb);
+
+# 50 refreshes per second. Boot: follow progress, smoothed. Shutdown: start hot and cool
+# down over about three seconds.
+# Function variables are local; the animation state lives in global.
+fun refresh_cb() {
+  global.ticks = global.ticks + 1;
+  if (global.cooling)
+    target = 1 - Math.Min(1, global.ticks / 150);
+  else
+    target = 0.12 + 0.88 * global.progress;
+  global.shown = global.shown + (target - global.shown) * 0.06;
+  flicker = 0.025 * Math.Sin(global.ticks * 0.21) + 0.015 * Math.Sin(global.ticks * 0.53);
+  heat = Math.Clamp(global.shown + flicker, 0, 1);
+  hot.SetOpacity(heat);
+  glow.SetOpacity(heat * heat);
+  cold.SetOpacity(1 - heat * 0.6);
+}
+Plymouth.SetRefreshFunction(refresh_cb);
+
+# Passphrase or PIN prompt of the encrypted root partition, below the mark.
+prompt_sprite = Sprite();
+bullets_sprite = Sprite();
+message_sprite = Sprite();
+text_y = y + size + 28;
+
+fun center_x(image) {
+  return Window.GetX() + Window.GetWidth() / 2 - image.GetWidth() / 2;
+}
+
+fun display_password_cb(prompt, bullets) {
+  p = Image.Text(prompt, 0.72, 0.74, 0.78, 1, "Sans 13");
+  prompt_sprite.SetImage(p);
+  prompt_sprite.SetPosition(center_x(p), text_y, 10);
+  prompt_sprite.SetOpacity(1);
+  dots = "";
+  for (i = 0; i < bullets; i++)
+    dots = dots + "● ";
+  if (dots == "")
+    dots = " ";
+  b = Image.Text(dots, 1, 0.71, 0.42, 1, "Sans 15");
+  bullets_sprite.SetImage(b);
+  bullets_sprite.SetPosition(center_x(b), text_y + p.GetHeight() + 14, 10);
+  bullets_sprite.SetOpacity(1);
+}
+Plymouth.SetDisplayPasswordFunction(display_password_cb);
+
+fun display_normal_cb() {
+  prompt_sprite.SetOpacity(0);
+  bullets_sprite.SetOpacity(0);
+}
+Plymouth.SetDisplayNormalFunction(display_normal_cb);
+
+fun message_cb(text) {
+  m = Image.Text(text, 0.55, 0.57, 0.62, 1, "Sans 11");
+  message_sprite.SetImage(m);
+  message_sprite.SetPosition(center_x(m), Window.GetY() + Window.GetHeight() - m.GetHeight() - 40, 10);
+}
+Plymouth.SetMessageFunction(message_cb);

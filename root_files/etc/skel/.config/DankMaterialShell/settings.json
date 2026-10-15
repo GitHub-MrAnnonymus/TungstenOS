@@ -113,7 +113,13 @@
       ],
       "showOnLastDisplay": true,
       "leftWidgets": [
-        "launcherButton",
+        {
+          "id": "launcherButton",
+          "enabled": true,
+          "launcherLogoMode": "custom",
+          "launcherLogoCustomPath": "/usr/share/pixmaps/tungstenos-small.svg",
+          "launcherLogoColorOverride": ""
+        },
         {
           "id": "workspaceSwitcher",
           "enabled": true

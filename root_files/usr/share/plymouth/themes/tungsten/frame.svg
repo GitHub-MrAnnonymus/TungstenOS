@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-122.00 -122.00 244.00 244.00" width="512" height="512">
+<defs><filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter></defs>
+<path d="M-86.60 -50.00L0.00 -100.00" stroke="#2b2f36" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="1.0"/>
+<path d="M0.00 -100.00L86.60 -50.00" stroke="#2b2f36" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="1.0"/>
+<path d="M-86.60 50.00L0.00 100.00" stroke="#2b2f36" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="1.0"/>
+<path d="M0.00 100.00L86.60 50.00" stroke="#2b2f36" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="1.0"/>
+<path d="M0.00 0.00L0.00 -100.00" stroke="#2b2f36" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="1.0"/>
+<circle cx="0.00" cy="-100.00" r="5.5" fill="#2b2f36"/>
+<circle cx="86.60" cy="-50.00" r="5.5" fill="#2b2f36"/>
+<circle cx="86.60" cy="50.00" r="5.5" fill="#2b2f36"/>
+<circle cx="0.00" cy="100.00" r="5.5" fill="#2b2f36"/>
+<circle cx="-86.60" cy="50.00" r="5.5" fill="#2b2f36"/>
+<circle cx="-86.60" cy="-50.00" r="5.5" fill="#2b2f36"/>
+</svg>

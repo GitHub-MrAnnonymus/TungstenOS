@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=TungstenOS
+Description=The filament of the TungstenOS mark heats up while the system boots.
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/tungsten
+ScriptFile=/usr/share/plymouth/themes/tungsten/tungsten.script

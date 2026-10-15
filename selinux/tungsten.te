@@ -845,3 +845,12 @@ gen_require(`
 logging_send_syslog_msg(staff_bubblewrap_t)
 allow staff_bubblewrap_t devlog_t:sock_file { getattr read write };
 allow staff_bubblewrap_t syslogd_t:unix_stream_socket connectto;
+
+# Flatpak's --disable-userns: bwrap writes /proc/sys/user/max_user_namespaces (sysctl_t)
+# inside the sandbox's own user namespace, so the app cannot create nested namespaces.
+gen_require(`
+	type sysctl_t;
+')
+kernel_search_proc(staff_bubblewrap_t)
+allow staff_bubblewrap_t sysctl_t:dir { getattr open read search };
+allow staff_bubblewrap_t sysctl_t:file { getattr open read write };

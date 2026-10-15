@@ -64,6 +64,7 @@ PACKAGES=(
   # Tools
   less git jq fastfetch tmux helix rsync unzip zip arch-repro-status nano neovim
   gum  # first-boot wizard (/usr/lib/tungsten/firstboot-users)
+  librsvg  # rsvg-convert renders the boot splash layers at build time
 )
 # Retried: a mirror dropping connections aborts the whole transaction.
 for try in 1 2 3; do
@@ -96,7 +97,10 @@ install -Dm644 "$SEBUILD"/tungsten.pp "$WORKDIR$STAGE"/tungsten.pp
 install -Dm755 "$SRC"/scripts/remove-suid.sh "$WORKDIR$STAGE"/remove-suid.sh
 
 sed -i "s|@UPDATE_URL@|${UPDATE_URL}|; s|@IMAGE_ID@|${IMAGE_ID}|g" "$WORKDIR"/usr/lib/sysupdate.d/*.transfer
-sed -i -e 's/^NAME=.*/NAME="TungstenOS"/' -e 's/^PRETTY_NAME=.*/PRETTY_NAME="TungstenOS"/' "$WORKDIR"/usr/lib/os-release
+# LOGO: the icon name of the mark (/usr/share/icons/hicolor/scalable/apps/tungstenos.svg).
+sed -i -e 's/^NAME=.*/NAME="TungstenOS"/' -e 's/^PRETTY_NAME=.*/PRETTY_NAME="TungstenOS"/' \
+  -e '/^LOGO=/d' "$WORKDIR"/usr/lib/os-release
+echo "LOGO=tungstenos" >> "$WORKDIR"/usr/lib/os-release
 cat >> "$WORKDIR"/usr/lib/os-release <<EOF
 IMAGE_ID=${IMAGE_ID}
 IMAGE_VERSION=${OS_BUILD_TAG}
@@ -264,18 +268,14 @@ done
 # GSettings defaults from /usr/share/glib-2.0/schemas/90-tungsten.gschema.override.
 glib-compile-schemas /usr/share/glib-2.0/schemas
 
-# Boot splash: Plymouth's spinner without a logo (no Arch watermark, no firmware logo)
-# until TungstenOS has its own artwork. The images are copied, not linked, so the
-# initramfs hook (which adds the theme's directory) includes them.
-T=/usr/share/plymouth/themes
-mkdir -p $T/tungsten
-find $T/spinner -maxdepth 1 -name '*.png' ! -name watermark.png ! -name 'bgrt*' -exec cp -t $T/tungsten {} +
-sed -e 's/^Name=.*/Name=TungstenOS/' -e "s|^ImageDir=.*|ImageDir=$T/tungsten|" \
-    -e 's/^UseFirmwareBackground=.*/UseFirmwareBackground=false/' \
-    $T/spinner/spinner.plymouth > $T/tungsten/tungsten.plymouth
-grep -q "^ImageDir=$T/tungsten" $T/tungsten/tungsten.plymouth
-grep -q '^UseFirmwareBackground=' $T/tungsten/tungsten.plymouth || \
-  sed -i '/^\[two-step\]/a UseFirmwareBackground=false' $T/tungsten/tungsten.plymouth
+# Boot splash: the TungstenOS mark, its filament heating up (root_files/usr/share/plymouth/
+# themes/tungsten, layers from branding/make-logo.py). Plymouth's script module loads
+# PNG images; the initramfs hook takes the theme directory along.
+T=/usr/share/plymouth/themes/tungsten
+for l in frame cold hot glow; do
+  rsvg-convert -w 512 -h 512 -o $T/$l.png $T/$l.svg
+done
+rm -f $T/*.svg
 
 passwd -l root
 rm -rf /root/tungsten-build
@@ -480,6 +480,9 @@ CMDLINE=(
   preempt=full loglevel=0 quiet splash
   # Splash on the firmware framebuffer: the initramfs has no GPU drivers (no kms hook)
   plymouth.use-simpledrm
+  # Plymouth shows the text log instead of the splash when a serial console is active;
+  # virt-manager adds one (console=uart,... through SMBIOS for systemd-stub).
+  plymouth.ignore-serial-consoles
 )
 cat "$BOOT"/*-ucode.img > /tmp/ucode.img
 ukify build \
