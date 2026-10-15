@@ -1,0 +1,85 @@
+#!/bin/bash
+# Copies your DankMaterialShell look (settings, colors, wallpapers) to the login screen.
+# Usage: run0 tungsten-greeter-sync [user]      (default: the user who ran run0)
+#
+# The login screen shows a per-user slot, /var/cache/dms-greeter/users/<user>/, once that
+# user is selected. dms-greeter's own "sync --profile" links the slot into the home and
+# opens the home to the greeter group with ACLs; with systemd-homed the home is encrypted
+# and locked while logged out, and the ACLs would let the login screen (and anything in the
+# greeter group) read it. This writes a snapshot instead, as root and read-only for the
+# login screen: the everyday session cannot change what the login screen loads without the
+# administrator's password. Run it again after changing the wallpaper or theme.
+set -euo pipefail
+[ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }
+user=${1:-${SUDO_USER:-}}
+[ -n "$user" ] || { echo "usage: run0 tungsten-greeter-sync <user>" >&2; exit 2; }
+home=$(getent passwd "$user" | cut -d: -f6)
+[ -n "$home" ] || { echo "no user $user" >&2; exit 1; }
+settings=$home/.config/DankMaterialShell/settings.json
+session=$home/.local/state/DankMaterialShell/session.json
+colors=$home/.cache/DankMaterialShell/dms-colors.json
+for f in "$settings" "$session" "$colors"; do
+  [ -r "$f" ] || { echo "$f not found: log in as $user first (the home is locked otherwise)" >&2; exit 1; }
+done
+
+slot=/var/cache/dms-greeter/users/$user
+stage=$(mktemp -d /var/cache/dms-greeter/users/.sync.XXXXXX)
+trap 'rm -rf "$stage"' EXIT
+
+# Copies a file referenced by the user's settings into the slot; prints the new path, or
+# nothing if the file is missing (or not a regular file).
+copy_in() {   # source-path target-name
+  local src=$1 ext
+  [ -n "$src" ] && [ -f "$src" ] || return 0
+  ext=${src##*.}; [ "$ext" != "$src" ] && [ ${#ext} -le 5 ] || ext=jpg
+  install -m 0640 "$src" "$stage/$2.$ext"
+  echo "$slot/$2.$ext"
+}
+
+# session.json: wallpapers (single, light/dark, per monitor) copied in, paths rewritten.
+cp "$session" "$stage/session.json"
+for pair in wallpaperPath:wallpaper wallpaperPathLight:wallpaper-light wallpaperPathDark:wallpaper-dark; do
+  key=${pair%%:*}
+  new=$(copy_in "$(jq -r --arg k "$key" '.[$k] // empty' "$session")" "${pair#*:}")
+  [ -n "$new" ] || continue
+  jq --arg k "$key" --arg v "$new" '.[$k] = $v' "$stage/session.json" > "$stage/s.tmp"
+  mv "$stage/s.tmp" "$stage/session.json"
+done
+for key in monitorWallpapers monitorWallpapersLight monitorWallpapersDark; do
+  jq -e --arg k "$key" '.[$k] | type == "object"' "$session" >/dev/null 2>&1 || continue
+  suffix=${key#monitorWallpapers}; suffix=${suffix,,}; suffix=${suffix:+-$suffix}
+  while IFS=$'\t' read -r mon src; do
+    new=$(copy_in "$src" "wallpaper-monitor$suffix-${mon//[^A-Za-z0-9]/-}")
+    [ -n "$new" ] || continue
+    jq --arg k "$key" --arg m "$mon" --arg v "$new" '.[$k][$m] = $v' "$stage/session.json" > "$stage/s.tmp"
+    mv "$stage/s.tmp" "$stage/session.json"
+  done < <(jq -r --arg k "$key" '.[$k] | to_entries[] | [.key, .value] | @tsv' "$session")
+done
+
+# settings.json: lock screen wallpaper and custom theme file copied in as well.
+cp "$settings" "$stage/settings.json"
+new=$(copy_in "$(jq -r '.lockScreenWallpaperPath // empty' "$settings")" wallpaper-lock)
+if [ -n "$new" ]; then
+  jq --arg v "$new" '.lockScreenWallpaperPath = $v' "$stage/settings.json" > "$stage/s.tmp"
+  mv "$stage/s.tmp" "$stage/settings.json"
+fi
+src=$(jq -r '.customThemeFile // empty' "$settings")
+if [ -n "$src" ] && [ -f "$src" ]; then
+  install -m 0640 "$src" "$stage/custom-theme.json"
+  jq --arg v "$slot/custom-theme.json" '.customThemeFile = $v' "$stage/settings.json" > "$stage/s.tmp"
+  mv "$stage/s.tmp" "$stage/settings.json"
+fi
+
+cp "$colors" "$stage/colors.json"
+
+# Read-only for the login screen (group greeter), replaced in one step.
+chown -R root:greeter "$stage"
+chmod 0750 "$stage"
+chmod 0640 "$stage"/*
+rm -rf "$slot.old"
+[ -e "$slot" ] && mv "$slot" "$slot.old"
+mv "$stage" "$slot"
+rm -rf "$slot.old"
+trap - EXIT
+restorecon -R "$slot" 2>/dev/null || :
+echo "The login screen now shows $user's look ($(ls "$slot" | wc -l) files in $slot)."
