@@ -106,6 +106,13 @@ write(T + "glow.svg", svg(glow_path(GLOW, 30, 0.55)
                           + '<circle cx="0" cy="0" r="22" fill="#ffb46b" opacity=".5" filter="url(#blur)"/>\n'))
 
 
+# One dot of the passphrase/PIN prompt: a small glowing point (fonts in the initramfs lack ●).
+write(T + "bullet.svg",
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 32 32" width="64" height="64">\n'
+      '<defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter></defs>\n'
+      f'<circle r="9" fill="{GLOW}" opacity=".45" filter="url(#b)"/>\n<circle r="4.5" fill="{HOT}"/>\n</svg>\n')
+
+
 # fastfetch: Braille (2x4 dots per character), $1 frame grey, $2 filament orange.
 def braille():
     cols, rows = 30, 15

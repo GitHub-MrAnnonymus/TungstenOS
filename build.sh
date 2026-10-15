@@ -275,6 +275,7 @@ T=/usr/share/plymouth/themes/tungsten
 for l in frame cold hot glow; do
   rsvg-convert -w 512 -h 512 -o $T/$l.png $T/$l.svg
 done
+rsvg-convert -w 64 -h 64 -o $T/bullet.png $T/bullet.svg
 rm -f $T/*.svg
 
 passwd -l root
