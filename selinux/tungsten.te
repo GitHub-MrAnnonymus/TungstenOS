@@ -771,3 +771,10 @@ storage_raw_rw_fixed_disk(sysadm_t)
 allow staff_dbusd_t bin_t:dir { getattr open read search watch };
 allow staff_dbusd_t bin_t:lnk_file { getattr read };
 allow staff_dbusd_t bin_t:file { getattr open read };
+
+# bwrap locks the Flatpak runtime's /usr/.ref (bin_t) while an app uses that runtime, so
+# flatpak does not remove it underneath; refused, no Flatpak app starts.
+gen_require(`
+	type staff_bubblewrap_t;
+')
+allow staff_bubblewrap_t bin_t:file lock;
