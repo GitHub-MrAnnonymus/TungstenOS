@@ -1,0 +1,10 @@
+[Unit]
+Description=Add the user folders to the file manager sidebar (first login)
+ConditionPathExists=!%S/tungsten/user-folders
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/tungsten/user-folders
+
+[Install]
+WantedBy=default.target

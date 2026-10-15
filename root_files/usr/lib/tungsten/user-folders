@@ -1,0 +1,18 @@
+#!/bin/sh
+# First login: adds the XDG user folders to the file manager's sidebar (GTK bookmarks).
+# They need the home's absolute path, which the skeleton cannot know. Existing bookmarks
+# are kept; runs once per account (the marker in ~/.local/state).
+set -eu
+marker=${XDG_STATE_HOME:-$HOME/.local/state}/tungsten/user-folders
+[ -e "$marker" ] && exit 0
+bookmarks=${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/bookmarks
+mkdir -p "$(dirname "$bookmarks")" "$(dirname "$marker")"
+touch "$bookmarks"
+new=$(mktemp)
+for d in Documents Downloads Music Pictures Videos; do
+  [ -d "$HOME/$d" ] || continue
+  grep -q "^file://$HOME/$d\( \|$\)" "$bookmarks" || echo "file://$HOME/$d" >> "$new"
+done
+cat "$bookmarks" >> "$new"
+mv "$new" "$bookmarks"
+touch "$marker"

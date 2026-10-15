@@ -1,2 +1,5 @@
 # Shadow stacks only where every loaded object supports them (NVIDIA's driver does not).
 GLIBC_TUNABLES=glibc.cpu.x86_shstk=permissive:glibc.cpu.x86_ibt=on:glibc.cpu.hwcaps=IBT,SHSTK
+# uwsm: no start messages on the console between the login screen and the session
+# (errors still reach the terminal and the journal).
+UWSM_SILENT_START=2

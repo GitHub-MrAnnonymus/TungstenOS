@@ -3,7 +3,9 @@
 # SELinux labels, so everything in it would be unlabeled_t; label it once.
 home=$(getent passwd "$PAM_USER" | cut -d: -f6)
 [ -n "$home" ] && [ -d "$home" ] || exit 0
+# Also relabels homes from before the switch to user_u: their files carry staff_u, which
+# refpolicy's user-based access control keeps user_u processes from using.
 case "$(stat -c %C "$home" 2>/dev/null)" in
-  *:unlabeled_t|*:unlabeled_t:*) restorecon -RF "$home" ;;
+  *:unlabeled_t|*:unlabeled_t:*|staff_u:*) restorecon -RF "$home" ;;
 esac
 exit 0

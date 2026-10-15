@@ -4,7 +4,7 @@ policy_module(tungsten, 1.0.0)
 # `self:user_namespace create` (chromium_t, *_bubblewrap_t, container engines).
 # Audit with: sesearch -A -c user_namespace -p create
 
-# Desktop session rules (Hyprland, DankMaterialShell under staff_t) go here,
+# Desktop session rules (Hyprland, DankMaterialShell under user_t) go here,
 # derived from reviewed AVC denials.
 
 gen_require(`
@@ -14,7 +14,7 @@ gen_require(`
 	type systemd_userdbd_runtime_t, systemd_nsresourced_runtime_t;
 	type proc_t, devpts_t, var_run_t, user_home_dir_t, xdg_cache_t;
 	type sysctl_kernel_t, sysctl_vm_t, sysctl_vm_overcommit_t;
-	type usbguard_t, systemd_pcrphase_t, staff_systemd_t, staff_t, systemd_homework_t;
+	type usbguard_t, systemd_pcrphase_t, user_systemd_t, user_t, systemd_homework_t;
 	type systemd_hostnamed_t, var_lib_t, security_t, xdm_tmp_t, systemd_homed_record_t;
 	type user_runtime_t, usbguard_tmpfs_t, fsadm_run_t, fuse_device_t;
 ')
@@ -46,7 +46,7 @@ seutil_domtrans_setfiles(local_login_t)
 # Daemons that resolve users and groups (nss-systemd) but lack the attribute.
 auth_use_nsswitch(usbguard_t)
 auth_use_nsswitch(systemd_pcrphase_t)
-auth_use_nsswitch(staff_systemd_t)
+auth_use_nsswitch(user_systemd_t)
 
 # systemd-pcrlock: predictions in /var/lib/pcrlock.d, the policy in /var/lib/systemd,
 # UKIs and add-ons on the ESP, file labels for its own files.
@@ -65,21 +65,21 @@ allow systemd_homed_t systemd_homed_runtime_t:fifo_file { create getattr open re
 
 # homed's signed user record in the home (~/.identity*) may hold password hashes; file
 # managers that list the home are refused quietly.
-dontaudit staff_t systemd_homed_record_t:dir { getattr open read search };
-dontaudit staff_t systemd_homed_record_t:file { getattr open read };
+dontaudit user_t systemd_homed_record_t:dir { getattr open read search };
+dontaudit user_t systemd_homed_record_t:file { getattr open read };
 
 fs_rw_cgroup_files(systemd_hostnamed_t)
 
 # No writable executable memory for user programs (allow_execmem stays off). libffi
 # (GTK apps such as Nautilus) reads the allow_execmem boolean and then uses trampolines
 # that need none; Qt's QML JIT is disabled with QV4_FORCE_INTERPRETER (uwsm env).
-selinux_get_all_booleans(staff_t)
+selinux_get_all_booleans(user_t)
 
 # PipeWire/WirePlumber read the user's and sessions' state from logind.
-systemd_read_logind_runtime_files(staff_t)
+systemd_read_logind_runtime_files(user_t)
 
 # Hyprland replaces a stale Xwayland socket in /tmp/.X11-unix.
-allow staff_t xdm_tmp_t:sock_file { getattr setattr unlink };
+allow user_t xdm_tmp_t:sock_file { getattr setattr unlink };
 
 # udisks takes the cryptsetup lock in /run/cryptsetup.
 optional_policy(`
@@ -94,10 +94,10 @@ optional_policy(`
 # browser binary (chromium_exec_t) must enter chromium_t from there, under no_new_privs.
 optional_policy(`
 	gen_require(`
-		type staff_bubblewrap_t, chromium_t;
+		type user_bubblewrap_t, chromium_t;
 	')
-	chromium_domtrans(staff_bubblewrap_t)
-	allow staff_bubblewrap_t chromium_t:process2 { nnp_transition nosuid_transition };
+	chromium_domtrans(user_bubblewrap_t)
+	allow user_bubblewrap_t chromium_t:process2 { nnp_transition nosuid_transition };
 ')
 
 # Trivalent's own names for what refpolicy labels for "chromium": its profile
@@ -107,11 +107,11 @@ optional_policy(`
 	gen_require(`
 		type chromium_t, chromium_xdg_config_t, chromium_xdg_cache_t;
 		type xdg_config_t, tmp_t, etc_t, locale_t, xkb_var_lib_t, gnome_xdg_config_t;
-		type staff_gkeyringd_t, systemd_logind_t, systemd_logind_inhibit_runtime_t;
+		type user_gkeyringd_t, systemd_logind_t, systemd_logind_inhibit_runtime_t;
 	')
 	filetrans_pattern(chromium_t, xdg_config_t, chromium_xdg_config_t, dir, "trivalent")
-	filetrans_pattern(staff_t, tmp_t, chromium_xdg_cache_t, dir, "trivalent_cache")
-	allow staff_t chromium_xdg_cache_t:dir { create getattr search };
+	filetrans_pattern(user_t, tmp_t, chromium_xdg_cache_t, dir, "trivalent_cache")
+	allow user_t chromium_xdg_cache_t:dir { create getattr search };
 
 	# Small things the browser does: dconf settings, keyboard map cache, locale watch,
 	# logind sleep inhibitor (video playback), gnome-keyring, inherited descriptors.
@@ -122,10 +122,10 @@ optional_policy(`
 	allow chromium_t etc_t:file map;
 	allow chromium_t systemd_logind_t:fd use;
 	allow chromium_t systemd_logind_inhibit_runtime_t:fifo_file write;
-	allow staff_gkeyringd_t chromium_t:fd use;
-	allow staff_gkeyringd_t chromium_t:fifo_file write;
-	allow staff_t chromium_t:fd use;
-	allow chromium_t staff_t:netlink_kobject_uevent_socket { read write };
+	allow user_gkeyringd_t chromium_t:fd use;
+	allow user_gkeyringd_t chromium_t:fifo_file write;
+	allow user_t chromium_t:fd use;
+	allow chromium_t user_t:netlink_kobject_uevent_socket { read write };
 ')
 
 # The user's systemd: socket units of gpg-agent/keyboxd and gnome-keyring, the session
@@ -134,30 +134,30 @@ optional_policy(`
 	gen_require(`
 		type gpg_runtime_t, gnome_keyring_tmp_t;
 	')
-	allow staff_systemd_t { gpg_runtime_t gnome_keyring_tmp_t }:dir { add_name create getattr search write };
-	allow staff_systemd_t { gpg_runtime_t gnome_keyring_tmp_t }:sock_file { create getattr setattr unlink write };
+	allow user_systemd_t { gpg_runtime_t gnome_keyring_tmp_t }:dir { add_name create getattr search write };
+	allow user_systemd_t { gpg_runtime_t gnome_keyring_tmp_t }:sock_file { create getattr setattr unlink write };
 ')
-userdom_read_user_tmp_files(staff_systemd_t)
-allow staff_systemd_t staff_t:unix_stream_socket { connectto getattr read setattr write };
+userdom_read_user_tmp_files(user_systemd_t)
+allow user_systemd_t user_t:unix_stream_socket { connectto getattr read setattr write };
 
 # PipeWire's sockets are created by the user's systemd (socket activation).
-allow staff_t user_runtime_t:sock_file write;
+allow user_t user_runtime_t:sock_file write;
 
 # GVFS exposes its mounts to non-GIO programs through FUSE.
-allow staff_t fuse_device_t:chr_file { getattr ioctl open read write };
-fs_mount_fusefs(staff_t)
-fs_unmount_fusefs(staff_t)
+allow user_t fuse_device_t:chr_file { getattr ioctl open read write };
+fs_mount_fusefs(user_t)
+fs_unmount_fusefs(user_t)
 
 # lspci (GPU detection in Trivalent and others) reads modules.softdep.
-modutils_read_module_deps(staff_t)
+modutils_read_module_deps(user_t)
 
 # usbguard-notifier talks to the daemon over its IPC socket and shared memory.
 optional_policy(`
 	gen_require(`
 		type usbguard_t;
 	')
-	allow staff_t usbguard_t:unix_stream_socket connectto;
-	allow staff_t usbguard_tmpfs_t:file { getattr map open read write };
+	allow user_t usbguard_t:unix_stream_socket connectto;
+	allow user_t usbguard_tmpfs_t:file { getattr map open read write };
 ')
 files_read_etc_runtime_files(usbguard_t)
 
@@ -171,7 +171,7 @@ allow systemd_homework_t fsadm_run_t:file { create getattr lock open read write 
 
 gen_require(`
 	type getty_t, tmpfs_t, init_t, init_runtime_t, lastlog_t, systemd_logind_t;
-	type staff_dbusd_t, staff_gkeyringd_t, system_dbusd_t, sysadm_t;
+	type user_dbusd_t, user_gkeyringd_t, system_dbusd_t, sysadm_t;
 	type user_devpts_t, user_tty_device_t, user_home_t, user_tmp_t, user_tmpfs_t;
 	type cert_t, cgroup_t, locale_t, nsfs_t, sysctl_fs_t, unlabeled_t;
 	type systemd_homed_storage_t, systemd_log_t, systemd_user_runtime_dir_t, udev_t;
@@ -194,7 +194,7 @@ allow sysadm_t init_t:fd use;
 allow sysadm_t init_t:process sigchld;
 allow sysadm_t init_t:unix_stream_socket { getattr ioctl read write };
 # The terminal and redirections of the calling session.
-allow sysadm_t { local_login_t staff_t xdm_t }:fd use;
+allow sysadm_t { local_login_t user_t xdm_t }:fd use;
 allow sysadm_t { user_devpts_t user_tty_device_t }:chr_file { getattr ioctl open read write };
 allow sysadm_t user_home_t:file { append getattr ioctl write };
 
@@ -248,49 +248,49 @@ allow systemd_user_runtime_dir_t tmpfs_t:filesystem { quotaget quotamod };
 allow systemd_user_runtime_dir_t user_tmp_t:lnk_file unlink;
 
 # --- The user's systemd and session bus ---
-allow staff_systemd_t staff_t:fd use;
-allow staff_systemd_t staff_t:fifo_file write;
-allow staff_systemd_t staff_t:process2 nnp_transition;
-allow staff_systemd_t staff_gkeyringd_t:unix_stream_socket { bind create getattr listen setopt };
-allow staff_t staff_systemd_t:unix_dgram_socket sendto;
-allow staff_dbusd_t staff_t:unix_stream_socket { accept getattr getopt read write };
+allow user_systemd_t user_t:fd use;
+allow user_systemd_t user_t:fifo_file write;
+allow user_systemd_t user_t:process2 nnp_transition;
+allow user_systemd_t user_gkeyringd_t:unix_stream_socket { bind create getattr listen setopt };
+allow user_t user_systemd_t:unix_dgram_socket sendto;
+allow user_dbusd_t user_t:unix_stream_socket { accept getattr getopt read write };
 
-# --- The desktop session (staff_t) ---
+# --- The desktop session (user_t) ---
 # File change notifications (inotify) on the user's own and system files.
-allow staff_t { bin_t device_t user_runtime_t systemd_user_runtime_t systemd_sessions_runtime_t user_tmp_t }:dir watch;
-allow staff_t { xdg_config_t xdg_data_t user_tmp_t mount_runtime_t }:file watch;
-allow staff_t systemd_sessions_runtime_t:file { getattr open read };
-allow staff_t mount_runtime_t:file { getattr open read };
-allow staff_t systemd_unit_t:lnk_file read;
-allow staff_t nsfs_t:file getattr;
+allow user_t { bin_t device_t user_runtime_t systemd_user_runtime_t systemd_sessions_runtime_t user_tmp_t }:dir watch;
+allow user_t { xdg_config_t xdg_data_t user_tmp_t mount_runtime_t }:file watch;
+allow user_t systemd_sessions_runtime_t:file { getattr open read };
+allow user_t mount_runtime_t:file { getattr open read };
+allow user_t systemd_unit_t:lnk_file read;
+allow user_t nsfs_t:file getattr;
 # Input devices handed over by logind (keyboard LEDs).
-allow staff_t event_device_t:chr_file write;
+allow user_t event_device_t:chr_file write;
 # Shared memory with the user's systemd, and memory-mapping own files.
-allow staff_t systemd_user_tmpfs_t:file { ioctl map read write };
-allow staff_t { user_home_t user_tmp_t }:file map;
+allow user_t systemd_user_tmpfs_t:file { ioctl map read write };
+allow user_t { user_home_t user_tmp_t }:file map;
 # libffi without writable+executable memory: code mapped from a second shm mapping.
-allow staff_t user_tmpfs_t:file execmod;
+allow user_t user_tmpfs_t:file execmod;
 # xdg-document-portal mounts its FUSE file system in $XDG_RUNTIME_DIR.
-allow staff_t user_tmp_t:dir mounton;
+allow user_t user_tmp_t:dir mounton;
 # The polkit authentication agent and helper.
-allow staff_t policykit_auth_t:unix_stream_socket connectto;
-allow staff_t var_run_t:sock_file write;
+allow user_t policykit_auth_t:unix_stream_socket connectto;
+allow user_t var_run_t:sock_file write;
 # Listening sockets on unprivileged ports (KDE Connect: 1714-1764).
-allow staff_t node_t:{ tcp_socket udp_socket } node_bind;
-allow staff_t unreserved_port_t:{ tcp_socket udp_socket } name_bind;
-dontaudit staff_t auditd_etc_t:dir { getattr open read search };
-dontaudit staff_t auditd_etc_t:file getattr;
-dontaudit staff_t systemd_homed_record_t:dir write;
-dontaudit staff_t systemd_homed_record_t:file write;
+allow user_t node_t:{ tcp_socket udp_socket } node_bind;
+allow user_t unreserved_port_t:{ tcp_socket udp_socket } name_bind;
+dontaudit user_t auditd_etc_t:dir { getattr open read search };
+dontaudit user_t auditd_etc_t:file getattr;
+dontaudit user_t systemd_homed_record_t:dir write;
+dontaudit user_t systemd_homed_record_t:file write;
 
 # --- bwrap (Flatpak, glycin, Trivalent's launcher) ---
 optional_policy(`
 	gen_require(`
-		type staff_bubblewrap_t;
+		type user_bubblewrap_t;
 	')
-	allow staff_bubblewrap_t self:process getsched;
-	allow staff_bubblewrap_t staff_t:netlink_kobject_uevent_socket { read write };
-	allow staff_bubblewrap_t user_tmpfs_t:file map;
+	allow user_bubblewrap_t self:process getsched;
+	allow user_bubblewrap_t user_t:netlink_kobject_uevent_socket { read write };
+	allow user_bubblewrap_t user_tmpfs_t:file map;
 ')
 
 # --- Trivalent (chromium_t) ---
@@ -303,21 +303,21 @@ optional_policy(`
 	# Wayland socket and buffers shared with the compositor
 	allow chromium_t user_tmp_t:sock_file write;
 	allow chromium_t user_tmpfs_t:file { getattr map read };
-	allow chromium_t staff_t:file { getattr open read };
+	allow chromium_t user_t:file { getattr open read };
 ')
 
 optional_policy(`
 	gen_require(`
 		type gpg_t;
 	')
-	allow staff_systemd_t gpg_t:unix_stream_socket { bind create getattr listen setopt };
+	allow user_systemd_t gpg_t:unix_stream_socket { bind create getattr listen setopt };
 ')
 
 optional_policy(`
 	gen_require(`
 		type virt_etc_rw_t;
 	')
-	allow staff_t virt_etc_rw_t:lnk_file read;
+	allow user_t virt_etc_rw_t:lnk_file read;
 ')
 
 ########################################
@@ -368,33 +368,33 @@ allow systemd_nsresourced_t fs_t:filesystem getattr;
 # (uwsm), mDNS for KDE Connect discovery, the user's own processes in the bwrap and
 # user manager domains (xdg-desktop-portal identifies sandboxed apps through /proc),
 # logind state, usbguard-notifier's shared memory directory, libffi trampolines.
-fs_rw_cgroup_files(staff_t)
-can_exec(staff_t, systemd_notify_exec_t)
-allow staff_t howl_port_t:udp_socket name_bind;
-allow staff_t modules_object_t:dir search;
-ps_process_pattern(staff_t, staff_systemd_t)
-allow staff_t systemd_logind_runtime_t:dir { getattr open read search };
-allow staff_t systemd_sessions_runtime_t:dir { getattr open read search };
-allow staff_t usbguard_tmpfs_t:dir search;
-allow staff_t user_tmpfs_t:file execute;
-systemd_connect_machined(staff_t)
+fs_rw_cgroup_files(user_t)
+can_exec(user_t, systemd_notify_exec_t)
+allow user_t howl_port_t:udp_socket name_bind;
+allow user_t modules_object_t:dir search;
+ps_process_pattern(user_t, user_systemd_t)
+allow user_t systemd_logind_runtime_t:dir { getattr open read search };
+allow user_t systemd_sessions_runtime_t:dir { getattr open read search };
+allow user_t usbguard_tmpfs_t:dir search;
+allow user_t user_tmpfs_t:file execute;
+systemd_connect_machined(user_t)
 
 optional_policy(`
 	gen_require(`
-		type staff_bubblewrap_t;
+		type user_bubblewrap_t;
 	')
-	ps_process_pattern(staff_t, staff_bubblewrap_t)
-	allow staff_t staff_bubblewrap_t:fifo_file { getattr write };
+	ps_process_pattern(user_t, user_bubblewrap_t)
+	allow user_t user_bubblewrap_t:fifo_file { getattr write };
 	# bwrap itself: chroot into the new root, process limits, its own pipes
-	allow staff_bubblewrap_t self:cap_userns sys_chroot;
-	allow staff_bubblewrap_t self:process { getsched setrlimit setsched signal };
-	allow staff_bubblewrap_t self:fifo_file { read write };
-	fs_getattr_xattr_fs(staff_bubblewrap_t)
-	fs_getattr_tmpfs(staff_bubblewrap_t)
-	dev_read_urand(staff_bubblewrap_t)
+	allow user_bubblewrap_t self:cap_userns sys_chroot;
+	allow user_bubblewrap_t self:process { getsched setrlimit setsched signal };
+	allow user_bubblewrap_t self:fifo_file { read write };
+	fs_getattr_xattr_fs(user_bubblewrap_t)
+	fs_getattr_tmpfs(user_bubblewrap_t)
+	dev_read_urand(user_bubblewrap_t)
 	# D-Bus activation and gnome-keyring from inside a sandbox
-	allow { staff_dbusd_t staff_gkeyringd_t } staff_bubblewrap_t:fd use;
-	allow { staff_dbusd_t staff_gkeyringd_t } staff_bubblewrap_t:fifo_file write;
+	allow { user_dbusd_t user_gkeyringd_t } user_bubblewrap_t:fd use;
+	allow { user_dbusd_t user_gkeyringd_t } user_bubblewrap_t:fifo_file write;
 ')
 
 # fstab bind-mounts /var/lib/flatpak (labeled bin_t, see tungsten.fc) onto itself to make
@@ -420,11 +420,11 @@ gen_require(`
 init_get_all_units_status(system_dbusd_t)
 init_get_system_status(system_dbusd_t)
 init_get_all_units_status(policykit_t)
-init_get_all_units_status(staff_t)
+init_get_all_units_status(user_t)
 # The session bus starts user services (D-Bus activation, e.g. gvfs-daemon) through
 # the user's systemd, also as transient units.
-allow staff_dbusd_t systemd_user_unit_t:service { start status };
-allow staff_dbusd_t staff_systemd_t:system { start status };
+allow user_dbusd_t systemd_user_unit_t:service { start status };
+allow user_dbusd_t user_systemd_t:system { start status };
 
 # journald: credentials in /run/credentials, memory pressure in its cgroup.
 allow syslogd_t tmpfs_t:dir search;
@@ -447,7 +447,7 @@ optional_policy(`
 	allow systemd_tmpfiles_t { devicekit_var_lib_t uuidd_var_lib_t virt_var_lib_t }:dir { getattr open read search setattr };
 ')
 # Flatpak reads the global override written by tmpfiles (see tungsten.fc).
-files_read_var_lib_files(staff_t)
+files_read_var_lib_files(user_t)
 
 # systemd-sysctl writes drop-ins in /run/sysctl.d (e.g. systemd-coredump's core pattern).
 allow systemd_sysctl_t var_run_t:dir { add_name remove_name search write };
@@ -500,15 +500,15 @@ optional_policy(`
 	filetrans_pattern(chromium_t, gnome_xdg_data_t, chromium_xdg_config_t, dir, "pki")
 	allow chromium_t gnome_xdg_data_t:dir { getattr search };
 	allow chromium_t user_tmp_t:file { getattr map open read write };
-	allow chromium_t staff_systemd_t:system { start status };
+	allow chromium_t user_systemd_t:system { start status };
 	allow chromium_t { systemd_logind_t init_t }:dbus send_msg;
 	dontaudit chromium_t proc_t:filesystem associate;
 ')
 
 # The session
-allow staff_systemd_t gnome_xdg_data_t:dir { getattr search };
-allow staff_dbusd_t staff_systemd_t:system reload;
-allow staff_t initrc_t:dbus send_msg;
+allow user_systemd_t gnome_xdg_data_t:dir { getattr search };
+allow user_dbusd_t user_systemd_t:system reload;
+allow user_t initrc_t:dbus send_msg;
 
 # systemd-tmpfiles
 allow systemd_tmpfiles_t tmpfs_t:dir { add_name write };
@@ -548,17 +548,17 @@ gen_require(`
 
 # run0 asks PID 1 to start a transient unit (polkit decides whether it may); polkit
 # looks up the unit of the calling process.
-allow staff_t init_t:system start;
-init_start_transient_units(staff_t)
+allow user_t init_t:system start;
+init_start_transient_units(user_t)
 init_get_system_status(policykit_t)
 
 # run0 tungsten-tpm-enroll / tungsten-audit: the TPM, as root in sysadm_t.
 dev_rw_tpm(sysadm_t)
 # tungsten-audit runs bootctl status as the user (EFI variables are world-readable).
-fs_read_efivarfs_files(staff_t)
-dontaudit staff_t policy_config_t:dir getattr;
+fs_read_efivarfs_files(user_t)
+dontaudit user_t policy_config_t:dir getattr;
 
-allow staff_dbusd_t gnome_xdg_data_t:dir search;
+allow user_dbusd_t gnome_xdg_data_t:dir search;
 allow systemd_homework_t home_root_t:dir mounton;
 allow systemd_nsresourced_t sysfs_t:file map;
 allow udev_t kernel_t:netlink_kobject_uevent_socket getattr;
@@ -583,12 +583,12 @@ optional_policy(`
 
 gen_require(`
 	type mount_t, fuse_device_t;
-	role staff_r;
+	role user_r;
 ')
 
 # run0 asks PID 1 over D-Bus to start its unit; a denied message makes dbus-broker drop
 # the connection ("Connection reset by peer") without an audit record.
-init_dbus_chat(staff_t)
+init_dbus_chat(user_t)
 
 # systemd-coredump reads /etc/selinux/config to find the policy for labeling (without it:
 # "Failed to initialize SELinux labeling handle: No such file or directory").
@@ -597,26 +597,26 @@ seutil_search_default_contexts(systemd_coredump_t)
 
 # User FUSE mounts (xdg-document-portal, gvfsd-fuse): fusermount3 carries
 # cap_sys_admin as a file capability. Run it in the mount domain, which may use that
-# capability, instead of granting sys_admin to staff_t. It mounts in $XDG_RUNTIME_DIR and
+# capability, instead of granting sys_admin to user_t. It mounts in $XDG_RUNTIME_DIR and
 # hands the /dev/fuse descriptor back over the caller's socket.
-mount_run(staff_t, staff_r)
+mount_run(user_t, user_r)
 allow mount_t fuse_device_t:chr_file { getattr ioctl open read write };
 allow mount_t user_tmp_t:dir { getattr mounton search };
-allow mount_t staff_t:fd use;
-allow mount_t staff_t:unix_stream_socket { getattr read write };
-allow mount_t staff_t:fifo_file { read write };
+allow mount_t user_t:fd use;
+allow mount_t user_t:unix_stream_socket { getattr read write };
+allow mount_t user_t:fifo_file { read write };
 # The portals and gvfs are started by the user's systemd, so fusermount3 inherits its
 # descriptors; it checks that the mount point is writable; the user manager watches it.
-allow mount_t staff_systemd_t:fd use;
-allow mount_t staff_systemd_t:unix_stream_socket { getattr read write };
+allow mount_t user_systemd_t:fd use;
+allow mount_t user_systemd_t:unix_stream_socket { getattr read write };
 allow mount_t user_tmp_t:dir write;
-ps_process_pattern(staff_systemd_t, mount_t)
+ps_process_pattern(user_systemd_t, mount_t)
 
 # fontconfig tries to update the system font cache's timestamp; users may not change it.
 gen_require(`
 	type fonts_cache_t;
 ')
-dontaudit staff_t fonts_cache_t:dir setattr;
+dontaudit user_t fonts_cache_t:dir setattr;
 optional_policy(`
 	gen_require(`
 		type chromium_t;
@@ -628,8 +628,8 @@ optional_policy(`
 # StartTransientUnit call; dbus-broker receives the descriptors and hands them to PID 1,
 # which gives them to the command in sysadm_t. A refused descriptor makes the broker drop
 # the connection ("Connection reset by peer"), with the denial hidden by dontaudit.
-allow { system_dbusd_t init_t sysadm_t } staff_t:fd use;
-allow { system_dbusd_t init_t sysadm_t } staff_t:fifo_file { getattr ioctl read write };
+allow { system_dbusd_t init_t sysadm_t } user_t:fd use;
+allow { system_dbusd_t init_t sysadm_t } user_t:fifo_file { getattr ioctl read write };
 allow { system_dbusd_t init_t } { user_devpts_t user_tty_device_t }:chr_file { getattr ioctl read write };
 allow { system_dbusd_t init_t sysadm_t } { user_home_t user_tmp_t }:file { append getattr ioctl read write };
 
@@ -638,7 +638,7 @@ allow { system_dbusd_t init_t sysadm_t } { user_home_t user_tmp_t }:file { appen
 gen_require(`
 	type systemd_passwd_runtime_t;
 ')
-allow staff_t systemd_passwd_runtime_t:dir { getattr open read search watch };
+allow user_t systemd_passwd_runtime_t:dir { getattr open read search watch };
 
 # From a fresh install (permissive boot).
 
@@ -662,7 +662,7 @@ allow systemd_homework_t self:netlink_kobject_uevent_socket getopt;
 allow systemd_homed_t var_t:dir { remove_name rmdir };
 
 # gvfsd-fuse and the document portal use the /dev/fuse descriptor fusermount3 hands back.
-allow staff_t mount_t:fd use;
+allow user_t mount_t:fd use;
 
 # firstboot-users ends Plymouth's splash on tty1 to prompt for the accounts.
 term_use_unallocated_ttys(plymouth_t)
@@ -679,11 +679,11 @@ gen_require(`
 ')
 dontaudit systemd_generator_t root_t:dir { add_name create write };
 
-# The lock screen (quickshell, staff_t) authenticates through pam_systemd_home, which
+# The lock screen (quickshell, user_t) authenticates through pam_systemd_home, which
 # hands it homed's "don't suspend" pipe; homework reads the home's volume key it put in
 # the kernel keyring when it resizes an active home.
-allow staff_t systemd_homed_t:fd use;
-allow staff_t systemd_homed_runtime_t:fifo_file write;
+allow user_t systemd_homed_t:fd use;
+allow user_t systemd_homed_runtime_t:fifo_file write;
 allow systemd_homework_t self:key read;
 
 # home-label (pam_exec, in the login domain) checks whether a new home is still
@@ -698,7 +698,7 @@ allow systemd_user_runtime_dir_t gconf_tmp_t:dir getattr;
 
 # homectl: the administrator manages accounts, the user reads and changes their own
 # (homed asks polkit for every change).
-systemd_dbus_chat_homed({ sysadm_t staff_t })
+systemd_dbus_chat_homed({ sysadm_t user_t })
 systemd_stream_connect_homed(sysadm_t)
 
 # systemd-tmpfiles-clean looks into audit's directories and at the journal's socket;
@@ -745,62 +745,62 @@ allow system_dbusd_t sysadm_t:unix_stream_socket { getattr read write };
 
 # The session queries firewalld (status, zones); firewalld asks polkit before changes.
 optional_policy(`
-	firewalld_dbus_chat(staff_t)
+	firewalld_dbus_chat(user_t)
 ')
 
 # Bazaar (libdex) copies app icons from the system Flatpak directory with their
 # metadata; restoring the source label (bin_t) on the copy in the cache is refused and
 # not needed.
-dontaudit staff_t bin_t:file relabelto;
+dontaudit user_t bin_t:file relabelto;
 
 # Chromium writes its own /proc/<pid> settings (oom_score_adj).
 gen_require(`
 	type proc_t;
 ')
-dontaudit staff_t proc_t:filesystem associate;
+dontaudit user_t proc_t:filesystem associate;
 
 # The administrator manages the disk encryption: tungsten-tpm-enroll reads the LUKS
 # header (cryptsetup luksDump) and adds the TPM key slot (systemd-cryptenroll) on the
-# root partition's block device. The everyday account (staff_t) has no raw disk access.
+# root partition's block device. The everyday account (user_t) has no raw disk access.
 storage_raw_rw_fixed_disk(sysadm_t)
 
 # The session bus (dbus-broker) watches the D-Bus service directories, including Flatpak's
 # exports (/var/lib/flatpak/exports/share/dbus-1/services, bin_t), and reads the service
 # files (links into the app). A refused watch is fatal: the first Flatpak with a D-Bus
 # service made every session fail to start.
-allow staff_dbusd_t bin_t:dir { getattr open read search watch };
-allow staff_dbusd_t bin_t:lnk_file { getattr read };
-allow staff_dbusd_t bin_t:file { getattr open read };
+allow user_dbusd_t bin_t:dir { getattr open read search watch };
+allow user_dbusd_t bin_t:lnk_file { getattr read };
+allow user_dbusd_t bin_t:file { getattr open read };
 
 # bwrap locks the Flatpak runtime's /usr/.ref (bin_t) while an app uses that runtime, so
 # flatpak does not remove it underneath; refused, no Flatpak app starts.
 gen_require(`
-	type staff_bubblewrap_t;
+	type user_bubblewrap_t;
 ')
-allow staff_bubblewrap_t bin_t:file lock;
+allow user_bubblewrap_t bin_t:file lock;
 
 # Flatpak: bwrap reads and writes the instance files in $XDG_RUNTIME_DIR/.flatpak/<id>
 # (info, bwrapinfo.json), takes temporary files as descriptors, and binds the runtime
 # sockets (p11-kit, Wayland, PipeWire, the D-Bus proxy) into the sandbox, where the app
-# connects to the services of the session (staff_t). flatpak-session-helper watches the
+# connects to the services of the session (user_t). flatpak-session-helper watches the
 # time zone database.
 gen_require(`
 	type user_tmp_t, locale_t;
 ')
-allow staff_bubblewrap_t user_tmp_t:dir { getattr open read search mounton };
-allow staff_bubblewrap_t user_tmp_t:file { getattr open read write ioctl lock map };
-allow staff_bubblewrap_t user_tmp_t:lnk_file { getattr read };
-allow staff_bubblewrap_t user_tmp_t:sock_file { getattr read write };
-allow staff_bubblewrap_t staff_t:unix_stream_socket connectto;
-allow staff_t locale_t:dir watch;
+allow user_bubblewrap_t user_tmp_t:dir { getattr open read search mounton };
+allow user_bubblewrap_t user_tmp_t:file { getattr open read write ioctl lock map };
+allow user_bubblewrap_t user_tmp_t:lnk_file { getattr read };
+allow user_bubblewrap_t user_tmp_t:sock_file { getattr read write };
+allow user_bubblewrap_t user_t:unix_stream_socket connectto;
+allow user_t locale_t:dir watch;
 
 # Flatpak apps with --device=dri: bwrap binds the GPU nodes (dri_device_t) and
 # /dev/udmabuf (dma_device_t) into the sandbox, where the app renders with them.
 gen_require(`
 	type dma_device_t;
 ')
-dev_rw_dri(staff_bubblewrap_t)
-allow staff_bubblewrap_t dma_device_t:chr_file { getattr ioctl map open read write };
+dev_rw_dri(user_bubblewrap_t)
+allow user_bubblewrap_t dma_device_t:chr_file { getattr ioctl map open read write };
 
 # systemd-pcrlock make-policy also writes the policy as a credential to the ESP
 # (loader/credentials/pcrlock.<token>.cred), which the initrd uses to unlock the root
@@ -820,43 +820,163 @@ fs_manage_dos_files(systemd_pcrphase_t)
 gen_require(`
 	type gnome_xdg_config_t, xdg_config_t, xdg_data_t, user_home_dir_t;
 ')
-allow staff_bubblewrap_t { user_home_dir_t user_home_t xdg_config_t xdg_data_t }:dir { add_name create getattr mounton open read search write };
-allow staff_bubblewrap_t { user_home_t xdg_config_t xdg_data_t }:file { create getattr mounton open };
-allow staff_bubblewrap_t gnome_xdg_config_t:dir { getattr mounton open read search };
-allow staff_bubblewrap_t gnome_xdg_config_t:file { getattr open read };
+allow user_bubblewrap_t { user_home_dir_t user_home_t xdg_config_t xdg_data_t }:dir { add_name create getattr mounton open read search write };
+allow user_bubblewrap_t { user_home_t xdg_config_t xdg_data_t }:file { create getattr mounton open };
+allow user_bubblewrap_t gnome_xdg_config_t:dir { getattr mounton open read search };
+allow user_bubblewrap_t gnome_xdg_config_t:file { getattr open read };
 
 # The session watches its own files with inotify: DankMaterialShell reloads its colors
 # (~/.cache/DankMaterialShell/dms-colors.json) and settings when they change.
-allow staff_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:dir watch;
-allow staff_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:file watch;
+allow user_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:dir watch;
+allow user_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:file watch;
 
 # The sandbox's /tmp (a per-app user_tmp_t directory) is the app's own temporary storage:
 # bwrap creates /tmp/.X11-unix there, the app its temporary files and sockets.
-allow staff_bubblewrap_t user_tmp_t:dir { add_name create getattr ioctl lock mounton open read remove_name rename reparent rmdir search setattr watch write };
-allow staff_bubblewrap_t user_tmp_t:file { append create getattr ioctl link lock map open read rename setattr unlink write };
-allow staff_bubblewrap_t user_tmp_t:sock_file { create getattr read setattr unlink write };
-allow staff_bubblewrap_t user_tmp_t:lnk_file { create getattr read rename unlink };
+allow user_bubblewrap_t user_tmp_t:dir { add_name create getattr ioctl lock mounton open read remove_name rename reparent rmdir search setattr watch write };
+allow user_bubblewrap_t user_tmp_t:file { append create getattr ioctl link lock map open read rename setattr unlink write };
+allow user_bubblewrap_t user_tmp_t:sock_file { create getattr read setattr unlink write };
+allow user_bubblewrap_t user_tmp_t:lnk_file { create getattr read rename unlink };
 
 # Flatpak apps log to the journal: bwrap binds /run/systemd/journal/{socket,stdout}
 # (devlog_t) into the sandbox.
 gen_require(`
 	type devlog_t, syslogd_t;
 ')
-logging_send_syslog_msg(staff_bubblewrap_t)
-allow staff_bubblewrap_t devlog_t:sock_file { getattr read write };
-allow staff_bubblewrap_t syslogd_t:unix_stream_socket connectto;
+logging_send_syslog_msg(user_bubblewrap_t)
+allow user_bubblewrap_t devlog_t:sock_file { getattr read write };
+allow user_bubblewrap_t syslogd_t:unix_stream_socket connectto;
 
 # Flatpak's --disable-userns: bwrap writes /proc/sys/user/max_user_namespaces (sysctl_t)
 # inside the sandbox's own user namespace, so the app cannot create nested namespaces.
 gen_require(`
 	type sysctl_t;
 ')
-kernel_search_proc(staff_bubblewrap_t)
-allow staff_bubblewrap_t sysctl_t:dir { getattr open read search };
-allow staff_bubblewrap_t sysctl_t:file { getattr open read write };
+kernel_search_proc(user_bubblewrap_t)
+allow user_bubblewrap_t sysctl_t:dir { getattr open read search };
+allow user_bubblewrap_t sysctl_t:file { getattr open read write };
 
 # The per-namespace limits in /proc/sys/user/ are writable only with CAP_SYS_RESOURCE in
 # that user namespace (kernel/ucount.c, set_permissions); without it the file appears
 # read-only and bwrap's --disable-userns fails ("cannot open max_user_namespaces"). The
 # capability is only held inside the sandbox's own namespace.
-allow staff_bubblewrap_t self:cap_userns sys_resource;
+allow user_bubblewrap_t self:cap_userns sys_resource;
+
+########################################
+# Flatpak apps run in their own domain, tungsten_flatpak_t, the only domain of a session
+# allowed writable executable memory (execmem: JavaScript, WebKit, Electron, Java). The
+# session itself (user_t) keeps W^X. refpolicy's bubblewrap switches back to the user
+# domain for bin_t programs; Flatpak's tree gets its own type instead, and bwrap starts
+# it in tungsten_flatpak_t. The user domain may read the tree (menu entries, icons) but
+# no longer run Flatpak programs outside the sandbox.
+
+type flatpak_content_t;		# /var/lib/flatpak: runtimes, apps, the ostree repo (hardlinks)
+files_type(flatpak_content_t)
+type tungsten_flatpak_t;
+domain_type(tungsten_flatpak_t)
+domain_entry_file(tungsten_flatpak_t, flatpak_content_t)
+role user_r types tungsten_flatpak_t;
+type tungsten_flatpak_tmpfs_t;	# memfds and shared memory of the apps
+files_tmpfs_file(tungsten_flatpak_tmpfs_t)
+
+gen_require(`
+	type user_t, user_bubblewrap_t, user_systemd_t, user_dbusd_t, user_tmp_t, user_tmpfs_t;
+	type user_home_t, user_home_dir_t, xdg_config_t, xdg_data_t, xdg_cache_t, gnome_xdg_config_t;
+	type xdg_documents_t, xdg_downloads_t, xdg_music_t, xdg_pictures_t, xdg_videos_t;
+	type fonts_cache_t, fusefs_t, dma_device_t, devlog_t, syslogd_t, init_t, sysadm_t;
+')
+
+# Installing and updating (flatpak-system-helper, tungsten-flatpak-update, run0 flatpak).
+allow { init_t sysadm_t } flatpak_content_t:dir manage_dir_perms;
+allow { init_t sysadm_t } flatpak_content_t:{ file lnk_file } manage_file_perms;
+allow { init_t sysadm_t } flatpak_content_t:{ dir file lnk_file } { relabelfrom relabelto };
+# The session reads the tree (exports: .desktop files, icons, D-Bus services).
+allow { user_t user_dbusd_t } flatpak_content_t:dir { getattr open read search watch };
+allow { user_t user_dbusd_t } flatpak_content_t:file { getattr open read map };
+allow { user_t user_dbusd_t } flatpak_content_t:lnk_file { getattr read };
+
+# bwrap: mounts the runtime and app trees, locks /usr/.ref, starts the app.
+allow user_bubblewrap_t flatpak_content_t:dir { getattr mounton open read search };
+allow user_bubblewrap_t flatpak_content_t:file { getattr lock map open read };
+allow user_bubblewrap_t flatpak_content_t:lnk_file { getattr read };
+domtrans_pattern(user_bubblewrap_t, flatpak_content_t, tungsten_flatpak_t)
+allow user_bubblewrap_t tungsten_flatpak_t:process { sigkill signal signull sigstop };
+allow tungsten_flatpak_t user_bubblewrap_t:fd use;
+allow tungsten_flatpak_t user_bubblewrap_t:process sigchld;
+allow tungsten_flatpak_t user_bubblewrap_t:fifo_file { getattr read write ioctl };
+
+# Inside the sandbox: run the app and runtime programs, JIT.
+can_exec(tungsten_flatpak_t, flatpak_content_t)
+allow tungsten_flatpak_t flatpak_content_t:dir list_dir_perms;
+allow tungsten_flatpak_t flatpak_content_t:file { getattr ioctl lock map open read };
+allow tungsten_flatpak_t flatpak_content_t:lnk_file { getattr read };
+allow tungsten_flatpak_t self:process { execmem fork getattr getcap getpgid getsched setcap setpgid setrlimit setsched sigchld sigkill signal signull sigstop };
+allow tungsten_flatpak_t self:fifo_file rw_fifo_file_perms;
+allow tungsten_flatpak_t self:unix_stream_socket { create_stream_socket_perms connectto };
+allow tungsten_flatpak_t self:unix_dgram_socket { create_socket_perms sendto };
+allow tungsten_flatpak_t self:{ tcp_socket udp_socket netlink_route_socket netlink_kobject_uevent_socket } create_socket_perms;
+allow tungsten_flatpak_t self:shm create_shm_perms;
+allow tungsten_flatpak_t self:sem create_sem_perms;
+allow tungsten_flatpak_t self:msgq create_msgq_perms;
+manage_files_pattern(tungsten_flatpak_t, tungsten_flatpak_tmpfs_t, tungsten_flatpak_tmpfs_t)
+allow tungsten_flatpak_t tungsten_flatpak_tmpfs_t:file { execute map };
+fs_tmpfs_filetrans(tungsten_flatpak_t, tungsten_flatpak_tmpfs_t, file)
+
+# The host bits the sandbox sees: hardened_malloc from /run/host/usr, locale, fonts,
+# network configuration, /proc and /sys information, randomness, the GPU.
+libs_use_ld_so(tungsten_flatpak_t)
+libs_use_shared_libs(tungsten_flatpak_t)
+files_read_usr_files(tungsten_flatpak_t)
+files_read_etc_files(tungsten_flatpak_t)
+miscfiles_read_localization(tungsten_flatpak_t)
+miscfiles_read_fonts(tungsten_flatpak_t)
+allow tungsten_flatpak_t fonts_cache_t:dir list_dir_perms;
+allow tungsten_flatpak_t fonts_cache_t:file { getattr map open read };
+sysnet_read_config(tungsten_flatpak_t)
+kernel_read_system_state(tungsten_flatpak_t)
+dev_read_sysfs(tungsten_flatpak_t)
+dev_read_urand(tungsten_flatpak_t)
+dev_read_rand(tungsten_flatpak_t)
+dev_rw_dri(tungsten_flatpak_t)
+allow tungsten_flatpak_t dma_device_t:chr_file { getattr ioctl map open read write };
+
+# Network.
+sysnet_dns_name_resolve(tungsten_flatpak_t)
+corenet_all_recvfrom_netlabel(tungsten_flatpak_t)
+corenet_tcp_sendrecv_generic_if(tungsten_flatpak_t)
+corenet_udp_sendrecv_generic_if(tungsten_flatpak_t)
+corenet_tcp_sendrecv_generic_node(tungsten_flatpak_t)
+corenet_udp_sendrecv_generic_node(tungsten_flatpak_t)
+corenet_tcp_connect_all_ports(tungsten_flatpak_t)
+
+# The session's services through the sockets Flatpak passes in: Wayland (Hyprland),
+# PipeWire, the D-Bus proxy, accessibility; shared memory and descriptors both ways.
+allow tungsten_flatpak_t user_tmp_t:dir { add_name create getattr ioctl lock open read remove_name rename rmdir search setattr write };
+allow tungsten_flatpak_t user_tmp_t:file { append create getattr ioctl link lock map open read rename setattr unlink write };
+allow tungsten_flatpak_t user_tmp_t:sock_file { create getattr read setattr unlink write };
+allow tungsten_flatpak_t user_tmp_t:lnk_file { create getattr read unlink };
+allow tungsten_flatpak_t user_t:unix_stream_socket { connectto getattr read write };
+allow tungsten_flatpak_t user_t:fd use;
+allow tungsten_flatpak_t user_tmpfs_t:file { getattr map read write };
+allow user_t tungsten_flatpak_t:fd use;
+allow user_t tungsten_flatpak_t:unix_stream_socket { getattr read write };
+allow user_t tungsten_flatpak_tmpfs_t:file { getattr map read write };
+userdom_use_user_terminals(tungsten_flatpak_t)
+logging_send_syslog_msg(tungsten_flatpak_t)
+allow tungsten_flatpak_t devlog_t:sock_file { getattr read write };
+allow tungsten_flatpak_t syslogd_t:unix_stream_socket connectto;
+
+# The app's own data in ~/.var/app, files it is given access to (home folders, the
+# document portal), and the desktop's look (GTK settings and DankMaterialShell colors).
+allow tungsten_flatpak_t user_home_dir_t:dir { getattr open read search };
+allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:dir manage_dir_perms;
+allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:{ file lnk_file } manage_file_perms;
+allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:file map;
+allow tungsten_flatpak_t gnome_xdg_config_t:dir list_dir_perms;
+allow tungsten_flatpak_t gnome_xdg_config_t:file { getattr open read map };
+fs_manage_fusefs_dirs(tungsten_flatpak_t)
+fs_manage_fusefs_files(tungsten_flatpak_t)
+
+# The session manages the app processes: the portals read /proc/<pid> (.flatpak-info),
+# the compositor and systemd --user end them.
+ps_process_pattern({ user_t user_systemd_t }, tungsten_flatpak_t)
+allow { user_t user_systemd_t } tungsten_flatpak_t:process { sigkill signal signull sigstop };

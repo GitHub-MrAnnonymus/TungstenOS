@@ -91,6 +91,9 @@ cp -r "$SRC"/root_files/. "$WORKDIR"/
 # gnome-keyring creates ~/.local/share/keyrings on the first login; without ~/.local it
 # would create that in the home's top directory type, which its domain may not use.
 install -d -m 700 "$WORKDIR"/etc/skel/.local/share/keyrings
+# The user folders named in skel's user-dirs.dirs (xdg-user-dirs, which would create them
+# at the first login, is not in the image).
+install -d -m 755 "$WORKDIR"/etc/skel/{Desktop,Documents,Downloads,Music,Pictures,Projects,Public,Templates,Videos}
 # Staged outside /tmp: arch-chroot mounts an empty tmpfs there.
 STAGE=/root/tungsten-build
 install -Dm644 "$SEBUILD"/tungsten.pp "$WORKDIR$STAGE"/tungsten.pp
@@ -148,7 +151,7 @@ systemctl disable systemd-timesyncd.service
 # Locale, keymap and timezone come from the image, and root stays locked: never ask.
 systemctl mask systemd-firstboot.service
 # Locks the keyrings while a session is locked (all users).
-systemctl --global enable tungsten-keyring-lock.service
+systemctl --global enable tungsten-keyring-lock.service tungsten-user-folders.service
 # See /etc/systemd/logind.conf
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 
@@ -159,8 +162,10 @@ sed -i 's/^SELINUX=.*/SELINUX=enforcing/; s/^SELINUXTYPE=.*/SELINUXTYPE='"$POLIC
 # boot services (kmod-static-nodes, systemd-pcrmachine) whenever the kernel is newer.
 echo 'handle-unknown = allow' >> /etc/selinux/semanage.conf
 semodule -n -s "$POLICY" -X 300 -i /root/tungsten-build/tungsten.pp
-# Confined logins (staff_t) cannot create user namespaces themselves.
-semanage login -N -S "$POLICY" -m -s staff_u __default__
+# Every login account is user_u (user_r, user_t): no role change is possible from a
+# session. The administrator only authorizes: run0 gets sysadm_t from PID 1's PAM
+# session (root's context), not from the caller's SELinux user.
+semanage login -N -S "$POLICY" -m -s user_u __default__
 # /etc defaults in the image carry the labels of their /etc paths.
 semanage fcontext -N -S "$POLICY" -a -e /etc /usr/share/factory/etc
 # systemd-pcrlock runs in its caller's domain (init_t for its services, sysadm_t for

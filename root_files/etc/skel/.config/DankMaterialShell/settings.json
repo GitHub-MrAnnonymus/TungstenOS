@@ -234,5 +234,7 @@
       "trigger": "qrg"
     }
   },
-  "configVersion": 18
+  "configVersion": 18,
+  "iconTheme": "Papirus-Dark",
+  "iconThemeLight": "Papirus-Light"
 }

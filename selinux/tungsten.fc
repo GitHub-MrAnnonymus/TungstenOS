@@ -9,8 +9,9 @@ HOME_DIR/\.cache/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_ca
 # Display manager: xdm_t may transition into user domains at login.
 /usr/bin/greetd					--	gen_context(system_u:object_r:xdm_exec_t)
 
-# Flatpak deployments are hardlinks into the ostree repo, so the tree shares one type.
-/var/lib/flatpak(/.*)?					gen_context(system_u:object_r:bin_t)
+# Flatpak deployments are hardlinks into the ostree repo, so the tree shares one type;
+# bwrap starts its programs in tungsten_flatpak_t (tungsten.te).
+/var/lib/flatpak(/.*)?					gen_context(system_u:object_r:flatpak_content_t)
 
 # Arch installs helper programs directly in /usr/lib (lib_t). Label the user-session
 # daemons as programs, as refpolicy does on other distributions' paths, so the user's
@@ -26,7 +27,7 @@ HOME_DIR/\.cache/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_ca
 /usr/lib/xdg-desktop-portal[^/]*		--	gen_context(system_u:object_r:bin_t)
 /usr/lib/xdg-(document-portal|permission-store)	--	gen_context(system_u:object_r:bin_t)
 
-# The login screen runs as the "greeter" user in staff_t; its home and cache are its
+# The login screen runs as the "greeter" user in user_t; its home and cache are its
 # own user data.
 /var/lib/greeter(/.*)?				gen_context(system_u:object_r:user_home_t)
 /var/cache/dms-greeter(/.*)?			gen_context(system_u:object_r:user_home_t)
@@ -37,6 +38,7 @@ HOME_DIR/\.local/share/pki(/.*)?			gen_context(system_u:object_r:chromium_xdg_co
 # return to the user domain as programs.
 /usr/lib/tungsten/home-label			--	gen_context(system_u:object_r:bin_t)
 /usr/lib/tungsten/firstboot-users		--	gen_context(system_u:object_r:bin_t)
+/usr/lib/tungsten/user-folders			--	gen_context(system_u:object_r:bin_t)
 /usr/lib/tungsten/keyring-lock			--	gen_context(system_u:object_r:bin_t)
 /usr/lib/tungsten/relabel			--	gen_context(system_u:object_r:bin_t)
 /usr/lib/glycin-loaders(/.*)?				gen_context(system_u:object_r:bin_t)
