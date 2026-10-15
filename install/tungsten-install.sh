@@ -137,6 +137,14 @@ done
 
 # Remains enrolled as the recovery key. Offline mode builds the partitions without
 # mounting anything on this system.
+# A disk is partitioned, encrypted and filled in place. An image file (VM) is built
+# offline, without touching this system's devices: systemd-repart then creates each
+# partition as a file in $TMPDIR (default /var/tmp) and encrypts it there, which needs
+# as much free space as the root partition (sparse until encrypted). That is fine on a
+# workstation, but not on a live ISO, whose /var/tmp is a small RAM overlay.
+OFFLINE=no
+[ "$VM" = 1 ] && OFFLINE=yes
+
 if [ -n "$PASS_FILE" ]; then
   (umask 077; cat "$PASS_FILE" > "$keyfile")
 else
@@ -145,7 +153,7 @@ else
 fi
 [ "$VM" = 1 ] && truncate -s 48G "$DISK"
 systemd-repart --dry-run=no --empty=force --definitions="$DEFS" \
-  --key-file="$keyfile" --offline=yes "$DISK"
+  --key-file="$keyfile" --offline="$OFFLINE" "$DISK"
 shred -u "$keyfile"
 DEV=$DISK
 [ "$VM" = 1 ] && { DEV=$(losetup --show -fP "$DISK"); udevadm settle; }

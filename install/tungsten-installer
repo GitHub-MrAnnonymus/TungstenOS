@@ -27,7 +27,7 @@ fail() {
   header "Installation failed"
   warn "$1"
   [ -s "$LOG" ] && { echo; gum style --margin "0 2" --foreground "$MUTED" "Last lines of $LOG:"; tail -n 15 "$LOG" | gum style --margin "0 4" --foreground "$MUTED"; }
-  echo; gum confirm --affirmative "Restart installer" --negative "Shell" && exec "$0" "$REL"
+  echo; gum confirm --affirmative "Restart installer" --negative "Shell" "What next?" && exec "$0" "$REL"
   exit 1
 }
 pause() { echo; gum style --margin "0 2" --foreground "$MUTED" "Press Enter to continue"; read -r _; }

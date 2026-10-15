@@ -758,3 +758,8 @@ gen_require(`
 	type proc_t;
 ')
 dontaudit staff_t proc_t:filesystem associate;
+
+# The administrator manages the disk encryption: tungsten-tpm-enroll reads the LUKS
+# header (cryptsetup luksDump) and adds the TPM key slot (systemd-cryptenroll) on the
+# root partition's block device. The everyday account (staff_t) has no raw disk access.
+storage_raw_rw_fixed_disk(sysadm_t)

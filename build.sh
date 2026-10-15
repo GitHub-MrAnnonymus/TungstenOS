@@ -238,6 +238,19 @@ grep -q pam_gnome_keyring /etc/pam.d/greetd || {
 grep -q '^account *include *system-local-login' /etc/pam.d/greetd
 sed -i '/^account *include *system-local-login/i account    requisite    pam_succeed_if.so quiet user notingroup wheel' /etc/pam.d/greetd
 
+# Boot splash: Plymouth's spinner without a logo (no Arch watermark, no firmware logo)
+# until TungstenOS has its own artwork. The images are copied, not linked, so the
+# initramfs hook (which adds the theme's directory) includes them.
+T=/usr/share/plymouth/themes
+mkdir -p $T/tungsten
+find $T/spinner -maxdepth 1 -name '*.png' ! -name watermark.png ! -name 'bgrt*' -exec cp -t $T/tungsten {} +
+sed -e 's/^Name=.*/Name=TungstenOS/' -e "s|^ImageDir=.*|ImageDir=$T/tungsten|" \
+    -e 's/^UseFirmwareBackground=.*/UseFirmwareBackground=false/' \
+    $T/spinner/spinner.plymouth > $T/tungsten/tungsten.plymouth
+grep -q "^ImageDir=$T/tungsten" $T/tungsten/tungsten.plymouth
+grep -q '^UseFirmwareBackground=' $T/tungsten/tungsten.plymouth || \
+  sed -i '/^\[two-step\]/a UseFirmwareBackground=false' $T/tungsten/tungsten.plymouth
+
 passwd -l root
 rm -rf /root/tungsten-build
 # "uninitialized": the first boot (ConditionFirstBoot) mounts a transient ID over this
