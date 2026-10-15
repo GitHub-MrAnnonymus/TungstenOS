@@ -829,3 +829,10 @@ allow staff_bubblewrap_t gnome_xdg_config_t:file { getattr open read };
 # (~/.cache/DankMaterialShell/dms-colors.json) and settings when they change.
 allow staff_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:dir watch;
 allow staff_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:file watch;
+
+# The sandbox's /tmp (a per-app user_tmp_t directory) is the app's own temporary storage:
+# bwrap creates /tmp/.X11-unix there, the app its temporary files and sockets.
+allow staff_bubblewrap_t user_tmp_t:dir { add_name create getattr ioctl lock mounton open read remove_name rename reparent rmdir search setattr watch write };
+allow staff_bubblewrap_t user_tmp_t:file { append create getattr ioctl link lock map open read rename setattr unlink write };
+allow staff_bubblewrap_t user_tmp_t:sock_file { create getattr read setattr unlink write };
+allow staff_bubblewrap_t user_tmp_t:lnk_file { create getattr read rename unlink };

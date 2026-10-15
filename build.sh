@@ -159,6 +159,13 @@ semodule -n -s "$POLICY" -X 300 -i /root/tungsten-build/tungsten.pp
 semanage login -N -S "$POLICY" -m -s staff_u __default__
 # /etc defaults in the image carry the labels of their /etc paths.
 semanage fcontext -N -S "$POLICY" -a -e /etc /usr/share/factory/etc
+# systemd-pcrlock runs in its caller's domain (init_t for its services, sysadm_t for
+# tungsten-tpm-enroll) instead of systemd_pcrphase_t: that domain is made for
+# systemd-pcrextend and systemd-tpm2-setup, while pcrlock also reads /var, the event log
+# and block devices and writes the ESP credential the initrd unlocks with. Refused there
+# (silently, dontaudit), the TPM got each new policy but the ESP kept the old one.
+# A local file context, as refpolicy's systemd module defines this path itself.
+semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/lib/systemd/systemd-pcrlock
 # Local /etc changes live in the overlay's upper directory on the root partition.
 semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
 # logind reads boot loader entries on the ESP (reboot into a chosen entry).
@@ -237,6 +244,22 @@ grep -q pam_gnome_keyring /etc/pam.d/greetd || {
 # screen (a console login still works).
 grep -q '^account *include *system-local-login' /etc/pam.d/greetd
 sed -i '/^account *include *system-local-login/i account    requisite    pam_succeed_if.so quiet user notingroup wheel' /etc/pam.d/greetd
+
+# Admin tools that live in /usr/lib/systemd, callable by name (run0 systemd-pcrlock ...).
+for t in systemd-pcrlock systemd-sysupdate; do
+  [ -e /usr/bin/$t ] || ln -s ../lib/systemd/$t /usr/bin/$t
+done
+
+# mDNS/Zeroconf: avahi comes in as a library (libcups, ostree, pipewire-pulse, ...); its
+# daemon is D-Bus activatable, so "disabled" is not enough to keep the machine from
+# announcing itself on every network. Network printers are added by address.
+systemctl mask avahi-daemon.service avahi-daemon.socket
+# Menu entries of tools that come in only as dependencies (avahi browsers, hwloc,
+# v4l-utils): installed, but not offered in the app launcher.
+for f in bvnc bssh avahi-discover lstopo qv4l2 qvidcap; do
+  d=/usr/share/applications/$f.desktop
+  if [ -f "$d" ]; then sed -i '/^\[Desktop Entry\]/a NoDisplay=true' "$d"; fi
+done
 
 # GSettings defaults from /usr/share/glib-2.0/schemas/90-tungsten.gschema.override.
 glib-compile-schemas /usr/share/glib-2.0/schemas
