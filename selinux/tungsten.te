@@ -836,3 +836,12 @@ allow staff_bubblewrap_t user_tmp_t:dir { add_name create getattr ioctl lock mou
 allow staff_bubblewrap_t user_tmp_t:file { append create getattr ioctl link lock map open read rename setattr unlink write };
 allow staff_bubblewrap_t user_tmp_t:sock_file { create getattr read setattr unlink write };
 allow staff_bubblewrap_t user_tmp_t:lnk_file { create getattr read rename unlink };
+
+# Flatpak apps log to the journal: bwrap binds /run/systemd/journal/{socket,stdout}
+# (devlog_t) into the sandbox.
+gen_require(`
+	type devlog_t, syslogd_t;
+')
+logging_send_syslog_msg(staff_bubblewrap_t)
+allow staff_bubblewrap_t devlog_t:sock_file { getattr read write };
+allow staff_bubblewrap_t syslogd_t:unix_stream_socket connectto;
