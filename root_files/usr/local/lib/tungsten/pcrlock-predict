@@ -55,5 +55,5 @@ for addon in "$ESP"/EFI/Linux/tungsten*.efi.extra.d/*.addon.efi; do
 done
 
 if [ "${1:-}" = --make-policy ] && [ -e "$POLICY" ]; then
-  "$PCRLOCK" make-policy --policy="$POLICY" --location=770
+  "$PCRLOCK" make-policy --policy="$POLICY"
 fi

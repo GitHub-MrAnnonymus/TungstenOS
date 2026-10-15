@@ -36,15 +36,19 @@ for u in firmware-code firmware-config secureboot-policy secureboot-authority; d
 done
 /usr/local/lib/tungsten/pcrlock-predict
 
+# pcrlock's default range (--location=760-:940-) covers PCR 11 from the initrd to the
+# running system, so the running system can update the policy before rebooting into an
+# update (systemd-sysupdate-notify-pcrlock@.service). The key itself stays initrd-only:
+# it also needs the signed PCR 11 policy below (policyref "initrd").
 if [ -e "$POLICY" ]; then
   # Updating the policy needs a boot matching its prediction; otherwise use the
   # recovery PIN shown at the first enrollment.
-  "$PCRLOCK" make-policy --policy="$POLICY" --location=770 \
-    || "$PCRLOCK" make-policy --policy="$POLICY" --location=770 --recovery-pin=query
+  "$PCRLOCK" make-policy --policy="$POLICY" \
+    || "$PCRLOCK" make-policy --policy="$POLICY" --recovery-pin=query
 else
   echo ">>> Creating the pcrlock policy. Store the recovery PIN shown below; it is"
   echo ">>> needed to update the policy if the TPM state ever stops matching."
-  "$PCRLOCK" make-policy --policy="$POLICY" --location=770 --recovery-pin=show
+  "$PCRLOCK" make-policy --policy="$POLICY" --recovery-pin=show
 fi
 "$PCRLOCK" predict
 
