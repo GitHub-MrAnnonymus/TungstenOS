@@ -854,3 +854,9 @@ gen_require(`
 kernel_search_proc(staff_bubblewrap_t)
 allow staff_bubblewrap_t sysctl_t:dir { getattr open read search };
 allow staff_bubblewrap_t sysctl_t:file { getattr open read write };
+
+# The per-namespace limits in /proc/sys/user/ are writable only with CAP_SYS_RESOURCE in
+# that user namespace (kernel/ucount.c, set_permissions); without it the file appears
+# read-only and bwrap's --disable-userns fails ("cannot open max_user_namespaces"). The
+# capability is only held inside the sandbox's own namespace.
+allow staff_bubblewrap_t self:cap_userns sys_resource;
