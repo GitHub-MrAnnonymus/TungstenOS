@@ -1,0 +1,7 @@
+# TungstenOS defaults for new accounts: dark until DankMaterialShell sets the mode itself
+# (it writes these keys only when the mode, theme or wallpaper changes). Apps that follow
+# the portal's color-scheme (Trivalent, GTK 4, Flatpaks) otherwise start in light mode.
+[org.gnome.desktop.interface]
+color-scheme='prefer-dark'
+gtk-theme='adw-gtk3-dark'
+icon-theme='Papirus-Dark'

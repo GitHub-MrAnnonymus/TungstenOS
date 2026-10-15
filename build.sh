@@ -238,6 +238,9 @@ grep -q pam_gnome_keyring /etc/pam.d/greetd || {
 grep -q '^account *include *system-local-login' /etc/pam.d/greetd
 sed -i '/^account *include *system-local-login/i account    requisite    pam_succeed_if.so quiet user notingroup wheel' /etc/pam.d/greetd
 
+# GSettings defaults from /usr/share/glib-2.0/schemas/90-tungsten.gschema.override.
+glib-compile-schemas /usr/share/glib-2.0/schemas
+
 # Boot splash: Plymouth's spinner without a logo (no Arch watermark, no firmware logo)
 # until TungstenOS has its own artwork. The images are copied, not linked, so the
 # initramfs hook (which adds the theme's directory) includes them.

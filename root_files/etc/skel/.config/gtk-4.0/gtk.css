@@ -21,9 +21,9 @@ overlay-split-view headerbar.titlebar {
 
 /* Transparent Sidebar */
 window {
+  /* Translucent; Hyprland blurs behind it. No backdrop-filter: GTK's own blur through
+     ext-background-effect is slow (GDK_WAYLAND_DISABLE turns it off anyway). */
   background: alpha(@window_bg_color, 0.8);
-  /* GTK 4.24+ asks the compositor for blur only where the theme sets it */
-  backdrop-filter: blur(20px);
 }
 
 .sidebar-pane,

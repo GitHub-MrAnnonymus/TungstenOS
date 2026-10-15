@@ -763,3 +763,11 @@ dontaudit staff_t proc_t:filesystem associate;
 # header (cryptsetup luksDump) and adds the TPM key slot (systemd-cryptenroll) on the
 # root partition's block device. The everyday account (staff_t) has no raw disk access.
 storage_raw_rw_fixed_disk(sysadm_t)
+
+# The session bus (dbus-broker) watches the D-Bus service directories, including Flatpak's
+# exports (/var/lib/flatpak/exports/share/dbus-1/services, bin_t), and reads the service
+# files (links into the app). A refused watch is fatal: the first Flatpak with a D-Bus
+# service made every session fail to start.
+allow staff_dbusd_t bin_t:dir { getattr open read search watch };
+allow staff_dbusd_t bin_t:lnk_file { getattr read };
+allow staff_dbusd_t bin_t:file { getattr open read };
