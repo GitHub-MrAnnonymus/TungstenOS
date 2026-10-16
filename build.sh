@@ -102,9 +102,12 @@ install -Dm755 "$SRC"/scripts/remove-suid.sh "$WORKDIR$STAGE"/remove-suid.sh
 
 sed -i "s|@UPDATE_URL@|${UPDATE_URL}|; s|@IMAGE_ID@|${IMAGE_ID}|g" "$WORKDIR"/usr/lib/sysupdate.d/*.transfer
 # LOGO: the icon name of the mark (/usr/share/icons/hicolor/scalable/apps/tungstenos.svg).
+# ID: our own, with ID_LIKE=arch for tools that look for Arch. With ID=arch, programs
+# that know the Arch logo (DankMaterialShell's system logo) show it instead of LOGO.
 sed -i -e 's/^NAME=.*/NAME="TungstenOS"/' -e 's/^PRETTY_NAME=.*/PRETTY_NAME="TungstenOS"/' \
-  -e '/^LOGO=/d' "$WORKDIR"/usr/lib/os-release
-echo "LOGO=tungstenos" >> "$WORKDIR"/usr/lib/os-release
+  -e 's/^ID=.*/ID=tungstenos/' -e '/^ID_LIKE=/d' -e '/^LOGO=/d' "$WORKDIR"/usr/lib/os-release
+grep -qx 'ID=tungstenos' "$WORKDIR"/usr/lib/os-release
+printf 'ID_LIKE=arch\nLOGO=tungstenos\n' >> "$WORKDIR"/usr/lib/os-release
 cat >> "$WORKDIR"/usr/lib/os-release <<EOF
 IMAGE_ID=${IMAGE_ID}
 IMAGE_VERSION=${OS_BUILD_TAG}
@@ -392,7 +395,7 @@ build_extension() {
   [ -d "$E"/tree/usr/lib/tmpfiles.d ] && \
     sed -i -E '/^[zZ][[:space:]]+\/usr\S*[[:space:]]+[0-7]?[2467][0-7]{3}[[:space:]]/d' "$E"/tree/usr/lib/tmpfiles.d/*.conf
   mkdir -p "$E"/tree/usr/lib/extension-release.d
-  printf 'ID=arch\nSYSEXT_LEVEL=%s\nSYSEXT_SCOPE=system\n' "$OS_BUILD_TAG" \
+  printf 'ID=tungstenos\nSYSEXT_LEVEL=%s\nSYSEXT_SCOPE=system\n' "$OS_BUILD_TAG" \
     > "$E"/tree/usr/lib/extension-release.d/extension-release."$name"
   umount "$E"/rw
 

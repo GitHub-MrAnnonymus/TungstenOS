@@ -922,6 +922,13 @@ allow user_bubblewrap_t tungsten_flatpak_t:process { sigkill signal signull sigs
 allow tungsten_flatpak_t user_bubblewrap_t:fd use;
 allow tungsten_flatpak_t user_bubblewrap_t:process sigchld;
 allow tungsten_flatpak_t user_bubblewrap_t:fifo_file { getattr read write ioctl };
+# Nested sandboxes (flatpak-spawn --sandbox, e.g. glycin's image loaders, Steam's
+# helpers): the Flatpak portal starts bwrap with the app's pipes and sockets and a
+# generated ld.so cache (~/.cache/flatpak/ld.so, deleted, passed as a descriptor).
+allow user_bubblewrap_t tungsten_flatpak_t:fd use;
+allow user_bubblewrap_t tungsten_flatpak_t:fifo_file { getattr ioctl read write };
+allow user_bubblewrap_t tungsten_flatpak_t:unix_stream_socket { getattr read write };
+allow user_bubblewrap_t xdg_cache_t:file { getattr map read };
 
 # Inside the sandbox: run the app and runtime programs, JIT.
 can_exec(tungsten_flatpak_t, flatpak_content_t)
@@ -989,10 +996,14 @@ allow user_dbusd_t tungsten_flatpak_tmpfs_t:file { getattr map read write };
 # Started from a terminal or by the session: stdio pipes and inherited descriptors.
 allow tungsten_flatpak_t user_t:fifo_file { getattr ioctl read write };
 allow tungsten_flatpak_t user_t:netlink_kobject_uevent_socket { getattr read write };
-# Games read vm.max_map_count; Steam checks /dev/uinput (Steam Input's virtual
-# controllers need write access too, not given: it could type into other windows).
+# Games and Steam read vm.max_map_count and vm.overcommit_memory.
 kernel_read_vm_sysctls(tungsten_flatpak_t)
-dev_getattr_input_dev(tungsten_flatpak_t)
+kernel_read_vm_overcommit_sysctl(tungsten_flatpak_t)
+# Gamepads (evdev) and Steam Input's virtual controllers (/dev/uinput). Flatpak shows
+# these devices only to apps with device=all or device=input (Steam); file permissions
+# keep keyboards and mice to root (uaccess covers joysticks and uinput). uinput lets the
+# app create input devices, which can type into any window: accepted for Steam.
+dev_rw_input_dev(tungsten_flatpak_t)
 # cp -a and mv keep the SELinux label (Steam moves its data around in ~/.var/app): a
 # relabel from and to the same type.
 allow tungsten_flatpak_t user_home_t:{ dir file lnk_file } { relabelfrom relabelto };
