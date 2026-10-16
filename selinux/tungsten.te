@@ -466,6 +466,11 @@ files_read_var_lib_files(user_t)
 allow systemd_sysctl_t var_run_t:dir { add_name remove_name search write };
 allow systemd_sysctl_t var_run_t:file { create getattr open rename setattr unlink write };
 allow systemd_sysctl_t binfmt_misc_fs_t:dir search;
+# udev runs systemd-sysctl for new network interfaces (in its own domain): it reads the
+# same drop-ins.
+allow udev_t var_run_t:file { getattr open read };
+# systemd-debug-generator lists the credentials of the boot (/run/credentials/@encrypted).
+allow systemd_generator_t tmpfs_t:dir { getattr open read search };
 
 # udev inspects the loop devices of system extensions (files in /var/lib/extensions.d).
 allow udev_t var_lib_t:file getattr;
@@ -709,6 +714,8 @@ gen_require(`
 	type systemd_user_runtime_dir_t, gconf_tmp_t;
 ')
 allow systemd_user_runtime_dir_t gconf_tmp_t:dir getattr;
+# Removing /run/user/<uid> at logout walks past FUSE mounts still in it (GVfs).
+allow systemd_user_runtime_dir_t fusefs_t:dir getattr;
 
 # homectl: the administrator manages accounts, the user reads and changes their own
 # (homed asks polkit for every change).
@@ -979,7 +986,7 @@ corenet_tcp_connect_all_ports(tungsten_flatpak_t)
 allow tungsten_flatpak_t user_tmp_t:dir { add_name create getattr ioctl lock open read remove_name rename rmdir search setattr write };
 allow tungsten_flatpak_t user_tmp_t:file { append create getattr ioctl link lock map open read rename setattr unlink write };
 allow tungsten_flatpak_t user_tmp_t:sock_file { create getattr read setattr unlink write };
-allow tungsten_flatpak_t user_tmp_t:lnk_file { create getattr read unlink };
+allow tungsten_flatpak_t user_tmp_t:lnk_file { create getattr read rename setattr unlink };
 allow tungsten_flatpak_t user_t:unix_stream_socket { connectto getattr read write };
 allow tungsten_flatpak_t user_t:fd use;
 allow tungsten_flatpak_t user_tmpfs_t:file { getattr map read write };
