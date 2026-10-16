@@ -468,7 +468,7 @@ allow systemd_sysctl_t var_run_t:file { create getattr open rename setattr unlin
 allow systemd_sysctl_t binfmt_misc_fs_t:dir search;
 # udev runs systemd-sysctl for new network interfaces (in its own domain): it reads the
 # same drop-ins.
-allow udev_t var_run_t:file { getattr open read };
+allow udev_t var_run_t:file { getattr ioctl open read };
 # systemd-debug-generator lists the credentials of the boot (/run/credentials/@encrypted).
 allow systemd_generator_t tmpfs_t:dir { getattr open read search };
 
@@ -1011,6 +1011,32 @@ kernel_read_vm_overcommit_sysctl(tungsten_flatpak_t)
 # keep keyboards and mice to root (uaccess covers joysticks and uinput). uinput lets the
 # app create input devices, which can type into any window: accepted for Steam.
 dev_rw_input_dev(tungsten_flatpak_t)
+# Steam: the client updates itself and games are downloaded programs, all in its data
+# directory; homes are noexec. Each user's Steam data lives in /var/lib/tungsten-steam/<uid>
+# (bind-mounted exec, like /var/lib/flatpak), as steam_data_t: only Flatpak apps may
+# execute it, the session cannot (a script in a terminal cannot start anything there).
+type steam_data_t;
+files_type(steam_data_t)
+files_mountpoint(steam_data_t)
+manage_dirs_pattern(tungsten_flatpak_t, steam_data_t, steam_data_t)
+manage_files_pattern(tungsten_flatpak_t, steam_data_t, steam_data_t)
+manage_lnk_files_pattern(tungsten_flatpak_t, steam_data_t, steam_data_t)
+manage_fifo_files_pattern(tungsten_flatpak_t, steam_data_t, steam_data_t)
+manage_sock_files_pattern(tungsten_flatpak_t, steam_data_t, steam_data_t)
+allow tungsten_flatpak_t steam_data_t:dir watch;
+allow tungsten_flatpak_t steam_data_t:{ dir file lnk_file } { relabelfrom relabelto };
+# Old 32-bit games and Wine/Proton libraries have text relocations (execmod).
+allow tungsten_flatpak_t steam_data_t:file { execute execute_no_trans map execmod };
+# The session creates its own directory (user tmpfiles, tungsten-steam.conf), and Flatpak
+# and bwrap find and bind it into the sandbox.
+allow { user_t user_systemd_t } steam_data_t:dir { add_name create getattr open read search setattr write };
+allow { user_t user_systemd_t } steam_data_t:lnk_file { getattr read };
+allow user_bubblewrap_t steam_data_t:dir { getattr mounton open read search };
+allow user_bubblewrap_t steam_data_t:lnk_file { getattr read };
+# Administrators clean up (accounts removed), boot creates the base directory.
+allow { init_t sysadm_t } steam_data_t:dir manage_dir_perms;
+allow { init_t sysadm_t } steam_data_t:{ file lnk_file fifo_file sock_file } manage_file_perms;
+allow { init_t sysadm_t } steam_data_t:{ dir file lnk_file } { relabelfrom relabelto };
 # cp -a and mv keep the SELinux label (Steam moves its data around in ~/.var/app): a
 # relabel from and to the same type.
 allow tungsten_flatpak_t user_home_t:{ dir file lnk_file } { relabelfrom relabelto };

@@ -24,6 +24,12 @@ if [ ! -d "$ROOT/var/lib/flatpak" ]; then
     mkdir -p "$ROOT/var/lib/flatpak"
     setfattr -h -n security.selinux -v system_u:object_r:flatpak_content_t "$ROOT/var/lib/flatpak"
 fi
+# The same for Steam's data (see /usr/share/user-tmpfiles.d/tungsten-steam.conf): every
+# user creates their own directory in it at login (sticky, not listable, like /tmp).
+if [ ! -d "$ROOT/var/lib/tungsten-steam" ]; then
+    mkdir -p -m 1733 "$ROOT/var/lib/tungsten-steam"
+    setfattr -h -n security.selinux -v system_u:object_r:steam_data_t "$ROOT/var/lib/tungsten-steam"
+fi
 # The overlay's top directory (/etc) takes the upper directory's label; on a new root
 # partition that is still unlabeled when the first services read /etc.
 if ! getfattr -h -n security.selinux "$STATE/upper" >/dev/null 2>&1; then

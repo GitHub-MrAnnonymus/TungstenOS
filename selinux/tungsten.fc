@@ -12,6 +12,7 @@ HOME_DIR/\.cache/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_ca
 # Flatpak deployments are hardlinks into the ostree repo, so the tree shares one type;
 # bwrap starts its programs in tungsten_flatpak_t (tungsten.te).
 /var/lib/flatpak(/.*)?					gen_context(system_u:object_r:flatpak_content_t)
+/var/lib/tungsten-steam(/.*)?				gen_context(system_u:object_r:steam_data_t)
 
 # Arch installs helper programs directly in /usr/lib (lib_t). Label the user-session
 # daemons as programs, as refpolicy does on other distributions' paths, so the user's

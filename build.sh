@@ -226,9 +226,12 @@ chmod 600 /etc/usbguard/IPCAccessControl.d/:usbguard
 cat >> /etc/fstab <<'FSTAB'
 tmpfs             /tmp              tmpfs  defaults,noexec,nosuid,nodev,mode=1777,size=4G                     0  0
 tmpfs             /dev/shm          tmpfs  defaults,noexec,nosuid,nodev                                       0  0
-# The only writable location mounted exec (the root partition is noexec). nofail: without
-# it a failed mount stops the boot in emergency mode, and root is locked there.
+# The only writable locations mounted exec (the root partition is noexec): Flatpak's apps
+# and runtimes, and Steam's per-user data (the client and games; SELinux lets only Flatpak
+# apps execute there). nofail: without it a failed mount stops the boot in emergency mode,
+# and root is locked there.
 /var/lib/flatpak  /var/lib/flatpak  none   bind,exec,nosuid,nodev,x-mount.mkdir,nofail                        0  0
+/var/lib/tungsten-steam /var/lib/tungsten-steam none bind,exec,nosuid,nodev,nofail                       0  0
 FSTAB
 
 mkdir -p /etc/flatpak/remotes.d
