@@ -978,6 +978,8 @@ allow tungsten_flatpak_t syslogd_t:unix_stream_socket connectto;
 # The app's own data in ~/.var/app, files it is given access to (home folders, the
 # document portal), and the desktop's look (GTK settings and DankMaterialShell colors).
 allow tungsten_flatpak_t user_home_dir_t:dir { getattr open read search };
+# Apps with filesystem=host or home (Loupe, file managers) see the real /home.
+files_search_home(tungsten_flatpak_t)
 allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:dir manage_dir_perms;
 allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:{ file lnk_file } manage_file_perms;
 allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:file map;
@@ -1030,6 +1032,12 @@ allow chromium_t { pulseaudio_tmp_t pulseaudio_xdg_config_t }:dir { getattr open
 allow chromium_t pulseaudio_tmp_t:sock_file { getattr write };
 allow chromium_t pulseaudio_xdg_config_t:file { getattr open read };
 dontaudit chromium_t pulseaudio_tmp_t:dir rmdir;
+# Flatpak apps with sound: bwrap binds the PipeWire-Pulse socket into the sandbox, the
+# app connects to it (the server runs in the session, user_t).
+allow user_bubblewrap_t pulseaudio_tmp_t:dir { getattr search };
+allow user_bubblewrap_t pulseaudio_tmp_t:sock_file getattr;
+allow tungsten_flatpak_t pulseaudio_tmp_t:dir { getattr search };
+allow tungsten_flatpak_t pulseaudio_tmp_t:sock_file { getattr write };
 
 # The sandbox's own root (/, /etc, /run, the /bin -> usr/bin links, generated files such
 # as /etc/passwd and ld.so.conf) is a tmpfs bwrap builds (user_tmpfs_t): the app reads
