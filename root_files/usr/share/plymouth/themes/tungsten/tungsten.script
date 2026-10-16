@@ -92,19 +92,25 @@ fun display_normal_cb() {
 }
 Plymouth.SetDisplayNormalFunction(display_normal_cb);
 
-# The wordmark, bottom centre, about 3 % of the screen height: the largest pre-rendered
+# The wordmark, bottom centre, about 4 % of the screen height: the largest pre-rendered
 # size that fits (shown pixel for pixel; Plymouth's scaling makes thin text jagged).
-target = Window.GetHeight() * 0.032;
+target = Window.GetHeight() * 0.042;
 wordmark_h = 24;
 if (target >= 32) wordmark_h = 32;
 if (target >= 40) wordmark_h = 40;
 if (target >= 48) wordmark_h = 48;
+if (target >= 56) wordmark_h = 56;
 if (target >= 64) wordmark_h = 64;
+if (target >= 72) wordmark_h = 72;
+if (target >= 88) wordmark_h = 88;
 if (wordmark_h == 24) wordmark_image = Image("wordmark-24.png");
 if (wordmark_h == 32) wordmark_image = Image("wordmark-32.png");
 if (wordmark_h == 40) wordmark_image = Image("wordmark-40.png");
 if (wordmark_h == 48) wordmark_image = Image("wordmark-48.png");
+if (wordmark_h == 56) wordmark_image = Image("wordmark-56.png");
 if (wordmark_h == 64) wordmark_image = Image("wordmark-64.png");
+if (wordmark_h == 72) wordmark_image = Image("wordmark-72.png");
+if (wordmark_h == 88) wordmark_image = Image("wordmark-88.png");
 wordmark = Sprite(wordmark_image);
 wordmark_y = Window.GetY() + Window.GetHeight() - wordmark_h - Math.Int(Window.GetHeight() * 0.07);
 wordmark.SetPosition(Window.GetX() + Window.GetWidth() / 2 - wordmark_image.GetWidth() / 2, wordmark_y, 5);

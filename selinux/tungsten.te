@@ -1038,6 +1038,21 @@ allow user_bubblewrap_t pulseaudio_tmp_t:dir { getattr search };
 allow user_bubblewrap_t pulseaudio_tmp_t:sock_file getattr;
 allow tungsten_flatpak_t pulseaudio_tmp_t:dir { getattr search };
 allow tungsten_flatpak_t pulseaudio_tmp_t:sock_file { getattr write };
+# PipeWire's own sockets (pipewire-0, pipewire-0-manager) are created by systemd --user
+# from pipewire.socket and keep the runtime directory's type (user_runtime_t); the server
+# runs in the session (user_t). Flatpak checks them and binds them in for screen sharing,
+# cameras and native PipeWire audio.
+gen_require(`
+	type user_runtime_t;
+')
+allow { user_t user_bubblewrap_t } user_runtime_t:sock_file getattr;
+allow { user_t tungsten_flatpak_t } user_runtime_t:sock_file { getattr write };
+# X11 apps (Steam, older toolkits): bwrap binds Xwayland's socket (/tmp/.X11-unix/X0,
+# xdm_tmp_t) into the sandbox; Xwayland runs in the session (user_t).
+allow user_bubblewrap_t xdm_tmp_t:dir { getattr search };
+allow user_bubblewrap_t xdm_tmp_t:sock_file getattr;
+allow tungsten_flatpak_t xdm_tmp_t:dir { getattr search };
+allow tungsten_flatpak_t xdm_tmp_t:sock_file { getattr write };
 
 # The sandbox's own root (/, /etc, /run, the /bin -> usr/bin links, generated files such
 # as /etc/passwd and ld.so.conf) is a tmpfs bwrap builds (user_tmpfs_t): the app reads

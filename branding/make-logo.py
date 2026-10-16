@@ -119,9 +119,13 @@ write(T + "bullet.svg",
 # time (rsvg-convert, with the font installed), so Plymouth needs no fonts for it.
 write(T + "wordmark.svg",
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 140" width="1000" height="140">\n'
-      '<text x="500" y="100" text-anchor="middle" font-family="Manrope, sans-serif" font-weight="500" '
-      'font-size="84" letter-spacing="7">'
-      f'<tspan fill="{METAL}">Tungsten</tspan><tspan fill="{GLOW}">OS</tspan></text>\n</svg>\n')
+      # Semibold with Manrope's own spacing: at boot sizes a lighter weight with extra
+      # tracking falls apart into single letters. A lighter grey than the frame metal,
+      # so the thin strokes keep their contrast on black.
+      '<text x="500" y="100" text-anchor="middle" font-family="Manrope, sans-serif" font-weight="600" '
+      'font-size="84" letter-spacing="1">'
+      '<tspan fill="#a3a9b4">Tungsten</tspan>'
+      f'<tspan fill="{GLOW}">OS</tspan></text>\n</svg>\n')
 
 
 # fastfetch: Braille (2x4 dots per character), $1 frame grey, $2 filament orange.

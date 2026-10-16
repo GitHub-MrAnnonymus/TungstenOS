@@ -283,7 +283,7 @@ for l in frame cold hot glow; do
 done
 # Rendered at their displayed sizes: Plymouth's own scaling is coarse (jagged text).
 rsvg-convert -w 24 -h 24 -o $T/bullet.png $T/bullet.svg
-for h in 24 32 40 48 64; do
+for h in 24 32 40 48 56 64 72 88; do
   rsvg-convert -h $h -o $T/wordmark-$h.png $T/wordmark.svg
 done
 rm -f $T/*.svg
