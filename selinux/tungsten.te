@@ -1018,3 +1018,10 @@ allow chromium_t { pulseaudio_tmp_t pulseaudio_xdg_config_t }:dir { getattr open
 allow chromium_t pulseaudio_tmp_t:sock_file { getattr write };
 allow chromium_t pulseaudio_xdg_config_t:file { getattr open read };
 dontaudit chromium_t pulseaudio_tmp_t:dir rmdir;
+
+# The sandbox's own root (/, /etc, /run, the /bin -> usr/bin links, generated files such
+# as /etc/passwd and ld.so.conf) is a tmpfs bwrap builds (user_tmpfs_t): the app reads
+# and traverses it; what it writes (/tmp, ~/.var/app, the ld.so cache) is bound in.
+allow tungsten_flatpak_t user_tmpfs_t:dir { getattr open read search };
+allow tungsten_flatpak_t user_tmpfs_t:file { getattr ioctl lock map open read };
+allow tungsten_flatpak_t user_tmpfs_t:lnk_file { getattr read };

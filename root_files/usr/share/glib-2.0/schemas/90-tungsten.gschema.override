@@ -5,3 +5,6 @@
 color-scheme='prefer-dark'
 gtk-theme='adw-gtk3-dark'
 icon-theme='Papirus-Dark'
+font-name='Manrope 11'
+document-font-name='Manrope 11'
+monospace-font-name='JetBrains Mono 10'

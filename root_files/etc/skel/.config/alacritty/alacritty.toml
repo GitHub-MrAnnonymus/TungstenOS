@@ -14,9 +14,9 @@ thickness = 0.15
 [font]
 offset.y = 0  # Adjust line spacing (default: 0)
 offset.x = 0  # Adjust letter spacing (default: 0)   
-normal = { family = "FiraCode Nerd Font Mono", style = "Regular" }
-bold = { family = "FiraCode Nerd Font Mono", style = "Bold" }
-italic = { family = "FiraCode Nerd Font Mono", style = "Regular" }
+normal = { family = "JetBrains Mono", style = "Regular" }
+bold = { family = "JetBrains Mono", style = "Bold" }
+italic = { family = "JetBrains Mono", style = "Regular" }
 size = 11.0
 
 [colors.primary]

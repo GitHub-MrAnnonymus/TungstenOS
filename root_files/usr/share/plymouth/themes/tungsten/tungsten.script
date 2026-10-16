@@ -1,7 +1,8 @@
 # TungstenOS boot splash: the W filament of the logo heats up with boot progress
 # (ember, tungsten orange, white) and cools down at shutdown. Layers rendered from
 # branding/make-logo.py: frame.png (the cell, dark), cold.png (ember filament),
-# hot.png (glowing filament), glow.png (halo), bullet.png (one typed character).
+# hot.png (glowing filament), glow.png (halo), bullet.png (one typed character),
+# wordmark.png ("TungstenOS" in Manrope).
 
 Window.SetBackgroundTopColor(0, 0, 0);
 Window.SetBackgroundBottomColor(0, 0, 0);
@@ -91,9 +92,17 @@ fun display_normal_cb() {
 }
 Plymouth.SetDisplayNormalFunction(display_normal_cb);
 
+# The wordmark, bottom centre: its height a small fraction of the screen.
+wordmark_image = Image("wordmark.png");
+wordmark_h = Math.Int(Window.GetHeight() * 0.032);
+wordmark_image = wordmark_image.Scale(Math.Int(wordmark_image.GetWidth() * wordmark_h / wordmark_image.GetHeight()), wordmark_h);
+wordmark = Sprite(wordmark_image);
+wordmark_y = Window.GetY() + Window.GetHeight() - wordmark_h - Math.Int(Window.GetHeight() * 0.07);
+wordmark.SetPosition(Window.GetX() + Window.GetWidth() / 2 - wordmark_image.GetWidth() / 2, wordmark_y, 5);
+
 fun message_cb(text) {
   m = Image.Text(text, 0.55, 0.57, 0.62, 1, "Sans 11");
-  message_sprite.SetImage(m);
-  message_sprite.SetPosition(center_x(m), Window.GetY() + Window.GetHeight() - m.GetHeight() - 40, 10);
+  global.message_sprite.SetImage(m);
+  global.message_sprite.SetPosition(center_x(m), global.wordmark_y - m.GetHeight() - 24, 10);
 }
 Plymouth.SetMessageFunction(message_cb);

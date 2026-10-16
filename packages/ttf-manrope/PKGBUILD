@@ -1,0 +1,21 @@
+# TungstenOS UI font (DankMaterialShell, GTK, Qt through fontconfig). Not in Arch's
+# repositories; taken from Google Fonts' sources at a pinned commit.
+
+pkgname=ttf-manrope
+_commit=b31870aff700ab7a1d74fa0c6887d95beb9e0037
+pkgver=4.505
+pkgrel=1
+pkgdesc='Manrope, an open-source modern geometric sans-serif (variable)'
+arch=(any)
+url='https://github.com/googlefonts/manrope'
+license=(OFL-1.1)
+_src="https://raw.githubusercontent.com/google/fonts/$_commit/ofl/manrope"
+source=("Manrope.ttf::$_src/Manrope%5Bwght%5D.ttf"
+        "OFL.txt::$_src/OFL.txt")
+sha256sums=('3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6'
+            '58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b')
+
+package() {
+  install -Dm644 Manrope.ttf "$pkgdir/usr/share/fonts/manrope/Manrope[wght].ttf"
+  install -Dm644 OFL.txt "$pkgdir/usr/share/licenses/$pkgname/OFL.txt"
+}

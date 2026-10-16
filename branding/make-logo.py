@@ -113,6 +113,15 @@ write(T + "bullet.svg",
       f'<circle r="9" fill="{GLOW}" opacity=".45" filter="url(#b)"/>\n<circle r="4.5" fill="{HOT}"/>\n</svg>\n')
 
 
+# The wordmark at the bottom of the boot splash. Text in Manrope, rendered to PNG at build
+# time (rsvg-convert, with the font installed), so Plymouth needs no fonts for it.
+write(T + "wordmark.svg",
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 140" width="1000" height="140">\n'
+      '<text x="500" y="100" text-anchor="middle" font-family="Manrope, sans-serif" font-weight="500" '
+      'font-size="84" letter-spacing="7">'
+      f'<tspan fill="{METAL}">Tungsten</tspan><tspan fill="{GLOW}">OS</tspan></text>\n</svg>\n')
+
+
 # fastfetch: Braille (2x4 dots per character), $1 frame grey, $2 filament orange.
 def braille():
     cols, rows = 30, 15

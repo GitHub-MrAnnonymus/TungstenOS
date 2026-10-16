@@ -56,6 +56,7 @@ PACKAGES=(
   plymouth greetd greetd-dms-greeter flatpak
   hyprland uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dms-shell quickshell qtengine
   matugen polkit alacritty zsh nautilus nwg-look adw-gtk-theme kdeconnect papirus-icon-theme
+  ttf-manrope ttf-jetbrains-mono  # UI and monospace fonts (fontconfig: 50-tungsten-fonts.conf)
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
@@ -281,6 +282,7 @@ for l in frame cold hot glow; do
   rsvg-convert -w 512 -h 512 -o $T/$l.png $T/$l.svg
 done
 rsvg-convert -w 64 -h 64 -o $T/bullet.png $T/bullet.svg
+rsvg-convert -w 1000 -h 140 -o $T/wordmark.png $T/wordmark.svg
 rm -f $T/*.svg
 
 passwd -l root
