@@ -73,7 +73,12 @@ fs_rw_cgroup_files(systemd_hostnamed_t)
 # No writable executable memory for user programs (allow_execmem stays off). libffi
 # (GTK apps such as Nautilus) reads the allow_execmem boolean and then uses trampolines
 # that need none; Qt's QML JIT is disabled with QV4_FORCE_INTERPRETER (uwsm env).
+# QML threads (DankMaterialShell, kdeconnectd) still probe for it once and fall back:
+# not logged. Programs that need execmem run as Flatpaks (tungsten_flatpak_t).
 selinux_get_all_booleans(user_t)
+dontaudit user_t self:process execmem;
+# DankMaterialShell watches /var (system state for its widgets).
+allow user_t var_t:dir watch;
 
 # PipeWire/WirePlumber read the user's and sessions' state from logind.
 systemd_read_logind_runtime_files(user_t)
@@ -444,6 +449,9 @@ allow systemd_tmpfiles_t security_t:dir search;
 allow systemd_tmpfiles_t security_t:file { getattr setattr };
 allow systemd_tmpfiles_t user_home_t:dir { add_name getattr open read search setattr write };
 allow systemd_tmpfiles_t user_home_t:file { create getattr open setattr write };
+# The greeter's cache (/var/cache/dms-greeter, user_home_t) holds links (the theme files,
+# fontconfig's cache): "Z" in tungsten-greeter.conf walks them.
+allow systemd_tmpfiles_t user_home_t:lnk_file { getattr relabelfrom relabelto };
 dontaudit systemd_tmpfiles_t dosfs_t:dir setattr;
 optional_policy(`
 	gen_require(`
@@ -464,6 +472,7 @@ allow udev_t var_lib_t:file getattr;
 
 # systemd-coredump: its runtime directory, file labels.
 allow systemd_coredump_t init_runtime_t:dir { add_name create search write };
+allow systemd_coredump_t self:process sigkill;	# ends its worker processes
 seutil_read_file_contexts(systemd_coredump_t)
 
 # systemd-pcrlock removes component directories it regenerates.
@@ -969,7 +978,24 @@ allow tungsten_flatpak_t user_t:fd use;
 allow tungsten_flatpak_t user_tmpfs_t:file { getattr map read write };
 allow user_t tungsten_flatpak_t:fd use;
 allow user_t tungsten_flatpak_t:unix_stream_socket { getattr read write };
+allow user_t tungsten_flatpak_t:fifo_file { getattr ioctl read write };
 allow user_t tungsten_flatpak_tmpfs_t:file { getattr map read write };
+# Descriptors in D-Bus messages (a socket pair for flatpak-spawn --sandbox, as glycin's
+# image loaders use, pipes, memfds) pass through the session bus to the portals.
+allow user_dbusd_t tungsten_flatpak_t:fd use;
+allow user_dbusd_t tungsten_flatpak_t:unix_stream_socket { getattr read write };
+allow user_dbusd_t tungsten_flatpak_t:fifo_file { getattr read write };
+allow user_dbusd_t tungsten_flatpak_tmpfs_t:file { getattr map read write };
+# Started from a terminal or by the session: stdio pipes and inherited descriptors.
+allow tungsten_flatpak_t user_t:fifo_file { getattr ioctl read write };
+allow tungsten_flatpak_t user_t:netlink_kobject_uevent_socket { getattr read write };
+# Games read vm.max_map_count; Steam checks /dev/uinput (Steam Input's virtual
+# controllers need write access too, not given: it could type into other windows).
+kernel_read_vm_sysctls(tungsten_flatpak_t)
+dev_getattr_input_dev(tungsten_flatpak_t)
+# cp -a and mv keep the SELinux label (Steam moves its data around in ~/.var/app): a
+# relabel from and to the same type.
+allow tungsten_flatpak_t user_home_t:{ dir file lnk_file } { relabelfrom relabelto };
 userdom_use_user_terminals(tungsten_flatpak_t)
 logging_send_syslog_msg(tungsten_flatpak_t)
 allow tungsten_flatpak_t devlog_t:sock_file { getattr read write };
