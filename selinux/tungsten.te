@@ -871,6 +871,8 @@ allow user_bubblewrap_t self:cap_userns sys_resource;
 
 type flatpak_content_t;		# /var/lib/flatpak: runtimes, apps, the ostree repo (hardlinks)
 files_type(flatpak_content_t)
+# /etc/fstab bind-mounts /var/lib/flatpak onto itself (exec on noexec /var).
+files_mountpoint(flatpak_content_t)
 type tungsten_flatpak_t;
 domain_type(tungsten_flatpak_t)
 domain_entry_file(tungsten_flatpak_t, flatpak_content_t)
@@ -980,3 +982,36 @@ fs_manage_fusefs_files(tungsten_flatpak_t)
 # the compositor and systemd --user end them.
 ps_process_pattern({ user_t user_systemd_t }, tungsten_flatpak_t)
 allow { user_t user_systemd_t } tungsten_flatpak_t:process { sigkill signal signull sigstop };
+
+# systemd --user has Flatpak's exports in its search paths (units, data); it ends the
+# session's FUSE helpers (mount_t) at logout.
+allow user_systemd_t flatpak_content_t:dir { getattr open read search };
+allow user_systemd_t flatpak_content_t:file { getattr open read };
+allow user_systemd_t flatpak_content_t:lnk_file { getattr read };
+gen_require(`
+	type mount_t, fonts_cache_t, var_t, virtio_device_t, systemd_tmpfiles_t;
+')
+allow user_systemd_t mount_t:process { sigkill signal signull };
+# tmpfiles restores the font cache's labels (Z), which includes its symbolic links.
+allow systemd_tmpfiles_t { fonts_cache_t var_t }:lnk_file { getattr relabelfrom relabelto };
+# Virtual machines: the guest agent channels are not for the session.
+dontaudit user_systemd_t virtio_device_t:chr_file getattr;
+
+# The portals identify the calling app through /proc/<pid>/root; Trivalent's and Flatpak's
+# processes live in user namespaces the session created, and looking into those needs
+# CAP_SYS_PTRACE there (the portal refused Trivalent's file dialog without it). Only
+# within the session's own namespaces; Yama keeps ptrace attaching to administrators.
+allow { user_t user_systemd_t } self:cap_userns sys_ptrace;
+
+# Trivalent: which program opens a downloaded file (xdg-mime looks at Flatpak's exports),
+# and PulseAudio's runtime and config directories for sound.
+gen_require(`
+	type chromium_t, pulseaudio_tmp_t, pulseaudio_xdg_config_t;
+')
+allow chromium_t flatpak_content_t:dir { getattr open read search };
+allow chromium_t flatpak_content_t:file { getattr open read };
+allow chromium_t flatpak_content_t:lnk_file { getattr read };
+allow chromium_t { pulseaudio_tmp_t pulseaudio_xdg_config_t }:dir { getattr open read search };
+allow chromium_t pulseaudio_tmp_t:sock_file { getattr write };
+allow chromium_t pulseaudio_xdg_config_t:file { getattr open read };
+dontaudit chromium_t pulseaudio_tmp_t:dir rmdir;

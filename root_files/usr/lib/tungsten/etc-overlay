@@ -17,6 +17,13 @@ if [ ! -d "$ROOT/var/log/journal" ]; then
     setfattr -h -n security.selinux -v system_u:object_r:var_log_t "$ROOT/var/log"
     setfattr -h -n security.selinux -v system_u:object_r:systemd_journal_t "$ROOT/var/log/journal"
 fi
+# /etc/fstab bind-mounts /var/lib/flatpak onto itself to lift /var's noexec for Flatpak's
+# sandboxed programs; the bind mount needs the directory, which Flatpak itself only
+# creates at the first installation. Without it, every Flatpak fails until the next boot.
+if [ ! -d "$ROOT/var/lib/flatpak" ]; then
+    mkdir -p "$ROOT/var/lib/flatpak"
+    setfattr -h -n security.selinux -v system_u:object_r:flatpak_content_t "$ROOT/var/lib/flatpak"
+fi
 # The overlay's top directory (/etc) takes the upper directory's label; on a new root
 # partition that is still unlabeled when the first services read /etc.
 if ! getfattr -h -n security.selinux "$STATE/upper" >/dev/null 2>&1; then
