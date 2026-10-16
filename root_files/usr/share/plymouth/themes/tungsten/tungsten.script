@@ -2,7 +2,7 @@
 # (ember, tungsten orange, white) and cools down at shutdown. Layers rendered from
 # branding/make-logo.py: frame.png (the cell, dark), cold.png (ember filament),
 # hot.png (glowing filament), glow.png (halo), bullet.png (one typed character),
-# wordmark.png ("TungstenOS" in Manrope).
+# wordmark-<height>.png ("TungstenOS" in Manrope, several sizes).
 
 Window.SetBackgroundTopColor(0, 0, 0);
 Window.SetBackgroundBottomColor(0, 0, 0);
@@ -55,8 +55,8 @@ Plymouth.SetRefreshFunction(refresh_cb);
 prompt_sprite = Sprite();
 message_sprite = Sprite();
 text_y = y + size + 28;
-dot_image = Image("bullet.png").Scale(18, 18);
-dot_gap = 22;
+dot_image = Image("bullet.png");
+dot_gap = 24;
 dot_max = 48;
 for (i = 0; i < dot_max; i++) {
   dots[i] = Sprite(dot_image);
@@ -92,10 +92,19 @@ fun display_normal_cb() {
 }
 Plymouth.SetDisplayNormalFunction(display_normal_cb);
 
-# The wordmark, bottom centre: its height a small fraction of the screen.
-wordmark_image = Image("wordmark.png");
-wordmark_h = Math.Int(Window.GetHeight() * 0.032);
-wordmark_image = wordmark_image.Scale(Math.Int(wordmark_image.GetWidth() * wordmark_h / wordmark_image.GetHeight()), wordmark_h);
+# The wordmark, bottom centre, about 3 % of the screen height: the largest pre-rendered
+# size that fits (shown pixel for pixel; Plymouth's scaling makes thin text jagged).
+target = Window.GetHeight() * 0.032;
+wordmark_h = 24;
+if (target >= 32) wordmark_h = 32;
+if (target >= 40) wordmark_h = 40;
+if (target >= 48) wordmark_h = 48;
+if (target >= 64) wordmark_h = 64;
+if (wordmark_h == 24) wordmark_image = Image("wordmark-24.png");
+if (wordmark_h == 32) wordmark_image = Image("wordmark-32.png");
+if (wordmark_h == 40) wordmark_image = Image("wordmark-40.png");
+if (wordmark_h == 48) wordmark_image = Image("wordmark-48.png");
+if (wordmark_h == 64) wordmark_image = Image("wordmark-64.png");
 wordmark = Sprite(wordmark_image);
 wordmark_y = Window.GetY() + Window.GetHeight() - wordmark_h - Math.Int(Window.GetHeight() * 0.07);
 wordmark.SetPosition(Window.GetX() + Window.GetWidth() / 2 - wordmark_image.GetWidth() / 2, wordmark_y, 5);

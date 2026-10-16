@@ -254,6 +254,11 @@ allow user_systemd_t user_t:process2 nnp_transition;
 allow user_systemd_t user_gkeyringd_t:unix_stream_socket { bind create getattr listen setopt };
 allow user_t user_systemd_t:unix_dgram_socket sendto;
 allow user_dbusd_t user_t:unix_stream_socket { accept getattr getopt read write };
+# The accessibility bus: at-spi-bus-launcher (user_t) starts dbus-broker-launch, which
+# finds the user's systemd through XDG_RUNTIME_DIR with secure_getenv. After a domain
+# change the kernel sets AT_SECURE, the variable reads as unset and the launch fails
+# ("No medium found"); apps then lose accessibility (and Flatpak's a11y proxy resets).
+allow user_t user_dbusd_t:process noatsecure;
 
 # --- The desktop session (user_t) ---
 # File change notifications (inotify) on the user's own and system files.
@@ -884,7 +889,7 @@ gen_require(`
 	type user_t, user_bubblewrap_t, user_systemd_t, user_dbusd_t, user_tmp_t, user_tmpfs_t;
 	type user_home_t, user_home_dir_t, xdg_config_t, xdg_data_t, xdg_cache_t, gnome_xdg_config_t;
 	type xdg_documents_t, xdg_downloads_t, xdg_music_t, xdg_pictures_t, xdg_videos_t;
-	type fonts_cache_t, fusefs_t, dma_device_t, devlog_t, syslogd_t, init_t, sysadm_t;
+	type fonts_cache_t, fusefs_t, dma_device_t, devlog_t, syslogd_t, init_t, sysadm_t, usr_t;
 ')
 
 # Installing and updating (flatpak-system-helper, tungsten-flatpak-update, run0 flatpak).
@@ -980,6 +985,13 @@ allow tungsten_flatpak_t gnome_xdg_config_t:dir list_dir_perms;
 allow tungsten_flatpak_t gnome_xdg_config_t:file { getattr open read map };
 fs_manage_fusefs_dirs(tungsten_flatpak_t)
 fs_manage_fusefs_files(tungsten_flatpak_t)
+# GLib follows changes (inotify): settings, overrides, installed apps.
+allow tungsten_flatpak_t { flatpak_content_t user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t gnome_xdg_config_t }:dir watch;
+# Icon theme caches from the host (/run/host/share/icons) are mapped; statfs on the
+# mounts of the sandbox.
+allow tungsten_flatpak_t usr_t:file map;
+fs_getattr_xattr_fs(tungsten_flatpak_t)
+fs_getattr_tmpfs(tungsten_flatpak_t)
 
 # The session manages the app processes: the portals read /proc/<pid> (.flatpak-info),
 # the compositor and systemd --user end them.
@@ -1021,7 +1033,9 @@ dontaudit chromium_t pulseaudio_tmp_t:dir rmdir;
 
 # The sandbox's own root (/, /etc, /run, the /bin -> usr/bin links, generated files such
 # as /etc/passwd and ld.so.conf) is a tmpfs bwrap builds (user_tmpfs_t): the app reads
-# and traverses it; what it writes (/tmp, ~/.var/app, the ld.so cache) is bound in.
-allow tungsten_flatpak_t user_tmpfs_t:dir { getattr open read search };
-allow tungsten_flatpak_t user_tmpfs_t:file { getattr ioctl lock map open read };
-allow tungsten_flatpak_t user_tmpfs_t:lnk_file { getattr read };
+# and traverses it; most of what it writes (/tmp, ~/.var/app, the ld.so cache) is bound
+# in, but apps also create files in the tmpfs itself (e.g. under the empty home
+# directory). Only this sandbox sees that tmpfs.
+allow tungsten_flatpak_t user_tmpfs_t:dir manage_dir_perms;
+allow tungsten_flatpak_t user_tmpfs_t:{ file lnk_file } manage_file_perms;
+allow tungsten_flatpak_t user_tmpfs_t:file map;

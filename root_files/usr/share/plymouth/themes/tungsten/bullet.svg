@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 32 32" width="64" height="64">
-<defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter></defs>
-<circle r="9" fill="#ffb46b" opacity=".45" filter="url(#b)"/>
-<circle r="4.5" fill="#fff3df"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="24" height="24">
+<defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>
+<radialGradient id="g"><stop offset="0" stop-color="#fff3df"/><stop offset="1" stop-color="#ffb46b"/></radialGradient></defs>
+<circle r="6.5" fill="#ffb46b" opacity=".35" filter="url(#b)"/>
+<circle r="3.6" fill="url(#g)"/>
 </svg>

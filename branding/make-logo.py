@@ -106,11 +106,13 @@ write(T + "glow.svg", svg(glow_path(GLOW, 30, 0.55)
                           + '<circle cx="0" cy="0" r="22" fill="#ffb46b" opacity=".5" filter="url(#blur)"/>\n'))
 
 
-# One dot of the passphrase/PIN prompt: a small glowing point (fonts in the initramfs lack ●).
+# One dot of the passphrase/PIN prompt (fonts in the initramfs lack ●): a round point with
+# a soft glow, rendered at its displayed size (24 px), as Plymouth scales coarsely.
 write(T + "bullet.svg",
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 32 32" width="64" height="64">\n'
-      '<defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter></defs>\n'
-      f'<circle r="9" fill="{GLOW}" opacity=".45" filter="url(#b)"/>\n<circle r="4.5" fill="{HOT}"/>\n</svg>\n')
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 24 24" width="24" height="24">\n'
+      '<defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>\n'
+      f'<radialGradient id="g"><stop offset="0" stop-color="{HOT}"/><stop offset="1" stop-color="{GLOW}"/></radialGradient></defs>\n'
+      f'<circle r="6.5" fill="{GLOW}" opacity=".35" filter="url(#b)"/>\n<circle r="3.6" fill="url(#g)"/>\n</svg>\n')
 
 
 # The wordmark at the bottom of the boot splash. Text in Manrope, rendered to PNG at build
