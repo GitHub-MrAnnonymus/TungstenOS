@@ -901,6 +901,9 @@ allow user_bubblewrap_t flatpak_content_t:dir { getattr mounton open read search
 allow user_bubblewrap_t flatpak_content_t:file { getattr lock map open read };
 allow user_bubblewrap_t flatpak_content_t:lnk_file { getattr read };
 domtrans_pattern(user_bubblewrap_t, flatpak_content_t, tungsten_flatpak_t)
+# Flatpak runs bwrap with no_new_privs, and the tree is mounted nosuid: the kernel allows
+# the switch only when the policy names this pair explicitly.
+allow user_bubblewrap_t tungsten_flatpak_t:process2 { nnp_transition nosuid_transition };
 allow user_bubblewrap_t tungsten_flatpak_t:process { sigkill signal signull sigstop };
 allow tungsten_flatpak_t user_bubblewrap_t:fd use;
 allow tungsten_flatpak_t user_bubblewrap_t:process sigchld;
