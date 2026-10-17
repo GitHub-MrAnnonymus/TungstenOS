@@ -285,6 +285,14 @@ allow user_t nsfs_t:file getattr;
 # ping without privileges: an ICMP datagram socket (net.ipv4.ping_group_range, from
 # systemd's sysctl defaults); the image strips ping's cap_net_raw.
 allow user_t self:icmp_socket create_socket_perms;
+# System monitors (DankMaterialShell's dgop): interrupts and pressure stall information.
+gen_require(`
+	type sysctl_irq_t, proc_psi_t;
+')
+allow user_t sysctl_irq_t:dir { getattr open read search };
+allow user_t sysctl_irq_t:file { getattr open read };
+allow user_t proc_psi_t:dir { getattr open read search };
+allow user_t proc_psi_t:file { getattr open read };
 # Input devices handed over by logind (keyboard LEDs).
 allow user_t event_device_t:chr_file write;
 # Shared memory with the user's systemd, and memory-mapping own files.
@@ -898,7 +906,7 @@ allow user_bubblewrap_t self:cap_userns sys_resource;
 # Nested sandboxes that share the parent's namespaces (flatpak-spawn --sandbox
 # --share-pids: Steam's pressure-vessel game containers): the portal's flatpak opens the
 # app's /proc/<pid>/ns/* files and bwrap joins them (--userns, --pidns).
-allow { user_t user_bubblewrap_t } nsfs_t:file { getattr open read };
+allow { user_t user_bubblewrap_t tungsten_flatpak_t } nsfs_t:file { getattr open read };
 
 ########################################
 # Flatpak apps run in their own domain, tungsten_flatpak_t, the only domain of a session
@@ -1004,6 +1012,9 @@ corenet_tcp_bind_generic_node(tungsten_flatpak_t)
 corenet_udp_bind_generic_node(tungsten_flatpak_t)
 corenet_tcp_bind_all_unreserved_ports(tungsten_flatpak_t)
 corenet_udp_bind_all_unreserved_ports(tungsten_flatpak_t)
+# Listening (TCP sockets only get create_socket_perms above): Steam's process pipes
+# (steamwebhelper), local servers of games. 127.0.0.1 is the generic node (bound above).
+allow tungsten_flatpak_t self:tcp_socket { accept listen };
 
 # The session's services through the sockets Flatpak passes in: Wayland (Hyprland),
 # PipeWire, the D-Bus proxy, accessibility; shared memory and descriptors both ways.
@@ -1011,7 +1022,7 @@ allow tungsten_flatpak_t user_tmp_t:dir { add_name create getattr ioctl lock ope
 allow tungsten_flatpak_t user_tmp_t:file { append create getattr ioctl link lock map open read rename setattr unlink write };
 allow tungsten_flatpak_t user_tmp_t:sock_file { create getattr read setattr unlink write };
 allow tungsten_flatpak_t user_tmp_t:lnk_file { create getattr read rename setattr unlink };
-allow tungsten_flatpak_t { user_tmp_t user_tmpfs_t }:fifo_file { create getattr open read setattr unlink write };	# Steam's srt-logger
+allow tungsten_flatpak_t { user_tmp_t user_tmpfs_t user_home_t }:fifo_file { create getattr open read setattr unlink write };	# Steam's srt-logger, ~/.steam/steam.pipe
 allow tungsten_flatpak_t user_t:unix_stream_socket { connectto getattr read write };
 allow tungsten_flatpak_t user_t:fd use;
 allow tungsten_flatpak_t user_tmpfs_t:file { getattr map read write };
@@ -1031,6 +1042,12 @@ allow tungsten_flatpak_t user_t:netlink_kobject_uevent_socket { getattr read wri
 # Games and Steam read vm.max_map_count and vm.overcommit_memory.
 kernel_read_vm_sysctls(tungsten_flatpak_t)
 kernel_read_vm_overcommit_sysctl(tungsten_flatpak_t)
+kernel_read_fs_sysctls(tungsten_flatpak_t)	# fs.file-max, inotify limits
+# Nested sandboxes mount their own /proc; the app's /proc/<pid> entries carry its label.
+gen_require(`
+	type proc_t;
+')
+allow tungsten_flatpak_t proc_t:filesystem associate;
 # Gamepads (evdev) and Steam Input's virtual controllers (/dev/uinput). Flatpak shows
 # these devices only to apps with device=all or device=input (Steam); file permissions
 # keep keyboards and mice to root (uaccess covers joysticks and uinput). uinput lets the
@@ -1052,6 +1069,11 @@ allow tungsten_flatpak_t steam_data_t:dir watch;
 allow tungsten_flatpak_t steam_data_t:{ dir file lnk_file } { relabelfrom relabelto };
 # Old 32-bit games and Wine/Proton libraries have text relocations (execmod).
 allow tungsten_flatpak_t steam_data_t:file { execute execute_no_trans map execmod };
+# Steam hands open files from its data directory (logs, pipes) to the processes it starts
+# through the Flatpak portal (steam-runtime-launch-client): the session bus, the portal and
+# bwrap receive them.
+allow { user_t user_dbusd_t user_bubblewrap_t } steam_data_t:{ file fifo_file } { append getattr ioctl read write };
+allow { user_t user_dbusd_t user_bubblewrap_t } steam_data_t:sock_file getattr;
 # Each user's directory is created at login by the user's systemd-tmpfiles
 # (user_systemd_tmpfiles_t, tungsten-steam.conf), which also links Steam's data paths in
 # its Flatpak home there (replacing what is in the way). Flatpak and bwrap find and bind
@@ -1073,6 +1095,7 @@ gen_require(`
 	type systemd_user_runtime_t;
 ')
 allow user_systemd_tmpfiles_t systemd_user_runtime_t:dir { manage_dir_perms relabelfrom relabelto };
+allow user_systemd_tmpfiles_t systemd_user_runtime_t:lnk_file { manage_lnk_file_perms relabelfrom relabelto };
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:dir { manage_dir_perms relabelfrom relabelto };
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:{ file lnk_file } { manage_file_perms relabelfrom relabelto };
 allow { user_t user_systemd_t } steam_data_t:dir { getattr search };
