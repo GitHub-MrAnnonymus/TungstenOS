@@ -38,6 +38,18 @@ run() { local title=$1; shift; gum spin --title "$title" -- bash -c 'l=$1; shift
 command -v gum >/dev/null || { echo "gum is missing (pacman -S gum)" >&2; exit 1; }
 
 # --- Release on the medium ---
+# With enough memory archiso copies the live system to RAM (copytoram=auto) and then
+# unmounts the boot medium, release files included: mount it again, by its label or, when
+# Ventoy started the ISO from a file, through Ventoy's mapping of that file.
+BOOTMNT=/run/archiso/bootmnt
+if [ "$REL" = "$BOOTMNT/tungsten" ] && [ ! -d "$REL" ]; then
+  label=$(sed -n 's/.*archisolabel=\([^ ]*\).*/\1/p' /proc/cmdline)
+  mkdir -p "$BOOTMNT"
+  for dev in ${label:+"/dev/disk/by-label/$label"} /dev/mapper/ventoy; do
+    [ -b "$dev" ] && mount -o ro "$dev" "$BOOTMNT" 2>/dev/null && [ -d "$REL" ] && break
+    mountpoint -q "$BOOTMNT" && umount "$BOOTMNT"
+  done
+fi
 shopt -s nullglob
 usrs=("$REL"/tungsten_*_*.usr.raw)
 [ ${#usrs[@]} -eq 1 ] || fail "No TungstenOS release found in $REL."
@@ -57,7 +69,8 @@ run "Verifying the release files (SHA256SUMS)…" \
   || fail "The release files on this medium are damaged (checksum mismatch). Write the ISO again."
 
 # --- Target disk ---
-boot_disk=$(lsblk -no PKNAME "$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null)" 2>/dev/null | head -1)
+# The disk the installer runs from (also under Ventoy's device mapping): never a target.
+boot_disk=$(lsblk -nrso NAME,TYPE "$(findmnt -no SOURCE "$BOOTMNT" 2>/dev/null)" 2>/dev/null | awk '$2 == "disk" { print $1; exit }')
 mapfile -t disks < <(lsblk -dnpo NAME,SIZE,TYPE,TRAN,MODEL | awk -v b="/dev/$boot_disk" \
   '$3 == "disk" && $1 != b && $1 !~ /zram|loop/ { name=$1; $3=""; printf "%s\n", $0 }')
 [ ${#disks[@]} -gt 0 ] || fail "No disk found to install on."
