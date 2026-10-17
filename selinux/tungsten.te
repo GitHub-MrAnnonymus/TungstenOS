@@ -264,6 +264,15 @@ allow user_dbusd_t user_t:unix_stream_socket { accept getattr getopt read write 
 # change the kernel sets AT_SECURE, the variable reads as unset and the launch fails
 # ("No medium found"); apps then lose accessibility (and Flatpak's a11y proxy resets).
 allow user_t user_dbusd_t:process noatsecure;
+# The same for the session's services: systemd --user (user_systemd_t) starts them in
+# user_t, and programs using sd-bus (xdg-desktop-portal-hyprland: screen sharing) then
+# cannot find the session bus. A switch to the less privileged domain: nothing to protect.
+allow user_systemd_t user_t:process noatsecure;
+# The user's systemd-tmpfiles resolves %h from $HOME and %t etc. from $XDG_*; with
+# AT_SECURE it ignores them and looks the home up in the user database (homed: refused),
+# so every %h rule is skipped. Its environment is the user manager's own.
+allow user_systemd_t user_systemd_tmpfiles_t:process noatsecure;
+allow user_systemd_t self:process setsched;	# CPUSchedulingPolicy= of user units
 
 # --- The desktop session (user_t) ---
 # File change notifications (inotify) on the user's own and system files.
@@ -784,6 +793,8 @@ dontaudit user_t proc_t:filesystem associate;
 # header (cryptsetup luksDump) and adds the TPM key slot (systemd-cryptenroll) on the
 # root partition's block device. The everyday account (user_t) has no raw disk access.
 storage_raw_rw_fixed_disk(sysadm_t)
+# systemd-cryptenroll (tungsten-tpm-enroll) credits its seed back to the kernel's pool.
+dev_write_urand(sysadm_t)
 
 # The session bus (dbus-broker) watches the D-Bus service directories, including Flatpak's
 # exports (/var/lib/flatpak/exports/share/dbus-1/services, bin_t), and reads the service
@@ -881,6 +892,10 @@ allow user_bubblewrap_t sysctl_t:file { getattr open read write };
 # read-only and bwrap's --disable-userns fails ("cannot open max_user_namespaces"). The
 # capability is only held inside the sandbox's own namespace.
 allow user_bubblewrap_t self:cap_userns sys_resource;
+# Nested sandboxes that share the parent's namespaces (flatpak-spawn --sandbox
+# --share-pids: Steam's pressure-vessel game containers): the portal's flatpak opens the
+# app's /proc/<pid>/ns/* files and bwrap joins them (--userns, --pidns).
+allow { user_t user_bubblewrap_t } nsfs_t:file { getattr open read };
 
 ########################################
 # Flatpak apps run in their own domain, tungsten_flatpak_t, the only domain of a session
@@ -987,6 +1002,7 @@ allow tungsten_flatpak_t user_tmp_t:dir { add_name create getattr ioctl lock ope
 allow tungsten_flatpak_t user_tmp_t:file { append create getattr ioctl link lock map open read rename setattr unlink write };
 allow tungsten_flatpak_t user_tmp_t:sock_file { create getattr read setattr unlink write };
 allow tungsten_flatpak_t user_tmp_t:lnk_file { create getattr read rename setattr unlink };
+allow tungsten_flatpak_t { user_tmp_t user_tmpfs_t }:fifo_file { create getattr open read setattr unlink write };	# Steam's srt-logger
 allow tungsten_flatpak_t user_t:unix_stream_socket { connectto getattr read write };
 allow tungsten_flatpak_t user_t:fd use;
 allow tungsten_flatpak_t user_tmpfs_t:file { getattr map read write };

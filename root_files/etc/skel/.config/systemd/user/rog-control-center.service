@@ -1,5 +1,7 @@
 [Unit]
 ConditionPathExists=/usr/bin/rog-control-center
+# Only on ASUS hardware (the ASUS extension can be installed anywhere, asusd then is not).
+ConditionFirmware=smbios-field(sys_vendor $= ASUS*)
 Description=ROG Control Center
 After=graphical-session.target
 PartOf=graphical-session.target
