@@ -2,7 +2,7 @@
 
 TungstenOS is an image-based, verified-boot desktop operating system built from Arch Linux packages. Following the [hermetic `/usr`](https://0pointer.net/blog/fitting-everything-together.html) model, the operating system is a read-only, dm-verity-protected `/usr` image updated atomically with A/B swaps and automatic rollback, while `/etc`, `/var` and `/home` live on a TPM-bound encrypted root partition that can be factory-reset. The desktop is Hyprland with DankMaterialShell, and the default browser is [Trivalent](https://github.com/secureblue/Trivalent).
 
-> **Status:** experimental. The build has not yet produced a released image, and the SELinux policy runs in permissive mode until the desktop policy is complete.
+> **Status:** experimental. The build has not yet produced a released image. SELinux is enforcing; desktop rules are added to `selinux/tungsten.te` as denials are found.
 
 ## Contents
 
@@ -25,7 +25,7 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 | Operating system | Read-only EROFS `/usr` image verified by dm-verity; the verity root hash is embedded in the signed UKI |
 | Code integrity | IPE restricts kernel modules and firmware to the verified image and its extensions; module signatures are enforced |
 | Execution control | The writable root partition, homes, `/tmp` and `/dev/shm` are mounted `noexec`, and SELinux denies confined users execution from their home and `/tmp`; the only writable executable location is system-wide Flatpak |
-| Mandatory access control | SELinux (refpolicy) in enforcing mode, with all logins confined as `staff_u` and `run0` in the admin domain |
+| Mandatory access control | SELinux (refpolicy) in enforcing mode, with all logins confined as `user_u` and `run0` in the admin domain |
 | User namespaces | Enabled, but creation is permitted only to SELinux domains that need it (browser sandbox, bubblewrap) |
 | Privileges | No setuid or setgid binaries; administration through `run0` and polkit with a separate administrator account that cannot log in at the login screen |
 | Password guessing | 3 failed attempts lock an account for 10 minutes (`pam_faillock`), every failure waits 3 seconds, and systemd-homed allows at most 10 password checks per 5 minutes per account, also across reboots |
@@ -227,13 +227,13 @@ Update `pkgver` and the tarball checksum in `kernel/PKGBUILD`. Patches that conf
 
 ### SELinux policy
 
-The system boots in permissive mode. To complete the policy, collect denials from normal use:
+The system is enforcing and cannot be switched to permissive at runtime (`secure_mode_policyload`). Collect denials from normal use:
 
 ```sh
 run0 ausearch -m avc -ts boot | audit2allow -R
 ```
 
-Add reviewed rules to `selinux/tungsten.te` and repeat until no denials remain. Then set `SELINUX=enforcing` in `build.sh` and disable `CONFIG_SECURITY_SELINUX_DEVELOP` in `kernel/config.fragment`.
+Add reviewed rules to `selinux/tungsten.te` and repeat until no denials remain.
 
 ### Manual updates
 

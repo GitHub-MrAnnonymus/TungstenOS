@@ -1201,3 +1201,27 @@ allow tungsten_flatpak_t xdm_tmp_t:sock_file { getattr write };
 allow tungsten_flatpak_t user_tmpfs_t:dir manage_dir_perms;
 allow tungsten_flatpak_t user_tmpfs_t:{ file lnk_file } manage_file_perms;
 allow tungsten_flatpak_t user_tmpfs_t:file map;
+
+########################################
+# zephyrus: camera, nvidia-smi, logind -> Trivalent
+
+gen_require(`
+	type user_t, v4l_device_t, sysctl_t, sysctl_vm_t, systemd_logind_t;
+	class dbus send_msg;
+')
+
+# PipeWire/WirePlumber (user_t) enumerates and opens cameras; apps reach them through it.
+allow user_t v4l_device_t:chr_file rw_chr_file_perms;
+allow user_t v4l_device_t:chr_file map;
+
+# nvidia-smi and the NVIDIA userspace read /proc/sys/vm/mmap_min_addr.
+allow user_t { sysctl_t sysctl_vm_t }:dir search;
+allow user_t sysctl_vm_t:file { getattr open read };
+
+# logind replies and signals to Trivalent (inhibitors, session state).
+optional_policy(`
+	gen_require(`
+		type chromium_t;
+	')
+	allow systemd_logind_t chromium_t:dbus send_msg;
+')

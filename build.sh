@@ -185,7 +185,7 @@ semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/lib/systemd/systemd-pcrlock
 semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
 # logind reads boot loader entries on the ESP (reboot into a chosen entry).
 semanage boolean -N -S "$POLICY" -m --on systemd_logind_get_bootloader
-# The compositor (staff_t) maps GPU buffers.
+# The compositor (user_t) maps GPU buffers.
 semanage boolean -N -S "$POLICY" -m --on xserver_allow_dri
 # systemd-tmpfiles creates the directories of /var (libvirt, AccountsService, udisks2,
 # xkb, the greeter's cache, ...) on a fresh root partition: each package's tmpfiles.d
@@ -361,7 +361,7 @@ cp -a "$WORKDIR"/etc "$FACTORY"/etc
 FC="$WORKDIR/etc/selinux/$POLICY/contexts/files/file_contexts"
 declare -A EXT_HASH
 build_extension() {
-  local name=$1 comp=$SRC/components/$1 E=$EXTDIR/$1 pkgs units u t
+  local name=$1 comp=$SRC/components/$1 E=$EXTDIR/$1 pkgs units u t targets
   mkdir -p "$E"/rw "$E"/merged "$E"/tree "$E"/repart.d
   # The container's own overlayfs cannot hold an upper directory; use memory.
   mount -t tmpfs -o size=12G tmpfs "$E"/rw
@@ -375,7 +375,10 @@ build_extension() {
   for u in "${units[@]}"; do
     [[ $u == *.* ]] || u=$u.service
     [ -f "$E"/merged/usr/lib/systemd/system/"$u" ] || { echo "$name: unit $u not found" >&2; exit 1; }
-    for t in $(sed -n 's/^\(WantedBy\|RequiredBy\)=//p' "$E"/merged/usr/lib/systemd/system/"$u"); do
+    targets=$(sed -n 's/^\(WantedBy\|RequiredBy\)=//p' "$E"/merged/usr/lib/systemd/system/"$u")
+    # Static units (no [Install] target, e.g. asusd) are pulled in by multi-user.target.
+    [ -n "$targets" ] || { echo "$name: $u has no [Install] target, linking into multi-user.target"; targets=multi-user.target; }
+    for t in $targets; do
       mkdir -p "$E"/merged/usr/lib/systemd/system/"$t".wants
       ln -sf ../"$u" "$E"/merged/usr/lib/systemd/system/"$t".wants/"$u"
     done

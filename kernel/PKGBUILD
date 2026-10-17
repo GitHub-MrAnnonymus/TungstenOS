@@ -46,6 +46,14 @@ export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EP
 prepare() {
   echo "$_nvsha512  NVIDIA-kernel-module-source-${_nvver}.tar.xz" | sha512sum -c -
 
+  # Fixes for NVIDIA's code under kCFI (kernel/nvidia-patches, applied in order).
+  local nvpatch
+  for nvpatch in "$startdir"/nvidia-patches/*.patch; do
+    [ -e "$nvpatch" ] || continue
+    echo "Applying ${nvpatch##*/}"
+    patch -Np1 --no-backup-if-mismatch -d "NVIDIA-kernel-module-source-${_nvver}" < "$nvpatch"
+  done
+
   local nvutils="NVIDIA-kernel-module-source-${_nvver}/utils.mk"
   sed -i "s/^  HOSTNAME.*/  HOSTNAME = echo tungstenos/" "$nvutils"
   sed -i "s/^WHOAMI.*/WHOAMI = echo tungstenos-builder/" "$nvutils"
@@ -138,6 +146,9 @@ build() {
     llvm-objdump -dr --disassemble-symbols=portMemAllocNonPaged "$ko" | grep -c __x86_indirect_thunk >/dev/null \
       || { echo "nv-kernel.o makes indirect calls without retpoline thunks" >&2; return 1; }
   fi
+  # Every NVOC dispatch slot must hold functions of one kCFI type, or the GPUs using the
+  # odd one out panic at runtime (oops=panic).
+  python3 "$startdir"/check-nvidia-kcfi.py ../NVIDIA-kernel-module-source-${_nvver} "$ko"
 }
 
 _package() {
