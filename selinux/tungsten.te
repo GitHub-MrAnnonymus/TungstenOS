@@ -282,6 +282,9 @@ allow user_t systemd_sessions_runtime_t:file { getattr open read };
 allow user_t mount_runtime_t:file { getattr open read };
 allow user_t systemd_unit_t:lnk_file read;
 allow user_t nsfs_t:file getattr;
+# ping without privileges: an ICMP datagram socket (net.ipv4.ping_group_range, from
+# systemd's sysctl defaults); the image strips ping's cap_net_raw.
+allow user_t self:icmp_socket create_socket_perms;
 # Input devices handed over by logind (keyboard LEDs).
 allow user_t event_device_t:chr_file write;
 # Shared memory with the user's systemd, and memory-mapping own files.
@@ -995,6 +998,12 @@ corenet_udp_sendrecv_generic_if(tungsten_flatpak_t)
 corenet_tcp_sendrecv_generic_node(tungsten_flatpak_t)
 corenet_udp_sendrecv_generic_node(tungsten_flatpak_t)
 corenet_tcp_connect_all_ports(tungsten_flatpak_t)
+# Binding sockets: Steam binds before it connects (port 0, any free port), and games,
+# Remote Play and voice chat listen on their own ports. Ports below 1024 stay closed.
+corenet_tcp_bind_generic_node(tungsten_flatpak_t)
+corenet_udp_bind_generic_node(tungsten_flatpak_t)
+corenet_tcp_bind_all_unreserved_ports(tungsten_flatpak_t)
+corenet_udp_bind_all_unreserved_ports(tungsten_flatpak_t)
 
 # The session's services through the sockets Flatpak passes in: Wayland (Hyprland),
 # PipeWire, the D-Bus proxy, accessibility; shared memory and descriptors both ways.
@@ -1054,6 +1063,16 @@ files_read_usr_files(user_systemd_tmpfiles_t)	# /usr/share/user-tmpfiles.d
 files_search_var_lib(user_systemd_tmpfiles_t)
 allow user_systemd_tmpfiles_t steam_data_t:dir { add_name create getattr open read search setattr write relabelfrom relabelto };
 allow user_systemd_tmpfiles_t user_home_dir_t:dir { getattr open read search };
+# Its own search paths (~/.config/user-tmpfiles.d, $XDG_DATA_DIRS with Flatpak's exports),
+# statfs on the file systems, and systemd's own user config (20-systemd-varlink.conf:
+# $XDG_RUNTIME_DIR/varlink and its registry).
+allow user_systemd_tmpfiles_t { xdg_config_t flatpak_content_t }:dir { getattr open read search };
+fs_getattr_xattr_fs(user_systemd_tmpfiles_t)
+fs_getattr_tmpfs(user_systemd_tmpfiles_t)
+gen_require(`
+	type systemd_user_runtime_t;
+')
+allow user_systemd_tmpfiles_t systemd_user_runtime_t:dir { manage_dir_perms relabelfrom relabelto };
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:dir { manage_dir_perms relabelfrom relabelto };
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:{ file lnk_file } { manage_file_perms relabelfrom relabelto };
 allow { user_t user_systemd_t } steam_data_t:dir { getattr search };
