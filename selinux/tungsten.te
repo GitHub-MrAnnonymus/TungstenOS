@@ -1027,9 +1027,20 @@ allow tungsten_flatpak_t steam_data_t:dir watch;
 allow tungsten_flatpak_t steam_data_t:{ dir file lnk_file } { relabelfrom relabelto };
 # Old 32-bit games and Wine/Proton libraries have text relocations (execmod).
 allow tungsten_flatpak_t steam_data_t:file { execute execute_no_trans map execmod };
-# The session creates its own directory (user tmpfiles, tungsten-steam.conf), and Flatpak
-# and bwrap find and bind it into the sandbox.
-allow { user_t user_systemd_t } steam_data_t:dir { add_name create getattr open read search setattr write };
+# Each user's directory is created at login by the user's systemd-tmpfiles
+# (user_systemd_tmpfiles_t, tungsten-steam.conf), which also links Steam's data paths in
+# its Flatpak home there (replacing what is in the way). Flatpak and bwrap find and bind
+# the directory into the sandbox.
+gen_require(`
+	type user_systemd_tmpfiles_t;
+')
+files_read_usr_files(user_systemd_tmpfiles_t)	# /usr/share/user-tmpfiles.d
+files_search_var_lib(user_systemd_tmpfiles_t)
+allow user_systemd_tmpfiles_t steam_data_t:dir { add_name create getattr open read search setattr write relabelfrom relabelto };
+allow user_systemd_tmpfiles_t user_home_dir_t:dir { getattr open read search };
+allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:dir { manage_dir_perms relabelfrom relabelto };
+allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:{ file lnk_file } { manage_file_perms relabelfrom relabelto };
+allow { user_t user_systemd_t } steam_data_t:dir { getattr search };
 allow { user_t user_systemd_t } steam_data_t:lnk_file { getattr read };
 allow user_bubblewrap_t steam_data_t:dir { getattr mounton open read search };
 allow user_bubblewrap_t steam_data_t:lnk_file { getattr read };

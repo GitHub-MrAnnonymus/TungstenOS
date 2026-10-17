@@ -60,7 +60,7 @@ PACKAGES=(
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
-  power-profiles-daemon trivalent qemu-desktop libvirt virt-manager bazaar
+  power-profiles-daemon trivalent qemu-desktop libvirt virt-manager bazaar android-tools tailscale
 
   # Tools
   less git jq fastfetch tmux helix rsync unzip zip arch-repro-status nano neovim
@@ -154,8 +154,10 @@ systemctl enable \
 systemctl disable systemd-timesyncd.service
 # Locale, keymap and timezone come from the image, and root stays locked: never ask.
 systemctl mask systemd-firstboot.service
-# Locks the keyrings while a session is locked (all users).
-systemctl --global enable tungsten-keyring-lock.service tungsten-user-folders.service
+# Locks the keyrings while a session is locked; XDG folders in the sidebar; user tmpfiles
+# (Steam's data directory, tungsten-steam.conf), which the image's presets leave disabled.
+systemctl --global enable tungsten-keyring-lock.service tungsten-user-folders.service \
+  systemd-tmpfiles-setup.service systemd-tmpfiles-clean.timer
 # See /etc/systemd/logind.conf
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 
