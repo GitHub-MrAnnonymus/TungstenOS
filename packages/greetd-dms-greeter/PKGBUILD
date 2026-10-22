@@ -1,8 +1,8 @@
 # Built from source; upstream publishes only unsigned binaries.
 
 pkgname=greetd-dms-greeter
-pkgver=1.6.2
-_commit=0175be5c2084e2c5027324403a329e04040cd0bc  # tag v1.6.2
+pkgver=2.0.0
+_commit=0044526f90b584916548f0a17dbf31764a6db530  # tag v2.0.0
 pkgrel=1
 pkgdesc='Greetd login screen with the Dank Material aesthetic'
 arch=(x86_64)
