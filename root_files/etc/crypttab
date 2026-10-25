@@ -1,0 +1,3 @@
+# The root partition, unlocked in the initramfs (x-initrd.attach: mkinitcpio's sd-encrypt
+# hook copies only these entries). The booted system finds it already open.
+root  PARTLABEL=root  -  tpm2-device=auto,tpm2-measure-pcr=yes,x-initrd.attach

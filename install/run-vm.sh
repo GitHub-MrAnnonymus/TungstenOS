@@ -16,16 +16,38 @@
 # If the image does not exist yet, the latest release is downloaded and installed into it
 # with tungsten-install.sh (sudo).
 #
-# Usage: install/run-vm.sh [--no-update] <image-file>
+# --release DIR uses a local build instead of the latest GitHub release (install/dev/vm.sh),
+# checked against the SHA256SUMS in DIR, which carries no signature.
+#
+# Usage: install/run-vm.sh [--no-update] [--release DIR] <image-file>
 # Needs: qemu-desktop edk2-ovmf swtpm, and for updates curl gpg jq util-linux
 set -euo pipefail
-UPDATE=1
-[ "${1:-}" = --no-update ] && { UPDATE=0; shift; }
+UPDATE=1 LOCAL=
+while [[ ${1:-} == --* ]]; do
+  case $1 in
+    --no-update) UPDATE=0 ;;
+    --release) LOCAL=$(realpath "${2:?directory with a local build}"); shift ;;
+    *) echo "unknown option $1" >&2; exit 2 ;;
+  esac
+  shift
+done
 IMG=$(realpath -m "${1:?VM image file}")
 HERE=$(dirname -- "$(realpath "$0")")
 USR_TYPE=8484680C-9521-48C6-9C11-B0720656F69E
 VERITY_TYPE=77FF5F63-E7B6-4633-ACF4-1565B864C0E6
 . "$HERE/release.sh"
+
+# The release to install: the latest on GitHub (downloaded into $CACHE), or the local build.
+get_release() {
+  if [ -n "$LOCAL" ]; then
+    CACHE=$LOCAL
+    release_names
+    (cd "$CACHE" && sha256sum --check --ignore-missing --quiet SHA256SUMS) \
+      || { echo "checksum mismatch in $CACHE" >&2; exit 1; }
+  else
+    fetch_release
+  fi
+}
 
 # Prints "<number> <start sector> <size in sectors> <label>" for partitions of a GPT type.
 partitions() {
@@ -42,7 +64,7 @@ write_partition() {
 }
 
 update_image() {
-  if ! fetch_release; then
+  if ! get_release; then
     echo "Could not check for updates; booting the installed image." >&2
     return 0
   fi
@@ -51,7 +73,7 @@ update_image() {
     return 0
   fi
   echo "Installing TungstenOS $ver into the VM image."
-  download "$usr" "$verity" "$uki"
+  [ -n "$LOCAL" ] || download "$usr" "$verity" "$uki"
 
   # Target: the empty usr partition, otherwise the one with the older version.
   local num='' start size old vnum='' vstart vsize label target
@@ -98,8 +120,8 @@ EOF
 
 if [ ! -e "$IMG" ]; then
   # No image yet: install the latest release with the regular installer.
-  fetch_release || { echo "Cannot reach GitHub to download a release" >&2; exit 1; }
-  download "$usr" "$verity" "$uki" "$boot"
+  get_release || { echo "Cannot reach GitHub to download a release" >&2; exit 1; }
+  [ -n "$LOCAL" ] || download "$usr" "$verity" "$uki" "$boot"
   echo "Creating $IMG with TungstenOS $ver (sudo)"
   sudo "$HERE/tungsten-install.sh" "$IMG" "$CACHE"
   sudo chown "$(id -u):$(id -g)" "$IMG"

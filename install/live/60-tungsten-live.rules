@@ -1,0 +1,5 @@
+# TungstenOS live system: names for the loop devices of the /usr image and its hash tree on
+# the boot medium (see /usr/lib/tungsten/live-setup), for systemd.verity_usr_data= and
+# systemd.verity_usr_hash=.
+SUBSYSTEM=="block", KERNEL=="loop[0-9]*", ATTR{loop/backing_file}=="*/tungsten_*.usr.raw", SYMLINK+="disk/tungsten-live/usr"
+SUBSYSTEM=="block", KERNEL=="loop[0-9]*", ATTR{loop/backing_file}=="*/tungsten_*.usr-verity.raw", SYMLINK+="disk/tungsten-live/usr-verity"

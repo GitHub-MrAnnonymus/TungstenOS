@@ -39,13 +39,17 @@ command -v gum >/dev/null || { echo "gum is missing (pacman -S gum)" >&2; exit 1
 
 # --- Release on the medium ---
 # With enough memory archiso copies the live system to RAM (copytoram=auto) and then
-# unmounts the boot medium, release files included: mount it again, by its label or, when
-# Ventoy started the ISO from a file, through Ventoy's mapping of that file.
+# unmounts the boot medium, release files included: mount it again, by the UUID archiso's
+# systemd-boot entries search (archisosearchuuid=), its label (archisolabel=, other boot
+# loaders), the TungstenOS label, or, when Ventoy started the ISO from a file, through
+# Ventoy's mapping of that file.
 BOOTMNT=/run/archiso/bootmnt
 if [ "$REL" = "$BOOTMNT/tungsten" ] && [ ! -d "$REL" ]; then
+  uuid=$(sed -n 's/.*archisosearchuuid=\([^ ]*\).*/\1/p' /proc/cmdline)
   label=$(sed -n 's/.*archisolabel=\([^ ]*\).*/\1/p' /proc/cmdline)
   mkdir -p "$BOOTMNT"
-  for dev in ${label:+"/dev/disk/by-label/$label"} /dev/mapper/ventoy; do
+  for dev in ${uuid:+"/dev/disk/by-uuid/$uuid"} ${label:+"/dev/disk/by-label/$label"} \
+             /dev/disk/by-label/TUNGSTEN_* /dev/mapper/ventoy; do
     [ -b "$dev" ] && mount -o ro "$dev" "$BOOTMNT" 2>/dev/null && [ -d "$REL" ] && break
     mountpoint -q "$BOOTMNT" && umount "$BOOTMNT"
   done

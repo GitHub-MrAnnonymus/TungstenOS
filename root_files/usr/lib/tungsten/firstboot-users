@@ -19,7 +19,10 @@ fi
 # and the typed answers; PID 1's status messages would scroll over them.
 plymouth quit 2>/dev/null || :
 kill -s RTMIN+21 1 2>/dev/null || :          # status messages off
-trap 'kill -s RTMIN+20 1 2>/dev/null || :' EXIT
+# The wizard runs on tty2 (TTYPath in the unit's drop-in): show it, and return to tty1,
+# the login screen's console, at the end.
+chvt 2 2>/dev/null || :
+trap 'kill -s RTMIN+20 1 2>/dev/null || :; chvt 1 2>/dev/null || :' EXIT
 clear 2>/dev/null || :
 
 # homed binds each account to the machine ID. On the first boot that ID is still the
@@ -40,6 +43,13 @@ if mountpoint -q /etc/machine-id || ! systemd-id128 machine-id >/dev/null; then
 fi
 
 # --- Wizard (gum) ---
+# gum needs a terminal; without one each prompt fails at once and its retry loop would spin
+# forever, holding up the login screen. Fail instead: the next boot asks again.
+if ! [ -t 0 ] || ! [ -t 1 ]; then
+  { date; echo "No terminal on stdin/stdout ($(readlink /proc/self/fd/0), $(readlink /proc/self/fd/1)); no accounts created."; } \
+    >>/var/lib/tungsten/firstboot.log 2>&1
+  exit 1
+fi
 ACCENT=212 MUTED=245 WARN=203 OK=78
 export GUM_CHOOSE_CURSOR_FOREGROUND=$ACCENT GUM_INPUT_CURSOR_FOREGROUND=$ACCENT \
   GUM_INPUT_PROMPT_FOREGROUND=$ACCENT GUM_SPIN_SPINNER_FOREGROUND=$ACCENT \
@@ -47,6 +57,18 @@ export GUM_CHOOSE_CURSOR_FOREGROUND=$ACCENT GUM_INPUT_CURSOR_FOREGROUND=$ACCENT 
   GUM_CONFIRM_SELECTED_BACKGROUND=$ACCENT
 LOG=/run/tungsten-firstboot.log
 STEPS=4
+# After a factory reset the new root partition has only its TPM key (systemd-repart): ask for
+# a recovery passphrase, as the installer does. A slot no systemd-tpm2 token uses is a
+# passphrase or recovery key.
+ROOTDEV=/dev/disk/by-partlabel/root
+need_recovery=0
+if meta=$(cryptsetup luksDump --dump-json-metadata "$ROOTDEV" 2>/dev/null) &&
+   [ "$(jq '[.tokens[] | select(.type == "systemd-tpm2") | .keyslots[]] as $tpm
+        | [.keyslots | keys[] | select(. as $k | $tpm | index($k) | not)] | length' <<<"$meta")" -eq 0 ]; then
+  need_recovery=1
+  STEPS=5
+fi
+step=1
 
 header() {
   clear
@@ -90,13 +112,13 @@ create_home() {   # title password homectl-args...
 }
 
 # 1. Time zone and computer name (written to /etc by systemd-firstboot, no services needed)
-header "Step 1 of $STEPS · Time zone"
+header "Step $step of $STEPS · Time zone"
 say "Type to search, Enter to choose."
 echo
 # From tzdata directly: timedatectl asks timedated, which may not run this early.
 zones() { awk '$1 == "Z" {print $2} $1 == "L" {print $3}' /usr/share/zoneinfo/tzdata.zi | sort -u; }
 tz=$(zones | gum filter --height 12 --placeholder "e.g. Europe/Belgrade" --value "") || tz=UTC
-header "Step 1 of $STEPS · Computer name"
+header "Step $step of $STEPS · Computer name"
 say "The name this computer uses on networks."
 echo
 host=""
@@ -107,8 +129,35 @@ systemd-firstboot --force --timezone="$tz" --hostname="$host" >/dev/null 2>&1 \
   || warn "Could not set the time zone or name; change them later with timedatectl and hostnamectl."
 hostname "$host" 2>/dev/null || :
 
-# 2. Administrator
-header "Step 2 of $STEPS · Administrator"
+# 2. Recovery passphrase, after a factory reset only. The repart-made TPM key unlocks from
+# the running system too (signed PCR 11 policy for every boot phase, no policyref), so it
+# authorizes adding the passphrase.
+if [ "$need_recovery" = 1 ]; then
+  step=$((step + 1))
+  header "Step $step of $STEPS · Recovery passphrase"
+  say "This computer was reset, and its disk got a new key that only this computer's TPM" \
+      "holds. The recovery passphrase unlocks the disk without the TPM, for example after" \
+      "a firmware change." "" "$(gum style --bold 'Store it safely: without it and the TPM, the data is lost.')"
+  echo
+  while :; do
+    p1=$(gum input --password --placeholder "Recovery passphrase (12+ characters)" --width 60) || continue
+    p2=$(gum input --password --placeholder "Repeat the passphrase" --width 60) || continue
+    if [ "$p1" != "$p2" ]; then warn "The passphrases do not match." >&2; continue
+    elif [ ${#p1} -lt 12 ]; then warn "Use at least 12 characters." >&2; continue; fi
+    : > "$LOG"
+    if NEWPASSWORD=$p1 gum spin --title "Adding the recovery passphrase…" -- \
+         bash -c 'systemd-cryptenroll --unlock-tpm2-device=auto --password "$1" >>"$2" 2>&1' _ "$ROOTDEV" "$LOG"; then
+      break
+    fi
+    warn "Could not add it: $(tail -n 2 "$LOG")" "Add one later with: run0 tungsten-tpm-enroll" >&2
+    break
+  done
+  unset p1 p2
+fi
+
+# 3. Administrator
+step=$((step + 1))
+header "Step $step of $STEPS · Administrator"
 say "The administrator only authorizes: its password is asked when you run run0 or a" \
     "settings dialog needs permission. It cannot log in at the login screen, so someone" \
     "who learns your everyday password still cannot change the system." "" \
@@ -124,8 +173,9 @@ while :; do
     "${ADMIN_LIMITS[@]}" && break
 done
 
-# 3. Everyday account
-header "Step 3 of $STEPS · Your account"
+# 4. Everyday account
+step=$((step + 1))
+header "Step $step of $STEPS · Your account"
 say "The account you use every day. Its home is encrypted with your password and locked" \
     "whenever you log out."
 echo
@@ -143,8 +193,9 @@ while :; do
 done
 unset admin_pw user_pw
 
-# 4. Done
-header "Step 4 of $STEPS · Ready"
+# 5. Done
+step=$((step + 1))
+header "Step $step of $STEPS · Ready"
 gum style --margin "0 2" --foreground "$OK" --bold "All set. Log in as $user at the login screen."
 echo
 say "Next, bind the disk to this computer's TPM so it unlocks without the recovery" \

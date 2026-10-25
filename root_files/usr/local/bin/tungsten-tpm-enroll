@@ -57,13 +57,14 @@ fi
 meta=$(cryptsetup luksDump --dump-json-metadata "$DEV")
 non_tpm=$(jq '[.tokens[] | select(.type == "systemd-tpm2") | .keyslots[]] as $tpm
   | [.keyslots | keys[] | select(. as $k | $tpm | index($k) | not)] | length' <<<"$meta")
-# Unlock with the passphrase (or recovery key): the TPM key is bound to a PCR 11
-# signature that is only valid in the initrd, so it cannot unlock from here.
-
-# A partition recreated by factory reset has only a TPM key: add a recovery key.
+# The key this script enrolls only unlocks in the initrd (policyref "initrd" below), so
+# systemd-cryptenroll asks for the passphrase or recovery key. A partition recreated by a
+# factory reset has only repart's TPM key, whose signed PCR 11 policy holds in every boot
+# phase: it authorizes a recovery key here, if the first-boot wizard did not add a
+# passphrase.
 if [ "$non_tpm" -eq 0 ]; then
   echo ">>> Adding a recovery key. Store it safely; it unlocks the system without the TPM."
-  systemd-cryptenroll --recovery-key "$DEV"
+  systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$DEV"
 fi
 
 # Signed PCR 11 policy (any UKI signed by the build, initrd phase only) plus pcrlock

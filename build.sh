@@ -2,11 +2,15 @@
 # Builds the image: SELinux-labeled EROFS /usr, dm-verity tree, signed UKI, and one
 # signed system extension (sysext) per directory in components/.
 # Env: OS_BUILD_TAG, UPDATE_URL, TUNGSTEN_REPO,
-#      SB_DIR (db.key, db.pem, tpm2-pcr-private-key.pem)
+#      SB_DIR (db.key, db.pem, tpm2-pcr-private-key.pem, and optionally
+#      tpm2-pcr-public-key.pem, which replaces keys/: install/dev/build.sh)
 set -euo pipefail
 : "${OS_BUILD_TAG:?}" "${UPDATE_URL:?}" "${TUNGSTEN_REPO:?}" "${SB_DIR:?}"
 
 SRC="$(cd "$(dirname -- "$0")" && pwd)"
+# The public half of the PCR signing key: the release key, or a development key.
+PCR_PUB=$SRC/keys/tpm2-pcr-public-key.pem
+[ -f "$SB_DIR"/tpm2-pcr-public-key.pem ] && PCR_PUB=$SB_DIR/tpm2-pcr-public-key.pem
 IMAGE_ID=tungsten
 WORKDIR=/tungsten/rootfs
 EXTDIR=/tungsten/ext
@@ -89,6 +93,7 @@ pacman --config "$PACMAN_CONF" --root "$WORKDIR" -Sl tungsten | grep -c '^tungst
 
 # --- Configuration ---
 cp -r "$SRC"/root_files/. "$WORKDIR"/
+chmod 600 "$WORKDIR"/etc/crypttab   # as Arch's filesystem package ships it
 # gnome-keyring creates ~/.local/share/keyrings on the first login; without ~/.local it
 # would create that in the home's top directory type, which its domain may not use.
 install -d -m 700 "$WORKDIR"/etc/skel/.local/share/keyrings
@@ -134,7 +139,7 @@ install -Dm644 "$SRC"/keys/tungsten.pgp "$WORKDIR"/usr/lib/systemd/import-pubrin
 # Verifies the dm-verity signatures of system extensions.
 install -Dm644 "$SB_DIR"/db.pem "$WORKDIR"/usr/lib/verity.d/tungsten.crt
 # Verifies the signed PCR 11 policy in each UKI (default path for systemd-cryptenroll).
-install -Dm644 "$SRC"/keys/tpm2-pcr-public-key.pem "$WORKDIR"/etc/systemd/tpm2-pcr-public-key.pem
+install -Dm644 "$PCR_PUB" "$WORKDIR"/etc/systemd/tpm2-pcr-public-key.pem
 
 arch-chroot "$WORKDIR" /bin/bash -s "$POLICY" <<'CHROOT'
 set -euo pipefail
@@ -181,6 +186,11 @@ semanage fcontext -N -S "$POLICY" -a -e /etc /usr/share/factory/etc
 # (silently, dontaudit), the TPM got each new policy but the ESP kept the old one.
 # A local file context, as refpolicy's systemd module defines this path itself.
 semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/lib/systemd/systemd-pcrlock
+# Xwayland runs in the session's domain (user_t), like Hyprland, which starts it; local, as
+# refpolicy's wm module defines the path (wm_exec_t). user_wm_t cannot read the keymap its
+# xkbcomp (switched back to user_t) writes to /tmp ("Failed to activate virtual core
+# keyboard"), and isolates nothing: it may switch to user_t by running any program.
+semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/bin/Xwayland
 # Local /etc changes live in the overlay's upper directory on the root partition.
 semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
 # logind reads boot loader entries on the ESP (reboot into a chosen entry).
@@ -368,7 +378,13 @@ build_extension() {
   mkdir -p "$E"/rw/upper "$E"/rw/work
   mount -t overlay overlay -o "lowerdir=$WORKDIR,upperdir=$E/rw/upper,workdir=$E/rw/work" "$E"/merged
   read -ra pkgs <<<"$(words "$comp"/packages)"
+  # Kernel modules would make pacman rebuild the initramfs, which an extension does not
+  # contain, and before the IPE policy it needs exists ("file not found: hardened.policy.p7b").
+  # pacman reads HookDir on the build system, not under --root: mask the hook there.
+  mkdir -p /etc/pacman.d/hooks
+  ln -sfn /dev/null /etc/pacman.d/hooks/90-mkinitcpio-install.hook
   pacstrap -C "$PACMAN_CONF" -c "$E"/merged "${pkgs[@]}" || { sleep 30; pacstrap -C "$PACMAN_CONF" -c "$E"/merged "${pkgs[@]}"; }
+  rm -f /etc/pacman.d/hooks/90-mkinitcpio-install.hook
   [ -d "$comp"/root_files ] && cp -r "$comp"/root_files/. "$E"/merged/
   # Enable units through .wants symlinks under /usr, as /etc is not part of an extension.
   read -ra units <<<"$(words "$comp"/units)"
@@ -412,7 +428,9 @@ build_extension() {
   printf '[Partition]\nType=usr\nCopyBlocks=%s\nVerity=data\nVerityMatchKey=usr\n' "$E"/usr.erofs > "$E"/repart.d/10-usr.conf
   printf '[Partition]\nType=usr-verity\nVerity=hash\nVerityMatchKey=usr\nMinimize=best\n' > "$E"/repart.d/20-usr-verity.conf
   printf '[Partition]\nType=usr-verity-sig\nVerity=signature\nVerityMatchKey=usr\n' > "$E"/repart.d/30-usr-verity-sig.conf
-  EXT_HASH[$name]=$(systemd-repart --empty=create --size=auto --dry-run=no \
+  # Offline: the image is a file, built without loop devices, which containers may not
+  # get (install/dev/build.sh under podman: "Failed to make loopback device").
+  EXT_HASH[$name]=$(systemd-repart --offline=yes --empty=create --size=auto --dry-run=no \
       --definitions="$E"/repart.d --private-key="$SB_DIR"/db.key --certificate="$SB_DIR"/db.pem \
       --json=short "$OUT/${name}_${OS_BUILD_TAG}.raw" | jq -r '[.[] | .roothash // empty | select(. != "")][0]')
   [[ ${EXT_HASH[$name]} =~ ^[0-9a-f]{64}$ ]] || { echo "$name: no verity root hash" >&2; exit 1; }
@@ -515,7 +533,7 @@ ukify build \
   --linux "$BOOT/vmlinuz-linux-tungsten" \
   --initrd "$BOOT/initramfs-linux-tungsten.img" \
   --pcr-private-key "$SB_DIR"/tpm2-pcr-private-key.pem \
-  --pcr-public-key "$SRC"/keys/tpm2-pcr-public-key.pem \
+  --pcr-public-key "$PCR_PUB" \
   --sign-initrd-pcrs
 sbsign --key "$SB_DIR"/db.key --cert "$SB_DIR"/db.pem \
   --output "$OUT/${IMAGE_ID}_${OS_BUILD_TAG}.efi" /tmp/uki.efi

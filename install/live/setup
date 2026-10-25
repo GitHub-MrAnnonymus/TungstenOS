@@ -1,0 +1,37 @@
+#!/bin/sh
+# TungstenOS live system, in the initrd: /usr comes from the release files on the boot medium
+# (dm-verity on read-only loop devices, which 60-tungsten-live.rules names), the root file
+# system is a new ext4 on a compressed RAM disk, as after a factory reset. Nothing on the
+# computer's disks is touched.
+set -eu
+. /etc/tungsten-live.conf   # LABEL VERSION USR VERITY
+M=/run/tungsten-live
+REL=$M/medium/tungsten
+
+# The booted system's udev must know the rules too: without the links the verity device's
+# BindsTo= on them would stop /usr after the switch. /run is kept across it.
+mkdir -p /run/udev/rules.d
+cp /usr/lib/udev/rules.d/60-tungsten-live.rules /run/udev/rules.d/
+
+modprobe -a isofs loop zram
+mkdir -p "$M/medium"
+udevadm wait --timeout=90 "/dev/disk/by-label/$LABEL"
+mount -t iso9660 -o ro "/dev/disk/by-label/$LABEL" "$M/medium"
+losetup -r -f "$REL/$USR"
+losetup -r -f "$REL/$VERITY"
+
+# Root: as large as the memory, compressed, using at most three quarters of it. The root
+# is mounted with discard, so deleted files give the memory back.
+mem=$(awk '/^MemTotal:/ { print $2 * 1024 }' /proc/meminfo)
+echo "$mem" > /sys/block/zram0/disksize
+echo $((mem / 4 * 3)) > /sys/block/zram0/mem_limit
+mkfs.ext4 -q /dev/zram0
+
+# System extensions for the detected hardware, as the installer preselects them.
+mkdir -p /run/extensions
+if grep -qsx 0x10de /sys/bus/pci/devices/*/vendor && [ -e "$REL/nvidia_$VERSION.raw" ]; then
+    ln -s "$REL/nvidia_$VERSION.raw" /run/extensions/nvidia.raw
+fi
+if grep -qsi asus /sys/class/dmi/id/sys_vendor && [ -e "$REL/asus_$VERSION.raw" ]; then
+    ln -s "$REL/asus_$VERSION.raw" /run/extensions/asus.raw
+fi

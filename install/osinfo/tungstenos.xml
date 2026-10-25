@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TungstenOS for virt-manager and virt-install (libosinfo): recognises the ISO by its
+     label (build-iso.sh: TUNGSTEN_<version>, publisher TungstenOS) and sets the defaults
+     for new VMs. libosinfo derives the file's place from the id (http://tungstenos/rolling:
+     os/tungstenos/rolling.xml). Install for your user:
+       mkdir -p ~/.config/osinfo/os/tungstenos
+       cp install/osinfo/tungstenos.xml ~/.config/osinfo/os/tungstenos/rolling.xml -->
+<libosinfo version="0.0.1">
+  <os id="http://tungstenos/rolling">
+    <short-id>tungstenos</short-id>
+    <name>TungstenOS</name>
+    <version>rolling</version>
+    <vendor>TungstenOS</vendor>
+    <family>linux</family>
+    <distro>tungstenos</distro>
+    <release-status>rolling</release-status>
+    <!-- Arch Linux packages: the same VirtIO devices and drivers. -->
+    <derives-from id="http://archlinux.org/archlinux/rolling"/>
+
+    <!-- UEFI only: Secure Boot, signed UKIs, systemd-boot. virt-manager then adds an
+         emulated TPM (it does for every UEFI VM), and libvirt picks the first matching
+         firmware descriptor: on Arch the Secure Boot one with empty variables (Setup Mode).
+         3D acceleration cannot be set here: tick it under Video, and OpenGL under Display. -->
+    <firmware arch="x86_64" type="efi" supported="true"/>
+    <firmware arch="x86_64" type="bios" supported="false"/>
+
+    <media arch="x86_64">
+      <iso>
+        <volume-id>TUNGSTEN_[0-9]+</volume-id>
+        <publisher-id>TungstenOS</publisher-id>
+      </iso>
+    </media>
+
+    <!-- Disk: ESP 2 GiB, two 8 GiB /usr slots with 512 MiB hash trees, then the root
+         partition with /var, homes and Flatpak. -->
+    <resources arch="x86_64">
+      <minimum>
+        <n-cpus>2</n-cpus>
+        <ram>4294967296</ram>
+        <storage>34359738368</storage>
+      </minimum>
+      <recommended>
+        <n-cpus>6</n-cpus>
+        <ram>8589934592</ram>
+        <storage>68719476736</storage>
+      </recommended>
+    </resources>
+  </os>
+</libosinfo>

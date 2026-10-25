@@ -68,7 +68,7 @@ The change takes effect at the next boot.
 
 Home directories are additionally systemd-homed LUKS images unlocked with each user's password, so they stay locked while their user is logged out. `/tmp` is memory-backed.
 
-The root partition is defined in `/usr/lib/repart.d`. If it is missing, for example after a factory reset (`systemd-factory-reset request`, then reboot), the initramfs recreates it with new keys and the system sets itself up again from `/usr`.
+The root partition is defined in `/usr/lib/repart.d`. If it is missing, for example after a factory reset (`run0 /usr/lib/systemd/systemd-factory-reset request`, then reboot), the initramfs recreates it with new keys and the system sets itself up again from `/usr`.
 
 ## Configuration
 
@@ -105,7 +105,7 @@ Builds run on GitHub Actions.
 | `packages/` | SELinux userspace builder and PKGBUILDs for Trivalent, hardened_malloc, dms-greeter, usbguard-notifier, erofs-utils, no_rlimit_as and a patched Quickshell |
 | `selinux/` | Local SELinux policy module |
 | `keys/` | Public signing keys, Secure Boot key tooling and vendored Microsoft certificates |
-| `install/` | Disk installer and Secure Boot enrollment |
+| `install/` | Installer ISO with the live system, disk installer and Secure Boot enrollment |
 | `scripts/` | Build helpers and vendoring scripts |
 
 ### One-time setup
@@ -139,11 +139,29 @@ Builds run on GitHub Actions.
 
 Run *Build packages* with **all** selected before the first image build. Only package groups whose inputs changed are rebuilt; the kernel build uses a compiler cache that is saved even when a build times out.
 
+### Development builds
+
+For testing in a VM before a change reaches `master`, `install/dev/build.sh` builds the image locally with throwaway development keys (Secure Boot PK, KEK, db and PCR key, created on the first run in `~/.local/share/tungstenos-dev`, outside the repository). It runs `build.sh` with `sudo podman` in the same privileged `archlinux` container as CI, with the packages of the `[tungsten]` repository. Development images have no update URL, and the release keys are never involved.
+
+`install/dev/vm.sh` runs the newest development build in a VM (through `install/run-vm.sh --release`). The first run creates the VM image and puts the development keys on its ESP; systemd-boot enrolls them in the VM's Setup Mode firmware and restarts it with Secure Boot on. Later runs install each new build into the inactive A/B slot, as an update would.
+
+```sh
+sudo pacman -S --needed podman mtools
+install/dev/build.sh
+install/dev/vm.sh
+```
+
 ## Installation
 
 ### Installer ISO
 
-`install/build-iso.sh` builds an installer ISO on an Arch Linux host (packages `archiso`, `libisoburn`): it downloads and verifies the latest release, builds archiso's `releng` profile with the installer added, and puts the release files on the ISO under `/tungsten`. The ISO boots with Secure Boot off or with the firmware in Setup Mode, and starts `tungsten-installer` on the first console: a terminal UI that asks for the disk, extensions, recovery passphrase and Secure Boot keys, shows a summary, and only then writes the disk. In virt-manager, use a Q35 machine with UEFI (`OVMF_CODE.secboot.4m.fd` with the empty `OVMF_VARS.4m.fd` template, so the firmware starts in Setup Mode), an emulated TPM 2.0, and the ISO as a CD-ROM.
+`install/build-iso.sh` builds an ISO on an Arch Linux host (packages `archiso`, `libisoburn`, `systemd-ukify`, `erofs-utils`): it downloads and verifies the latest release and puts its files on the ISO under `/tungsten`. The boot menu offers:
+
+- **TungstenOS live** (default): the release itself, built by `install/build-live-uki.sh` from the release's kernel, initramfs and systemd-stub. `/usr` is the release's dm-verity image on the boot medium, the root file system is a new ext4 in compressed memory (zram), and system extensions are added for the detected hardware, as the installer would preselect them. The live system never unlocks, mounts or partitions the computer's disks, does not touch the ESP and does not update itself; everything is lost at shutdown. The first-boot wizard runs as after an installation. A kernel panic is stored in an EFI variable and saved to `/var/lib/systemd/pstore` on the next boot.
+- **TungstenOS live, kernel messages**: the same with the kernel log and boot status on screen instead of the splash.
+- **TungstenOS installer**: archiso's `releng` profile with the installer, which starts on the first console: a terminal UI that asks for the disk, extensions, recovery passphrase and Secure Boot keys, shows a summary, and only then writes the disk.
+
+The ISO boots with Secure Boot off or with the firmware in Setup Mode; the live system's UKI is not signed. The IPE policy loads only if the TungstenOS db certificate is enrolled in the firmware. The kernel has no CD-ROM driver, so the live system starts from a USB stick (`dd` the ISO; Ventoy is not supported) or a disk, not from an optical drive. In virt-manager, use a Q35 machine with UEFI (`OVMF_CODE.secboot.4m.fd` with the empty `OVMF_VARS.4m.fd` template, so the firmware starts in Setup Mode), an emulated TPM 2.0, and the ISO as a USB or VirtIO disk.
 
 On the first boot of the installed system, a wizard on the console asks for the time zone, the computer name, the administrator and the everyday account.
 
@@ -171,7 +189,7 @@ Before writing, the script checks the TPM event log and warns if the selection w
 
 1. Unlock the root partition with the recovery passphrase.
 2. Create two accounts when prompted: an administrator and your everyday account, with different passwords. The administrator is in `wheel`; its password authorizes `run0` and polkit prompts, and it cannot log in at the login screen (only on a console). Someone who learns the everyday password still cannot become root.
-3. Log in with the everyday account and bind the root partition to the TPM (`run0` asks for the administrator's password). This shows a pcrlock recovery PIN once; store it with the passphrase. After a factory reset, the same command also creates a recovery key.
+3. Log in with the everyday account and bind the root partition to the TPM (`run0` asks for the administrator's password). This shows a pcrlock recovery PIN once; store it with the passphrase. After a factory reset the disk has a new key held only by the TPM: the first-boot wizard then also asks for a new recovery passphrase.
    ```sh
    run0 tungsten-tpm-enroll
    ```

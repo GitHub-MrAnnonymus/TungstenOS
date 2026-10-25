@@ -1,10 +1,11 @@
-# Sourced by run-vm.sh and build-iso.sh: fetches the latest GitHub release, checked against
-# the signed SHA256SUMS (keys/tungsten.pgp). Needs: curl gpg
+# Sourced by run-vm.sh, build-iso.sh and build-live-uki.sh: fetches the latest GitHub
+# release, checked against the signed SHA256SUMS (keys/tungsten.pgp). Needs: curl gpg
 # Sets: ver usr verity uki boot exts (release file names) and CACHE (download directory).
 HERE=${HERE:-$(dirname -- "$(realpath "${BASH_SOURCE[0]}")")}
 KEYRING=$HERE/../keys/tungsten.pgp
 URL=https://github.com/GitHub-MrAnnonymus/TungstenOS/releases/latest/download
-CACHE=${XDG_CACHE_HOME:-$HOME/.cache}/tungstenos/release
+# build-iso.sh --dev passes the directory of a local build.
+CACHE=${CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/tungstenos/release}
 
 # Fetches and verifies the latest release's SHA256SUMS and sets the file names.
 # Returns 1 if GitHub cannot be reached.
@@ -16,6 +17,11 @@ fetch_release() {
     || { echo "SHA256SUMS of the latest release has no valid signature from keys/tungsten.pgp" >&2; exit 1; }
   mv "$CACHE/SHA256SUMS.new" "$CACHE/SHA256SUMS"
   mv "$CACHE/SHA256SUMS.gpg.new" "$CACHE/SHA256SUMS.gpg"
+  release_names
+}
+
+# Sets the file names from $CACHE/SHA256SUMS (also for a local build: install/dev/build.sh).
+release_names() {
   local names
   names=$(awk '{sub(/^\*/, "", $2); print $2}' "$CACHE/SHA256SUMS")
   usr=$(grep -E '^tungsten_[0-9]+_[0-9a-f-]+\.usr\.raw$' <<<"$names")

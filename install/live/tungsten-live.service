@@ -1,0 +1,14 @@
+[Unit]
+Description=Attach the TungstenOS live system
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+After=systemd-udevd.service
+Before=initrd-root-device.target sysroot.mount systemd-fsck-root.service
+Before=systemd-veritysetup@usr.service
+OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/tungsten/live-setup

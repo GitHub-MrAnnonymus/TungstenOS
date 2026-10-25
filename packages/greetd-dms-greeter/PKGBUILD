@@ -25,7 +25,9 @@ prepare() {
 
 build() {
   cd dank-greeter/core
-  export CGO_ENABLED=0 GOFLAGS="-trimpath -mod=readonly -modcacherw" GOPATH="$srcdir/gopath"
+  # Go builds position-dependent executables on linux/amd64 unless told otherwise; PIE
+  # lets ASLR place the greeter's code (Arch's Go package guidelines).
+  export CGO_ENABLED=0 GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw" GOPATH="$srcdir/gopath"
   make build VERSION="$pkgver" COMMIT="${_commit:0:8}" \
     BUILD_TIME="$(date -u -d "@${SOURCE_DATE_EPOCH:-0}" '+%Y-%m-%d_%H:%M:%S')"
 }

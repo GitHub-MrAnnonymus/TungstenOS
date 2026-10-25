@@ -671,6 +671,19 @@ allow { system_dbusd_t init_t sysadm_t } user_t:fd use;
 allow { system_dbusd_t init_t sysadm_t } user_t:fifo_file { getattr ioctl read write };
 allow { system_dbusd_t init_t } { user_devpts_t user_tty_device_t }:chr_file { getattr ioctl read write };
 allow { system_dbusd_t init_t sysadm_t } { user_home_t user_tmp_t }:file { append getattr ioctl read write };
+# Programs run from there inherit them in their own domains: tpm2-tools
+# (tungsten-tpm-enroll, tungsten-audit) and systemd's password agent (the passphrase and
+# PIN prompts of systemd-cryptenroll). A refused descriptor is closed at exec, and their
+# output and prompts are lost.
+gen_require(`
+	type tpm2_t, systemd_passwd_agent_t, systemd_sysusers_t, shadow_lock_t;
+')
+allow { tpm2_t systemd_passwd_agent_t } user_t:fd use;
+userdom_use_inherited_user_terminals({ tpm2_t systemd_passwd_agent_t })
+
+# The first boot's systemd-sysusers takes the account lock: /etc/.pwd.lock is not in the
+# image, and refpolicy lets sysusers only open an existing one.
+allow systemd_sysusers_t shadow_lock_t:file create;
 
 
 # run0's password agent watches /run/systemd/ask-password for prompts of system services.
@@ -1225,3 +1238,60 @@ optional_policy(`
 	')
 	allow systemd_logind_t chromium_t:dbus send_msg;
 ')
+
+########################################
+# Dev VM, first boot: Plymouth, journald, journalctl, NetworkManager
+
+gen_require(`
+	type init_t, plymouth_t, syslogd_t, systemd_unit_t, systemd_journal_init_t;
+	type systemd_coredump_t, cert_t;
+')
+
+# plymouthd starts in the initrd, before the policy is loaded, and keeps init_t after the
+# switch: "plymouth quit" (plymouth-quit.service, firstboot-users) talks to its socket.
+# Without this the splash never ends and keeps the screen.
+allow plymouth_t init_t:unix_stream_socket connectto;
+# plymouthd (init_t) probes CAP_CHECKPOINT_RESTORE; it works without it.
+dontaudit init_t self:capability2 checkpoint_restore;
+
+# journald reads the per-unit settings systemd keeps in /run/systemd/units (log level,
+# invocation ID, log namespace); otherwise every message is denied a lookup.
+allow syslogd_t systemd_unit_t:dir { getattr open read search };
+allow syslogd_t systemd_unit_t:lnk_file { getattr read };
+
+# journalctl run from a system shell (debug shell, units) finds the journal of this
+# machine by its ID and prints to the terminal it was started on.
+files_read_etc_runtime_files(systemd_journal_init_t)
+term_use_unallocated_ttys(systemd_journal_init_t)
+
+# systemd-coredump's ELF parser looks for debuginfod certificates; not needed to log the
+# crash (core dumps are not stored).
+dontaudit systemd_coredump_t cert_t:dir search;
+
+########################################
+# Dev VM, first session: PipeWire, WirePlumber, user tmpfiles
+
+gen_require(`
+	type pipewire_t, wireplumber_t, pulseaudio_tmp_t, user_systemd_tmpfiles_t, user_home_dir_t;
+')
+
+# pipewire-pulse serves PulseAudio clients from /run/user/<uid>/pulse (its socket "native").
+allow pipewire_t pulseaudio_tmp_t:dir { add_name getattr open read remove_name search write };
+allow pipewire_t pulseaudio_tmp_t:sock_file { create getattr setattr unlink write };
+allow pipewire_t pulseaudio_tmp_t:file { create getattr open read unlink write };
+
+# WirePlumber reads ALSA's configuration (cards, profiles, UCM) to set up audio devices,
+# and asks systemd over D-Bus about the session.
+alsa_read_config(wireplumber_t)
+init_dbus_chat(wireplumber_t)
+
+# Both identify the machine to their clients (/etc/machine-id).
+files_read_etc_runtime_files({ pipewire_t wireplumber_t })
+
+# Flatpak adds /var/lib/flatpak/exports/share to XDG_DATA_DIRS; WirePlumber searches it for
+# its own data files, which are not there.
+dontaudit wireplumber_t flatpak_content_t:dir search;
+
+# tungsten-steam.conf links Steam's data paths under ~/.var/app; before any Flatpak app ran,
+# ~/.var does not exist and is not created here. The links follow at the next login.
+dontaudit user_systemd_tmpfiles_t user_home_dir_t:dir write;

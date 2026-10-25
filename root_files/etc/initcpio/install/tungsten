@@ -40,6 +40,44 @@ build() {
     add_binary /usr/lib/systemd/systemd-factory-reset
     map add_systemd_unit systemd-repart.service factory-reset.target factory-reset-now.target \
         systemd-factory-reset-complete.service
+    # repart is ordered after initrd-usr-fs.target, which this initramfs does not contain: it
+    # ran before /sysusr/usr was mounted, found no repart.d and was skipped (no factory reset,
+    # no new root partition). Wait for the mount itself. And the root partition must not be
+    # opened before repart has erased or created it.
+    printf '[Unit]\nRequiresMountsFor=/sysusr/usr\n' |
+        add_file - /etc/systemd/system/systemd-repart.service.d/10-tungsten-usr.conf 644
+    printf '[Unit]\nAfter=systemd-repart.service\n' |
+        add_file - /etc/systemd/system/systemd-cryptsetup@root.service.d/10-tungsten-repart.conf 644
+    # The generated unit is bound to its device (BindsTo=): a factory reset deletes and
+    # recreates the partition, the device goes away for a moment and the waiting unlock is
+    # cancelled ("Dependency failed for Cryptography Setup for root"). Ship the generator's
+    # own unit with Wants= instead (/etc takes precedence over generated units), and wait for
+    # the new partition before unlocking it.
+    local gen
+    gen=$(mktemp -d)
+    # From this system's /etc/crypttab (mkinitcpio runs in the image's chroot), not from the
+    # kernel command line of the build machine (rd.luks.*: a container shares its kernel).
+    SYSTEMD_IN_INITRD=1 SYSTEMD_PROC_CMDLINE= \
+        /usr/lib/systemd/system-generators/systemd-cryptsetup-generator "$gen" "$gen" "$gen"
+    grep -q "attach 'root' '/dev/disk/by-partlabel/root'" "$gen/systemd-cryptsetup@root.service" ||
+        error 'systemd-cryptsetup@root.service: not generated from this /etc/crypttab'
+    grep -q '^BindsTo=' "$gen/systemd-cryptsetup@root.service" ||
+        error 'systemd-cryptsetup@root.service: no BindsTo= to replace'
+    sed 's/^BindsTo=/Wants=/' "$gen/systemd-cryptsetup@root.service" |
+        add_file - /etc/systemd/system/systemd-cryptsetup@root.service 644
+    rm -rf "$gen"
+    printf '[Service]\nExecStartPre=/usr/bin/udevadm wait --timeout=60 /dev/disk/by-partlabel/root\n' |
+        add_file - /etc/systemd/system/systemd-cryptsetup@root.service.d/20-tungsten-wait.conf 644
+    # A repart failure leaves the boot waiting for the root partition, and root is locked:
+    # show its errors on the console. Its normal output (the partition table) stays in the
+    # journal.
+    printf '[Service]\nStandardError=journal+console\n' |
+        add_file - /etc/systemd/system/systemd-repart.service.d/20-tungsten-console.conf 644
+
+    # A root shell for debugging the initrd, only with systemd.debug_shell on the command
+    # line: under Secure Boot that takes an add-on signed with the db key (install/dev/vm.sh
+    # --debug-shell on, development keys only).
+    add_systemd_unit debug-shell.service
 }
 
 help() {
