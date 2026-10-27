@@ -58,7 +58,7 @@ PACKAGES=(
 
   # Desktop
   plymouth greetd greetd-dms-greeter flatpak
-  hyprland uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dms-shell quickshell qtengine
+  hyprland uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dux-shell quickshell qtengine
   matugen polkit alacritty zsh nautilus nwg-look adw-gtk-theme kdeconnect papirus-icon-theme
   ttf-manrope ttf-jetbrains-mono  # UI and monospace fonts (fontconfig: 50-tungsten-fonts.conf)
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
