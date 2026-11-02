@@ -40,26 +40,19 @@ hl.config({
      		shadow = {
 			enabled = true,
 			range = 30,
-			render_power = 5,
+			render_power = 4,
 			offset = "0 5",
 			color = "rgba(00000070)",
 		},
-                blur = {
-			enabled = true,
-			size = 10,
-			passes = 3,
-			new_optimizations = true,
-			ignore_opacity = true,
-			noise = 0.02,
-			--variant = acrylic,
-
-			--acrylic = {
-			--	refraction = 24.0, 
-			--	bulb = 48.0, 
-			--	clarity = 0.82, 
-			--	aberration = 0.025
-			--},
-                },
+        blur = {
+				enabled = true,
+				size = 10,
+				passes = 3,
+				new_optimizations = true,
+				ignore_opacity = true,
+				noise = 0.02,
+				variant = "haze",
+        },
 	},
 	misc = {
 		disable_hyprland_logo = true,
