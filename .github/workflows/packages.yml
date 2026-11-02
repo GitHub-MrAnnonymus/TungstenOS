@@ -40,13 +40,22 @@ jobs:
           printf 'Server = %s/$repo/os/$arch\n' https://fastly.mirror.pkgbuild.com https://geo.mirror.pkgbuild.com https://mirror.rackspace.com/archlinux https://mirrors.kernel.org/archlinux > /etc/pacman.d/mirrorlist
           pacman -Syu --noconfirm git python gnupg zstd
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { fetch-depth: 2 }
+        with: { fetch-depth: 0 }
       - id: plan
         shell: bash
         run: |
           git config --global --add safe.directory "$PWD"
           all=${{ github.event_name == 'workflow_dispatch' && inputs.all || false }}
-          changed=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ALL)
+          # Everything the push brought, not only its last commit. Without a usable base (a
+          # manual run, a new branch, a force push over unknown history) the last commit, or
+          # everything.
+          before='${{ github.event.before }}'
+          if [[ $before =~ ^[0-9a-f]{40}$ && $before != 0000000000000000000000000000000000000000 ]] &&
+             git cat-file -e "$before^{commit}" 2>/dev/null; then
+            changed=$(git diff --name-only "$before" HEAD)
+          else
+            changed=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ALL)
+          fi
           has() { [ "$all" = true ] || [ "$changed" = ALL ] || grep -qE "$1" <<<"$changed"; }
           kernel=false; selinux=false; misc=false
           has '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' && kernel=true
