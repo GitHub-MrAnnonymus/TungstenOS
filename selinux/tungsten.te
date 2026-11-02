@@ -1111,6 +1111,13 @@ allow user_systemd_tmpfiles_t systemd_user_runtime_t:dir { manage_dir_perms rela
 allow user_systemd_tmpfiles_t systemd_user_runtime_t:lnk_file { manage_lnk_file_perms relabelfrom relabelto };
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:dir { manage_dir_perms relabelfrom relabelto };
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:{ file lnk_file } { manage_file_perms relabelfrom relabelto };
+# dconf's change notification file ($XDG_RUNTIME_DIR/dconf/user, tungsten-dconf.conf):
+# Trivalent may use it but not create it, and is often the first dconf client of a session.
+gen_require(`
+	type user_tmp_t;
+')
+allow user_systemd_tmpfiles_t user_tmp_t:dir { manage_dir_perms relabelfrom relabelto };
+allow user_systemd_tmpfiles_t user_tmp_t:file { manage_file_perms relabelfrom relabelto };
 allow { user_t user_systemd_t } steam_data_t:dir { getattr search };
 allow { user_t user_systemd_t } steam_data_t:lnk_file { getattr read };
 allow user_bubblewrap_t steam_data_t:dir { getattr mounton open read search };
