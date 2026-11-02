@@ -1,0 +1,25 @@
+# Not in Arch's repositories. Tags are unsigned: pinned by commit. Plain zsh: the optional
+# C module (colors, built at runtime by build-fzf-tab-module) is left out; fzf-tab falls
+# back to its zsh implementation.
+
+pkgname=fzf-tab
+pkgver=1.3.0
+_commit=d7e0234614dbe5369fdd760907d12c0e05a4dccc  # tag v1.3.0
+pkgrel=1
+pkgdesc='Replace zsh completion selection menu with fzf'
+arch=(any)
+url='https://github.com/Aloxaf/fzf-tab'
+license=(MIT)
+depends=(zsh fzf)
+makedepends=(git)
+source=("git+https://github.com/Aloxaf/fzf-tab.git#commit=${_commit}")
+sha256sums=('SKIP')
+
+package() {
+  cd fzf-tab
+  local d="$pkgdir/usr/share/zsh/plugins/fzf-tab"
+  install -Dm644 -t "$d" fzf-tab.plugin.zsh fzf-tab.zsh
+  install -Dm644 -t "$d/lib" lib/-ftb* lib/ftb-*
+  install -Dm644 -t "$d/lib/zsh-ls-colors" lib/zsh-ls-colors/ls-colors.zsh
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

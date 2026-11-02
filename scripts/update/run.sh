@@ -67,6 +67,8 @@ run hardened_malloc scripts/update/hardened-malloc.sh
 run dms-greeter     scripts/update/greeter.sh
 run gvisor          scripts/update/gvisor.sh
 run visorbox        scripts/update/visorbox.sh
+run oh-my-posh      scripts/update/git-tag.sh oh-my-posh https://github.com/JanDeDobbeleer/oh-my-posh.git
+run fzf-tab         scripts/update/git-tag.sh fzf-tab https://github.com/Aloxaf/fzf-tab.git
 run qt-rebuild      scripts/update/qt-rebuild.sh
 push_branch
 
@@ -74,7 +76,7 @@ changed=$(git diff --name-only "$START" HEAD)
 groups=()
 grep -qE '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' <<<"$changed" && groups+=(kernel)
 grep -qE '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' <<<"$changed" && groups+=(selinux)
-grep -qE '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|gvisor|visorbox)/' <<<"$changed" && groups+=(misc)
+grep -qE '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|gvisor|visorbox|oh-my-posh|fzf-tab)/' <<<"$changed" && groups+=(misc)
 echo "groups=${groups[*]}" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 
 if [ ${#failed[@]} -gt 0 ]; then

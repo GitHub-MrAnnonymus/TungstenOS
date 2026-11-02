@@ -1,0 +1,37 @@
+# Built from source; not in Arch's repositories (homes are noexec, so the prompt must come
+# from the image). Tags and commits are unsigned: pinned by commit.
+
+pkgname=oh-my-posh
+pkgver=31.9.1
+_commit=e6c9eb7796d1c903c7944c4e87a4ea2c3f6b4182  # tag v31.9.1
+pkgrel=1
+pkgdesc='Prompt theme engine for any shell'
+arch=(x86_64)
+url='https://ohmyposh.dev'
+license=(MIT)
+makedepends=(git go)
+source=("git+https://github.com/JanDeDobbeleer/oh-my-posh.git#commit=${_commit}")
+sha256sums=('SKIP')
+
+build() {
+  cd oh-my-posh/src
+  # As upstream's release build (src/.goreleaser.yml), as PIE.
+  export CGO_ENABLED=0 GOTOOLCHAIN=local GOPATH="$srcdir/gopath" GOEXPERIMENT=greenteagc,jsonv2
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  go build -tags netgo,osusergo,static_build,timetzdata \
+    -ldflags "-X github.com/jandedobbeleer/oh-my-posh/src/build.Version=$pkgver" \
+    -o oh-my-posh .
+}
+
+check() {
+  cd oh-my-posh/src
+  [ "$(./oh-my-posh version)" = "$pkgver" ] ||
+    { echo "oh-my-posh reports the wrong version" >&2; ./oh-my-posh version; return 1; }
+}
+
+package() {
+  cd oh-my-posh
+  install -Dm755 src/oh-my-posh "$pkgdir/usr/bin/oh-my-posh"
+  install -Dm644 -t "$pkgdir/usr/share/oh-my-posh/themes" themes/*.omp.*
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
