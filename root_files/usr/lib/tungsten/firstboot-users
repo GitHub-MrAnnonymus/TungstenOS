@@ -189,7 +189,7 @@ while :; do
   fi
   args=(); [ -n "$full" ] && args+=(--real-name="$full")
   create_home "Creating $user…" "$user_pw" "$user" "${args[@]}" \
-    --storage=luks --noexec=yes "${LIMITS[@]}" && break
+    --storage=luks --noexec=yes --shell=/usr/bin/zsh "${LIMITS[@]}" && break
 done
 unset admin_pw user_pw
 
