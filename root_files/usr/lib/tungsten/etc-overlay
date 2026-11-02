@@ -30,6 +30,11 @@ if [ ! -d "$ROOT/var/lib/tungsten-steam" ]; then
     mkdir -p -m 1733 "$ROOT/var/lib/tungsten-steam"
     setfattr -h -n security.selinux -v system_u:object_r:steam_data_t "$ROOT/var/lib/tungsten-steam"
 fi
+# And for programs other Flatpak apps download (tungsten-apps.conf).
+if [ ! -d "$ROOT/var/lib/tungsten-apps" ]; then
+    mkdir -p -m 1733 "$ROOT/var/lib/tungsten-apps"
+    setfattr -h -n security.selinux -v system_u:object_r:flatpak_exec_data_t "$ROOT/var/lib/tungsten-apps"
+fi
 # The overlay's top directory (/etc) takes the upper directory's label; on a new root
 # partition that is still unlabeled when the first services read /etc.
 if ! getfattr -h -n security.selinux "$STATE/upper" >/dev/null 2>&1; then

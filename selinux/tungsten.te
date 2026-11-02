@@ -1118,6 +1118,28 @@ gen_require(`
 ')
 allow user_systemd_tmpfiles_t user_tmp_t:dir { manage_dir_perms relabelfrom relabelto };
 allow user_systemd_tmpfiles_t user_tmp_t:file { manage_file_perms relabelfrom relabelto };
+
+# Programs Flatpak apps download for themselves (VSCodium's extensions: language servers,
+# debuggers, Claude Code) live in /var/lib/tungsten-apps/<uid>/<app id>, bind-mounted exec
+# like Steam's directory, as flatpak_exec_data_t: only Flatpak apps may execute there (they
+# already run code they generate, execmem); the session cannot. Each user's directories
+# and the links into the apps' data come from the user's tmpfiles
+# (/usr/share/user-tmpfiles.d/tungsten-apps.conf).
+type flatpak_exec_data_t;
+files_type(flatpak_exec_data_t)
+files_mountpoint(flatpak_exec_data_t)
+manage_dirs_pattern(tungsten_flatpak_t, flatpak_exec_data_t, flatpak_exec_data_t)
+manage_files_pattern(tungsten_flatpak_t, flatpak_exec_data_t, flatpak_exec_data_t)
+manage_lnk_files_pattern(tungsten_flatpak_t, flatpak_exec_data_t, flatpak_exec_data_t)
+allow tungsten_flatpak_t flatpak_exec_data_t:dir watch;
+allow tungsten_flatpak_t flatpak_exec_data_t:{ dir file lnk_file } { relabelfrom relabelto };
+allow tungsten_flatpak_t flatpak_exec_data_t:file { execute execute_no_trans map };
+allow user_systemd_tmpfiles_t flatpak_exec_data_t:dir { add_name create getattr open read search setattr write relabelfrom relabelto };
+allow { user_t user_systemd_t } flatpak_exec_data_t:dir { getattr search };
+allow user_bubblewrap_t flatpak_exec_data_t:dir { getattr mounton open read search };
+allow { init_t sysadm_t } flatpak_exec_data_t:dir manage_dir_perms;
+allow { init_t sysadm_t } flatpak_exec_data_t:{ file lnk_file } manage_file_perms;
+allow { init_t sysadm_t } flatpak_exec_data_t:{ dir file lnk_file } { relabelfrom relabelto };
 allow { user_t user_systemd_t } steam_data_t:dir { getattr search };
 allow { user_t user_systemd_t } steam_data_t:lnk_file { getattr read };
 allow user_bubblewrap_t steam_data_t:dir { getattr mounton open read search };
@@ -1144,10 +1166,25 @@ allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_d
 allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:file map;
 allow tungsten_flatpak_t gnome_xdg_config_t:dir list_dir_perms;
 allow tungsten_flatpak_t gnome_xdg_config_t:file { getattr open read map };
+# Apps never add entries to the home's top level (that would also let them move a file
+# there under any name, e.g. as a shell startup file). Folders apps keep there come from
+# /etc/skel instead (VSCodium: ~/.vscode-oss).
 fs_manage_fusefs_dirs(tungsten_flatpak_t)
 fs_manage_fusefs_files(tungsten_flatpak_t)
 # GLib follows changes (inotify): settings, overrides, installed apps.
 allow tungsten_flatpak_t { flatpak_content_t user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t gnome_xdg_config_t }:dir watch;
+# Chromium-based apps (Electron) watch the time zone, the sandbox's /etc and
+# /run/host/monitor (Flatpak's copies of resolv.conf, localtime); they read the machine
+# ID and kernel sysctls, and keep a logind sleep inhibitor (video, downloads) as Trivalent
+# does.
+gen_require(`
+	type locale_t, systemd_logind_t, systemd_logind_inhibit_runtime_t;
+')
+allow tungsten_flatpak_t { locale_t user_tmp_t user_tmpfs_t }:dir watch;
+files_read_etc_runtime_files(tungsten_flatpak_t)
+kernel_read_kernel_sysctls(tungsten_flatpak_t)
+allow tungsten_flatpak_t systemd_logind_t:fd use;
+allow tungsten_flatpak_t systemd_logind_inhibit_runtime_t:fifo_file write;
 # Icon theme caches from the host (/run/host/share/icons) are mapped; statfs on the
 # mounts of the sandbox.
 allow tungsten_flatpak_t usr_t:file map;

@@ -1,0 +1,4 @@
+// Command line arguments VSCodium always uses (see codium --help). Shipped by
+// TungstenOS: the Flatpak may not create ~/.vscode-oss itself.
+{
+}
