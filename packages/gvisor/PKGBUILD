@@ -1,0 +1,57 @@
+# Built from source; upstream publishes only unsigned binaries (and unsigned tags).
+# gVisor builds with Bazel; its "go" branch is the same tree prepared for plain go build,
+# one automated merge per upstream commit. _commit is the first of those merges that
+# contains the release tag's commit (scripts/update/gvisor.sh finds it).
+
+pkgname=gvisor
+pkgver=20261026.0
+_commit=90a2f3f7b8d16016a7b0219d4c9b74f2610094f2  # go branch, contains tag release-20261026.0
+pkgrel=1
+pkgdesc='Application kernel for containers: runsc, the OCI runtime, and its sidecars'
+arch=(x86_64)
+url='https://gvisor.dev'
+license=(Apache-2.0)
+makedepends=(git go gcc)
+source=("git+https://github.com/google/gvisor.git#commit=${_commit}")
+sha256sums=('SKIP')
+options=(!debug !lto)
+
+build() {
+  cd gvisor
+  # As upstream's release binaries: static, without cgo, not PIE. runsc refuses sidecars
+  # whose build label differs from its own, so all of them get the same one.
+  export CGO_ENABLED=0 GOTOOLCHAIN=local GOPATH="$srcdir/gopath"
+  export GOFLAGS="-trimpath -mod=readonly -modcacherw"
+  local ld="-X gvisor.dev/gvisor/runsc/version.version=release-$pkgver"
+  mkdir -p out/gvisor-bin
+  go build -ldflags "$ld" -o out/runsc ./runsc
+  go build -ldflags "$ld" -o out/gvisor-bin/gvisor_sentry ./runsc/cmd/sentry
+  go build -ldflags "$ld" -o out/gvisor-bin/runsc-metric-server ./runsc/cmd/metricserver
+  go build -ldflags "$ld" -o out/gvisor-bin/checkpointgofer ./runsc/checkpointgofer
+  # The C sidecars are freestanding (own _start and raw syscalls, no libc): makepkg's
+  # CFLAGS (stack protector, fortify) need libc, so they get their own.
+  local c
+  for c in prewarmer:gvisor-sentry-prewarmer fdparking:runsc-fd-parking \
+           procumounter:gvisor-proc-umounter; do
+    gcc -O2 -static -nostdlib -ffreestanding -fno-stack-protector -fno-pie -no-pie \
+      -fcf-protection=full -Wl,--build-id=none -o "out/gvisor-bin/${c#*:}" \
+      "runsc/${c%%:*}/${c%%:*}.c"
+  done
+}
+
+check() {
+  cd gvisor
+  out/runsc --version | grep -qx "runsc version release-$pkgver" ||
+    { echo "runsc reports the wrong version" >&2; out/runsc --version; return 1; }
+}
+
+package() {
+  cd gvisor
+  # runsc looks for its sidecars in gvisor-bin/ next to its real path (it resolves
+  # /proc/self/exe), so the link in /usr/bin finds them.
+  install -Dm755 out/runsc "$pkgdir/usr/lib/gvisor/runsc"
+  install -Dm755 -t "$pkgdir/usr/lib/gvisor/gvisor-bin" out/gvisor-bin/*
+  install -d "$pkgdir/usr/bin"
+  ln -s ../lib/gvisor/runsc "$pkgdir/usr/bin/runsc"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

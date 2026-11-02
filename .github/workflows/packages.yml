@@ -51,7 +51,7 @@ jobs:
           kernel=false; selinux=false; misc=false
           has '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' && kernel=true
           has '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' && selinux=true
-          has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|ttf-manrope)/' && misc=true
+          has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|ttf-manrope|gvisor|visorbox)/' && misc=true
           groups="${{ github.event_name == 'workflow_dispatch' && inputs.groups || '' }}"
           if [ -n "$groups" ]; then
             # Explicit groups (from the Update workflow or a manual run) replace change detection.
@@ -165,6 +165,9 @@ jobs:
           (cd packages/no_rlimit_as && makepkg -s --noconfirm)
           (cd packages/qtengine && makepkg -s --noconfirm)
           (cd packages/ttf-manrope && makepkg -s --noconfirm)
+          (cd packages/gvisor && makepkg -s --noconfirm)
+          sudo pacman -U --noconfirm packages/gvisor/*.pkg.tar.zst  # visorbox depends on it
+          (cd packages/visorbox && makepkg -s --noconfirm)
           EOF
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -178,6 +181,8 @@ jobs:
             packages/no_rlimit_as/*.pkg.tar.zst
             packages/qtengine/*.pkg.tar.zst
             packages/ttf-manrope/*.pkg.tar.zst
+            packages/gvisor/*.pkg.tar.zst
+            packages/visorbox/*.pkg.tar.zst
 
   publish:
     needs: [plan, kernel, selinux, misc]
