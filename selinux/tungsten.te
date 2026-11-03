@@ -234,6 +234,12 @@ allow systemd_homework_t locale_t:dir search;
 allow systemd_homework_t locale_t:file { getattr map open read };
 allow systemd_homework_t nsfs_t:file { getattr open read };
 allow systemd_homework_t self:capability { dac_read_search setfcap setgid setuid };
+# Resizing a home (homectl resize, rebalancing): homework opens the user's 0700 home and
+# frees the space a shrink gives back (FITRIM on the mounted home).
+allow systemd_homework_t self:capability dac_override;
+allow systemd_homework_t user_home_dir_t:dir ioctl;
+# homed asks polkit whether a caller may change a home (homectl without run0).
+policykit_dbus_chat(systemd_homed_t)
 allow systemd_homework_t self:cap_userns { sys_admin sys_ptrace };
 allow systemd_homework_t self:process { getcap sigkill };
 allow systemd_homework_t self:user_namespace create;
@@ -1117,6 +1123,9 @@ gen_require(`
 	type user_tmp_t;
 ')
 allow user_systemd_tmpfiles_t user_tmp_t:dir { manage_dir_perms relabelfrom relabelto };
+# The directory is created in $XDG_RUNTIME_DIR itself (user_runtime_t), as user_tmp_t,
+# the type dconf gives it.
+userdom_user_runtime_filetrans(user_systemd_tmpfiles_t, user_tmp_t, dir, "dconf")
 allow user_systemd_tmpfiles_t user_tmp_t:file { manage_file_perms relabelfrom relabelto };
 
 # Programs Flatpak apps download for themselves (VSCodium's extensions: language servers,
