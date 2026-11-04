@@ -4,8 +4,8 @@
 # contains the release tag's commit (scripts/update/gvisor.sh finds it).
 
 pkgname=gvisor
-pkgver=20261026.0
-_commit=90a2f3f7b8d16016a7b0219d4c9b74f2610094f2  # go branch, contains tag release-20261026.0
+pkgver=20261102.0
+_commit=1cea747efe8d81d69ec1fb06199d7f166b82912e  # go branch, contains tag release-20261102.0
 pkgrel=1
 pkgdesc='Application kernel for containers: runsc, the OCI runtime, and its sidecars'
 arch=(x86_64)
