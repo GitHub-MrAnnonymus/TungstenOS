@@ -34,7 +34,7 @@ index b9f7836..b08f80c 100644
  			See Documentation/arch/s390/common_io.rst for details.
  
 diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 5832131..fbbcb0a 100644
+index 76c55cd..09230af 100644
 --- a/security/selinux/hooks.c
 +++ b/security/selinux/hooks.c
 @@ -141,18 +141,6 @@ static int __init selinux_enabled_setup(char *str)

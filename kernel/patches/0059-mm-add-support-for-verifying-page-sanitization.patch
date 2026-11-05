@@ -48,7 +48,7 @@ index 73645d2..ab8c685 100644
  	 * As memory initialization might be integrated into KASAN,
  	 * KASAN unpoisoning and memory initialization code must be
 diff --git a/security/Kconfig.hardening b/security/Kconfig.hardening
-index 2976749..a1a14b2 100644
+index c80ad0b..61251f3 100644
 --- a/security/Kconfig.hardening
 +++ b/security/Kconfig.hardening
 @@ -209,6 +209,13 @@ config ZERO_CALL_USED_REGS

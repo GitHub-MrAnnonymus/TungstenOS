@@ -17,10 +17,10 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@oss.cyber.gouv.fr>
  3 files changed, 26 insertions(+)
 
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index 068c7be..23e7918 100644
+index b119f5b..13f8adf 100644
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c
-@@ -5400,6 +5400,9 @@ static int descriptors_changed(struct usb_device *udev,
+@@ -5405,6 +5405,9 @@ static int descriptors_changed(struct usb_device *udev,
  	return changed;
  }
  
@@ -30,7 +30,7 @@ index 068c7be..23e7918 100644
  static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
  		u16 portchange)
  {
-@@ -5461,6 +5464,12 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
+@@ -5466,6 +5469,12 @@ static void hub_port_connect(struct usb_hub *hub, int port1, u16 portstatus,
  			goto done;
  		return;
  	}
@@ -58,7 +58,7 @@ index 49ab8db..f2a0543 100644
  
  #endif
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 3a43c1f..862f0fd 100644
+index 549c3c8..685f64f 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
 @@ -25,6 +25,9 @@

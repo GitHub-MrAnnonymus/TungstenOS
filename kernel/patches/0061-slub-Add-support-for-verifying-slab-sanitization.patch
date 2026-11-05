@@ -106,7 +106,7 @@ index 681492f..3d911a4 100644
  
  error:
 diff --git a/security/Kconfig.hardening b/security/Kconfig.hardening
-index a1a14b2..ed5cfe8 100644
+index 61251f3..1051267 100644
 --- a/security/Kconfig.hardening
 +++ b/security/Kconfig.hardening
 @@ -216,6 +216,14 @@ config PAGE_SANITIZE_VERIFY

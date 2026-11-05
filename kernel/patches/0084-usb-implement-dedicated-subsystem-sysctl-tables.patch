@@ -32,10 +32,10 @@ index 60ea761..cb5ed42 100644
  ifdef CONFIG_USB_ONBOARD_DEV
  usbcore-y			+= ../misc/onboard_usb_dev_pdevs.o
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index 23e7918..6829231 100644
+index 13f8adf..fefa2d7 100644
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c
-@@ -5400,9 +5400,6 @@ static int descriptors_changed(struct usb_device *udev,
+@@ -5405,9 +5405,6 @@ static int descriptors_changed(struct usb_device *udev,
  	return changed;
  }
  
@@ -150,7 +150,7 @@ index f2a0543..12c707a 100644
  #endif  /* __KERNEL__ */
  
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 862f0fd..3a43c1f 100644
+index 685f64f..549c3c8 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
 @@ -25,9 +25,6 @@

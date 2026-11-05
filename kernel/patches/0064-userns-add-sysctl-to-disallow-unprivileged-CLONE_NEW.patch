@@ -41,7 +41,7 @@ index 9c3be15..bb05d4a 100644
  {
  	return &init_user_ns;
 diff --git a/kernel/fork.c b/kernel/fork.c
-index b22b5ba..9f711b6 100644
+index 8544481..95f6cc7 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -85,6 +85,7 @@
