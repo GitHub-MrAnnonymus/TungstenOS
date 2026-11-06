@@ -8,7 +8,7 @@ Subject: [PATCH 024/101] disable PROC_VMCORE by default
  1 file changed, 1 deletion(-)
 
 diff --git a/fs/proc/Kconfig b/fs/proc/Kconfig
-index 6ae966c..27d78d6 100644
+index 24f5a36f45..93a2bf14eb 100644
 --- a/fs/proc/Kconfig
 +++ b/fs/proc/Kconfig
 @@ -41,7 +41,6 @@ config PROC_KCORE

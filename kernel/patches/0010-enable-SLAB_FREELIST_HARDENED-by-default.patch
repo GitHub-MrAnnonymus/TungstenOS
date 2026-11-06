@@ -8,10 +8,10 @@ Subject: [PATCH 010/101] enable SLAB_FREELIST_HARDENED by default
  1 file changed, 1 insertion(+)
 
 diff --git a/mm/Kconfig b/mm/Kconfig
-index e5f637a..657039a 100644
+index 39bf201ddd..10057a46bc 100644
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
-@@ -213,6 +213,7 @@ config SLAB_FREELIST_RANDOM
+@@ -209,6 +209,7 @@ config SLAB_FREELIST_RANDOM
  config SLAB_FREELIST_HARDENED
  	bool "Harden slab freelist metadata"
  	depends on !SLUB_TINY

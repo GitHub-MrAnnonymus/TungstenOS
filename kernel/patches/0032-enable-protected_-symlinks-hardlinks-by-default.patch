@@ -8,7 +8,7 @@ Subject: [PATCH 032/101] enable protected_{symlinks,hardlinks} by default
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/fs/namei.c b/fs/namei.c
-index 5b9f701..750f6d9 100644
+index e45e306032..a943ee5ccb 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -1201,8 +1201,8 @@ static inline void put_link(struct nameidata *nd)

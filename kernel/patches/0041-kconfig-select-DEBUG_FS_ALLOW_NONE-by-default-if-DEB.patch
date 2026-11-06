@@ -10,10 +10,10 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index 4384356..0aa0676 100644
+index 491c4ecbc8..c4f12c001c 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -720,7 +720,7 @@ config DEBUG_FS
+@@ -705,7 +705,7 @@ config DEBUG_FS
  choice
  	prompt "Debugfs default access"
  	depends on DEBUG_FS

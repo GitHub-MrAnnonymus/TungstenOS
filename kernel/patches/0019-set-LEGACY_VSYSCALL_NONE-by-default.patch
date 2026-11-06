@@ -8,10 +8,10 @@ Subject: [PATCH 019/101] set LEGACY_VSYSCALL_NONE by default
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 90db08a..823fafc 100644
+index 9058549166..9c1426e8ca 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -2190,7 +2190,7 @@ config COMPAT_VDSO
+@@ -2194,7 +2194,7 @@ config COMPAT_VDSO
  choice
  	prompt "vsyscall table for legacy applications"
  	depends on X86_64

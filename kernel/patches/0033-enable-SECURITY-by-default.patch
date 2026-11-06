@@ -8,7 +8,7 @@ Subject: [PATCH 033/101] enable SECURITY by default
  1 file changed, 1 insertion(+)
 
 diff --git a/security/Kconfig b/security/Kconfig
-index 3d5c65d..ee1519d 100644
+index 3d5c65d2ca..ee1519d2ba 100644
 --- a/security/Kconfig
 +++ b/security/Kconfig
 @@ -74,6 +74,7 @@ config SECURITY

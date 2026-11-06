@@ -10,7 +10,7 @@ Subject: [PATCH 055/101] mark open_softirq as only used for init
  2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 3bf969a..22e9c15 100644
+index 3bf969ad8f..22e9c15124 100644
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
 @@ -604,7 +604,7 @@ static inline void do_softirq_post_smp_call_flush(unsigned int unused)
@@ -23,10 +23,10 @@ index 3bf969a..22e9c15 100644
  extern void __raise_softirq_irqoff(unsigned int nr);
  
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 4425d8d..77a8b50 100644
+index 5d02c36c40..53d300ebbd 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
-@@ -803,7 +803,7 @@ void __raise_softirq_irqoff(unsigned int nr)
+@@ -826,7 +826,7 @@ void __raise_softirq_irqoff(unsigned int nr)
  	or_softirq_pending(1UL << nr);
  }
  

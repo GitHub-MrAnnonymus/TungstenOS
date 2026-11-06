@@ -8,7 +8,7 @@ Subject: [PATCH 037/101] enable SECURITY_SELINUX by default
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/security/selinux/Kconfig b/security/selinux/Kconfig
-index 5588c4d..567a33e 100644
+index 5588c4d573..567a33eae4 100644
 --- a/security/selinux/Kconfig
 +++ b/security/selinux/Kconfig
 @@ -3,7 +3,7 @@ config SECURITY_SELINUX

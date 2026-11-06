@@ -12,7 +12,7 @@ Extracted from PaX.
  2 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/kobject_ns.h b/include/linux/kobject_ns.h
-index 4f0990e..94d7759 100644
+index 4f0990e09b..94d775949d 100644
 --- a/include/linux/kobject_ns.h
 +++ b/include/linux/kobject_ns.h
 @@ -46,7 +46,7 @@ struct kobj_ns_type_operations {
@@ -25,10 +25,10 @@ index 4f0990e..94d7759 100644
  const struct kobj_ns_type_operations *kobj_child_ns_ops(const struct kobject *parent);
  const struct kobj_ns_type_operations *kobj_ns_ops(const struct kobject *kobj);
 diff --git a/lib/kobject.c b/lib/kobject.c
-index 9c9ff0f..a639037 100644
+index e7b010a989..5463e55f5a 100644
 --- a/lib/kobject.c
 +++ b/lib/kobject.c
-@@ -1019,9 +1019,9 @@ EXPORT_SYMBOL_GPL(kset_create_and_add);
+@@ -1023,9 +1023,9 @@ EXPORT_SYMBOL_GPL(kset_create_and_add);
  
  
  static DEFINE_SPINLOCK(kobj_ns_type_lock);
