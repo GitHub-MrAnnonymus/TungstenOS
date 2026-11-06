@@ -9,7 +9,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/security/Kconfig.hardening b/security/Kconfig.hardening
-index 6850b14..ba4e316 100644
+index ae174f1770..3550eb11a1 100644
 --- a/security/Kconfig.hardening
 +++ b/security/Kconfig.hardening
 @@ -266,6 +266,7 @@ config RUST_BITMAP_HARDENED

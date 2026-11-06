@@ -18,20 +18,20 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@ssi.gouv.fr>
  3 files changed, 38 insertions(+), 9 deletions(-)
 
 diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index 2886fbc..3e0b054 100644
+index e5d7226ab6..25d434d853 100644
 --- a/include/linux/sysctl.h
 +++ b/include/linux/sysctl.h
-@@ -84,6 +84,8 @@ int proc_dobool(const struct ctl_table *table, int write, void *buffer,
- int proc_dointvec(const struct ctl_table *, int, void *, size_t *, loff_t *);
- int proc_dointvec_minmax(const struct ctl_table *table, int dir, void *buffer,
+@@ -86,6 +86,8 @@ int proc_dointvec(const struct ctl_table *ctl, int dir, void *buf, size_t *lenp,
+ 		  loff_t *ppos);
+ int proc_dointvec_minmax(const struct ctl_table *ctl, int dir, void *buf,
  			 size_t *lenp, loff_t *ppos);
-+int proc_dointvec_minmax_sysadmin(const struct ctl_table *table, int dir,
-+				  void *buffer, size_t *lenp, loff_t *ppos);
- int proc_dointvec_conv(const struct ctl_table *table, int dir, void *buffer,
- 		       size_t *lenp, loff_t *ppos,
- 		       int (*conv)(bool *negp, unsigned long *u_ptr, int *k_ptr,
++int proc_dointvec_minmax_sysadmin(const struct ctl_table *ctl, int dir, void *buf,
++				size_t *lenp, loff_t *ppos);
+ int proc_douintvec(const struct ctl_table *ctl, int dir, void *buf, size_t *lenp,
+ 		   loff_t *ppos);
+ int proc_douintvec_minmax(const struct ctl_table *ctl, int dir, void *buf,
 diff --git a/kernel/printk/sysctl.c b/kernel/printk/sysctl.c
-index f15732e..1b8a2a6 100644
+index f15732e93c..1b8a2a652b 100644
 --- a/kernel/printk/sysctl.c
 +++ b/kernel/printk/sysctl.c
 @@ -10,15 +10,6 @@
@@ -51,11 +51,11 @@ index f15732e..1b8a2a6 100644
  	{
  		.procname	= "printk",
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 54dcb0b..549c3c8 100644
+index fe56d267dc..d9af00d4e8 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
-@@ -867,6 +867,35 @@ int proc_douintvec(const struct ctl_table *table, int dir, void *buffer,
- 				 do_proc_uint_conv);
+@@ -848,6 +848,35 @@ int proc_douintvec(const struct ctl_table *table, int dir, void *buffer,
+ 			   (union proc_vec_conv){ .uint_conv = do_proc_uint_conv });
  }
  
 +/**
@@ -75,7 +75,7 @@ index 54dcb0b..549c3c8 100644
 + *
 + * Writing is only allowed when the current task has CAP_SYS_ADMIN.
 + *
-+ * Returns 0 on success, -EPERM on permission failure or -EINVAL on write
++ * Returns: %0 on success, -EPERM on permission failure or -EINVAL on write
 + * when the range check fails.
 + */
 +int proc_dointvec_minmax_sysadmin(const struct ctl_table *table, int dir,
@@ -90,7 +90,7 @@ index 54dcb0b..549c3c8 100644
  /**
   * proc_dointvec_minmax - read a vector of integers with min/max values
   * @table: the sysctl table
-@@ -1321,6 +1350,12 @@ int proc_doulongvec_minmax(const struct ctl_table *table, int dir,
+@@ -1346,6 +1375,12 @@ int proc_doulongvec_minmax(const struct ctl_table *table, int dir,
  	return -ENOSYS;
  }
  
@@ -100,10 +100,10 @@ index 54dcb0b..549c3c8 100644
 +	return -ENOSYS;
 +}
 +
- int proc_doulongvec_minmax_conv(const struct ctl_table *table, int dir,
+ int proc_doulongvec_conv(const struct ctl_table *table, int dir,
  				void *buffer, size_t *lenp, loff_t *ppos,
- 				unsigned long convmul, unsigned long convdiv)
-@@ -1448,6 +1483,7 @@ EXPORT_SYMBOL(proc_dointvec);
+ 				int (*conv)(bool *negp, ulong *u_ptr, ulong *k_ptr,
+@@ -1474,6 +1509,7 @@ EXPORT_SYMBOL(proc_dointvec);
  EXPORT_SYMBOL(proc_douintvec);
  EXPORT_SYMBOL(proc_dointvec_minmax);
  EXPORT_SYMBOL_GPL(proc_douintvec_minmax);

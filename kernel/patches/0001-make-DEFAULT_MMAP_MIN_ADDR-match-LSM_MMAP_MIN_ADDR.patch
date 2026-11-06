@@ -9,10 +9,10 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/mm/Kconfig b/mm/Kconfig
-index 9e0ca48..54ce3cf 100644
+index 604c58199a..026cc8c187 100644
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
-@@ -755,7 +755,8 @@ config KSM
+@@ -743,7 +743,8 @@ config KSM
  config DEFAULT_MMAP_MIN_ADDR
  	int "Low address space to protect from user allocation"
  	depends on MMU

@@ -9,7 +9,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  1 file changed, 1 insertion(+)
 
 diff --git a/security/Kconfig b/security/Kconfig
-index aae25df..7b4b170 100644
+index aae25dff2e..7b4b1707ea 100644
 --- a/security/Kconfig
 +++ b/security/Kconfig
 @@ -54,6 +54,7 @@ config MSEAL_SYSTEM_MAPPINGS

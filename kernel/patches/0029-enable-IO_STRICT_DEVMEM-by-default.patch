@@ -8,10 +8,10 @@ Subject: [PATCH 029/101] enable IO_STRICT_DEVMEM by default
  1 file changed, 1 insertion(+)
 
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index b43926f..4384356 100644
+index bcd606a3b7..491c4ecbc8 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -1983,6 +1983,7 @@ config STRICT_DEVMEM
+@@ -1940,6 +1940,7 @@ config STRICT_DEVMEM
  config IO_STRICT_DEVMEM
  	bool "Filter I/O access to /dev/mem"
  	depends on STRICT_DEVMEM

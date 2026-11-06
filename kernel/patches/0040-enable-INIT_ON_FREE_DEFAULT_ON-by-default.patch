@@ -8,7 +8,7 @@ Subject: [PATCH 040/101] enable INIT_ON_FREE_DEFAULT_ON by default
  1 file changed, 1 insertion(+)
 
 diff --git a/security/Kconfig.hardening b/security/Kconfig.hardening
-index 24d10ef..c80ad0b 100644
+index 269977db56..06459c66ea 100644
 --- a/security/Kconfig.hardening
 +++ b/security/Kconfig.hardening
 @@ -172,6 +172,7 @@ config INIT_ON_ALLOC_DEFAULT_ON

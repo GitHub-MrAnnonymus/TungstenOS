@@ -16,10 +16,10 @@ Signed-off-by: Thibaut Sautereau <thibaut.sautereau@ssi.gouv.fr>
  3 files changed, 3 insertions(+)
 
 diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
-index 0545fe7..d37c738 100644
+index 70098d448e..8988454131 100644
 --- a/arch/x86/include/asm/tlbflush.h
 +++ b/arch/x86/include/asm/tlbflush.h
-@@ -510,6 +510,7 @@ extern void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
+@@ -517,6 +517,7 @@ extern void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
  
  static inline void __native_tlb_flush_global(unsigned long cr4)
  {
@@ -28,7 +28,7 @@ index 0545fe7..d37c738 100644
  	native_write_cr4(cr4);
  }
 diff --git a/arch/x86/kernel/cpu/common.c b/arch/x86/kernel/cpu/common.c
-index 4c88bbe..0269f6c 100644
+index c7352827f4..11fb8fa471 100644
 --- a/arch/x86/kernel/cpu/common.c
 +++ b/arch/x86/kernel/cpu/common.c
 @@ -497,6 +497,7 @@ EXPORT_SYMBOL_GPL(native_write_cr4);
@@ -40,7 +40,7 @@ index 4c88bbe..0269f6c 100644
  	lockdep_assert_irqs_disabled();
  
 diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
-index 8543504..d323177 100644
+index 346c438ac8..34251a9f6e 100644
 --- a/arch/x86/kernel/process.c
 +++ b/arch/x86/kernel/process.c
 @@ -707,6 +707,7 @@ void speculation_ctrl_update_current(void)

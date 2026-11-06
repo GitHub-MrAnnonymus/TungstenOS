@@ -20,10 +20,10 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 7 insertions(+)
 
 diff --git a/mm/mmap.c b/mm/mmap.c
-index 2311ae7..8f46212 100644
+index 4bf26b0f1e..9caa66ca71 100644
 --- a/mm/mmap.c
 +++ b/mm/mmap.c
-@@ -153,6 +153,13 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
+@@ -154,6 +154,13 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
  
  	newbrk = PAGE_ALIGN(brk);
  	oldbrk = PAGE_ALIGN(mm->brk);

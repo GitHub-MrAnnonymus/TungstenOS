@@ -9,7 +9,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/mm/Kconfig.debug b/mm/Kconfig.debug
-index fe46f89..44d4d85 100644
+index 4708529cb7..db1f9e9ba8 100644
 --- a/mm/Kconfig.debug
 +++ b/mm/Kconfig.debug
 @@ -189,6 +189,7 @@ config DEBUG_WX

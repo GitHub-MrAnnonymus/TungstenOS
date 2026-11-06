@@ -11,10 +11,10 @@ Extracted from PaX.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 77a8b50..e445a92 100644
+index 53d300ebbd..114e6bdb69 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
-@@ -57,7 +57,7 @@ DEFINE_PER_CPU_ALIGNED(irq_cpustat_t, irq_stat);
+@@ -58,7 +58,7 @@ DEFINE_PER_CPU_ALIGNED(irq_cpustat_t, irq_stat);
  EXPORT_PER_CPU_SYMBOL(irq_stat);
  #endif
  

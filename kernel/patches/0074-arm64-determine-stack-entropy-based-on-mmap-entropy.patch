@@ -29,7 +29,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/arch/arm64/include/asm/elf.h b/arch/arm64/include/asm/elf.h
-index c2fcacc..ed0d158 100644
+index c2fcacca83..ed0d158955 100644
 --- a/arch/arm64/include/asm/elf.h
 +++ b/arch/arm64/include/asm/elf.h
 @@ -185,10 +185,10 @@ extern int arch_setup_additional_pages(struct linux_binprm *bprm,

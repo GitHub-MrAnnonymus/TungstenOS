@@ -16,10 +16,10 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@ssi.gouv.fr>
  1 file changed, 4 insertions(+)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index f6deeb9..bc3ccb8 100644
+index fee40dca75..bf3db65f6a 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -6490,10 +6490,14 @@ static noinline void warn_free_bad_obj(struct kmem_cache *s, void *obj)
+@@ -6589,10 +6589,14 @@ static noinline void warn_free_bad_obj(struct kmem_cache *s, void *obj)
  	struct slab *slab;
  
  	slab = virt_to_slab(obj);

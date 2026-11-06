@@ -17,18 +17,18 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@oss.cyber.gouv.fr>
  1 file changed, 3 insertions(+)
 
 diff --git a/mm/vma_exec.c b/mm/vma_exec.c
-index 5cee8b7..617e726 100644
+index 586c521559..8337a9844c 100644
 --- a/mm/vma_exec.c
 +++ b/mm/vma_exec.c
-@@ -7,6 +7,7 @@
- 
+@@ -11,6 +11,7 @@
+  */
  #include "vma_internal.h"
  #include "vma.h"
 +#include <linux/random.h>
  
  /*
   * Relocate a VMA downwards by shift bytes. There cannot be any VMAs between
-@@ -152,6 +153,8 @@ int create_init_stack_vma(struct mm_struct *mm, struct vm_area_struct **vmap,
+@@ -160,6 +161,8 @@ int create_init_stack_vma(struct mm_struct *mm, struct vm_area_struct **vmap,
  	mmap_write_unlock(mm);
  	*vmap = vma;
  	*top_mem_p = vma->vm_end - sizeof(void *);
