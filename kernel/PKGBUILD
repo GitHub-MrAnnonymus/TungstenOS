@@ -3,8 +3,8 @@
 
 pkgbase=linux-tungsten
 pkgver=7.2.13
-_nvver=620.70.06
-pkgrel=2
+_nvver=615.78.08
+pkgrel=3
 pkgdesc='TungstenOS kernel (Linux + selected linux-hardened patches, SELinux)'
 url='https://github.com/anthraxx/linux-hardened'
 arch=(x86_64)
@@ -33,7 +33,7 @@ sha256sums=('08e7b0c4f2dd1971f972da274b5e589a98989390ac56acd7a1a5af922363ea6c'
             'SKIP'
             'SKIP')
 # From Arch's nvidia-utils PKGBUILD (updated by sync-nvidia.sh).
-_nvsha512='fcf9d9640fe8d0a282e92471371dd35ab5b78d0ee40388e32a9c23211d52d793dbee5228599c22e6d5939169f3ce5b9854cea060e05e5262b9cebb865ad33df3'
+_nvsha512='5ced2c7e3e9df21f8494ea439ac2103307fcbcb295a3f11e5fdf4f1dbeda3f0b13800a06f8147ebd064f98897c24e92f5de82023a8ca43a582694d951c9620c9'
 
 _patchdir="$startdir/patches"
 
