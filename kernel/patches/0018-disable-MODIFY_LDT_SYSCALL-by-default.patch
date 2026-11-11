@@ -9,10 +9,10 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 deletion(-)
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index d58dacc..90db08a 100644
+index 09aa1f678f..9058549166 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -2275,7 +2275,6 @@ config CMDLINE_OVERRIDE
+@@ -2279,7 +2279,6 @@ config CMDLINE_OVERRIDE
  
  config MODIFY_LDT_SYSCALL
  	bool "Enable the LDT (local descriptor table)"

@@ -8,10 +8,10 @@ Subject: [PATCH 017/101] stop hiding MODIFY_LDT_SYSCALL behind EXPERT
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index b998916..d58dacc 100644
+index b477a9ab97..09aa1f678f 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -2274,7 +2274,7 @@ config CMDLINE_OVERRIDE
+@@ -2278,7 +2278,7 @@ config CMDLINE_OVERRIDE
  	  be set to 'N' under normal conditions.
  
  config MODIFY_LDT_SYSCALL
