@@ -10,9 +10,15 @@
 #   builds/<version>/  the release files with SHA256SUMS; builds/latest is the newest
 #   pkgcache/          pacman's package cache, so later builds download only what changed
 #
-# Usage: install/dev/build.sh
+# --audit-all builds the SELinux policy without its dontaudit rules: refusals the policy
+# normally hides (and programs may silently retry) appear in the audit log. Very noisy;
+# for debugging in the VM.
+#
+# Usage: install/dev/build.sh [--audit-all]
 # Needs: podman, sudo (the container is privileged, as in CI: it mounts and uses loop devices)
 set -euo pipefail
+AUDIT_ALL=0
+[ "${1:-}" = --audit-all ] && AUDIT_ALL=1
 HERE=$(dirname -- "$(realpath "$0")")
 REPO=$(realpath "$HERE/../..")
 DEV=${TUNGSTEN_DEV:-$HOME/.local/share/tungstenos-dev}
@@ -25,6 +31,6 @@ DEV=$(realpath "$DEV")
 
 sudo podman run --rm --privileged --pull=newer \
   -v "$REPO":/src:ro -v "$DEV":/state -v "$DEV/pkgcache":/var/cache/pacman/pkg \
-  -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+  -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e TUNGSTEN_AUDIT_ALL="$AUDIT_ALL" \
   docker.io/library/archlinux:latest bash /src/install/dev/build-in-container.sh
 echo "Built $(readlink "$DEV/builds/latest") in $DEV/builds. Start it with install/dev/vm.sh."

@@ -143,9 +143,15 @@ install -Dm644 "$SB_DIR"/db.pem "$WORKDIR"/usr/lib/verity.d/tungsten.crt
 # Verifies the signed PCR 11 policy in each UKI (default path for systemd-cryptenroll).
 install -Dm644 "$PCR_PUB" "$WORKDIR"/etc/systemd/tpm2-pcr-public-key.pem
 
-arch-chroot "$WORKDIR" /bin/bash -s "$POLICY" <<'CHROOT'
+# Development builds only (install/dev/build.sh --audit-all): the policy without its
+# dontaudit rules, so refusals the policy normally hides show up in the audit log.
+AUDIT_ALL=${TUNGSTEN_AUDIT_ALL:-0}
+if [ "$AUDIT_ALL" = 1 ] && [ "${UPDATE_URL:-}" != https://tungsten.invalid/ ]; then
+  echo "TUNGSTEN_AUDIT_ALL is for development builds only" >&2; exit 1
+fi
+arch-chroot "$WORKDIR" /bin/bash -s "$POLICY" "$AUDIT_ALL" <<'CHROOT'
 set -euo pipefail
-POLICY=$1
+POLICY=$1 AUDIT_ALL=$2
 
 ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 locale-gen
@@ -175,6 +181,11 @@ sed -i 's/^SELINUX=.*/SELINUX=enforcing/; s/^SELINUXTYPE=.*/SELINUXTYPE='"$POLIC
 # boot services (kmod-static-nodes, systemd-pcrmachine) whenever the kernel is newer.
 echo 'handle-unknown = allow' >> /etc/selinux/semanage.conf
 semodule -n -s "$POLICY" -X 300 -i /root/tungsten-build/tungsten.pp
+# The store keeps the setting, so the later rebuilds (semanage boolean) keep it too.
+if [ "$AUDIT_ALL" = 1 ]; then
+  echo "Development build: dontaudit rules disabled" >&2
+  semodule -n -s "$POLICY" -DB
+fi
 # Every login account is user_u (user_r, user_t): no role change is possible from a
 # session. The administrator only authorizes: run0 gets sysadm_t from PID 1's PAM
 # session (root's context), not from the caller's SELinux user.
