@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copies your DankMaterialShell look (settings, colors, wallpapers) to the login screen.
+# Copies your Dux Shell look (settings, colors, wallpapers) to the login screen.
 # Usage: run0 tungsten-greeter-sync [user]      (default: the user who ran run0)
 #
 # The copy becomes the login screen's default look: /var/cache/dms-greeter/theme/, with
@@ -18,9 +18,13 @@ user=${1:-${SUDO_USER:-}}
 [ -n "$user" ] || { echo "usage: run0 tungsten-greeter-sync <user>" >&2; exit 2; }
 home=$(getent passwd "$user" | cut -d: -f6)
 [ -n "$home" ] || { echo "no user $user" >&2; exit 1; }
-settings=$home/.config/DankMaterialShell/settings.json
-session=$home/.local/state/DankMaterialShell/session.json
-colors=$home/.cache/DankMaterialShell/dms-colors.json
+# Dux Shell 2.1 keeps its files in dms/ folders; before, they were in DankMaterialShell/.
+pick() {   # base relative-path
+  if [ -e "$1/dms/$2" ]; then echo "$1/dms/$2"; else echo "$1/DankMaterialShell/$2"; fi
+}
+settings=$(pick "$home/.config" settings.json)
+session=$(pick "$home/.local/state" session.json)
+colors=$(pick "$home/.cache" dms-colors.json)
 for f in "$settings" "$session" "$colors"; do
   [ -r "$f" ] || { echo "$f not found: log in as $user first (the home is locked otherwise)" >&2; exit 1; }
 done

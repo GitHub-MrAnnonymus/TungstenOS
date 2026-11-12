@@ -40,7 +40,7 @@ dms plugins install Calculator
 ### Manually
 
 ```
-cd ~/.config/DankMaterialShell/plugins
+cd ~/.config/dms/plugins
 git clone https://github.com/rochacbruno/DankCalculator Calculator
 ```
 
@@ -239,7 +239,7 @@ The numbat engine delegates evaluation to the `numbat` binary, which runs as a p
 
 ## Configuration
 
-Settings are stored in `~/.config/DankMaterialShell/plugin_settings.json` under the `calculator` plugin key:
+Settings are stored in `~/.config/dms/plugin_settings.json` under the `calculator` plugin key:
 
 ```json
 {

@@ -894,7 +894,7 @@ allow user_bubblewrap_t gnome_xdg_config_t:dir { getattr mounton open read searc
 allow user_bubblewrap_t gnome_xdg_config_t:file { getattr open read };
 
 # The session watches its own files with inotify: DankMaterialShell reloads its colors
-# (~/.cache/DankMaterialShell/dms-colors.json) and settings when they change.
+# (~/.cache/dms/dms-colors.json) and settings when they change.
 allow user_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:dir watch;
 allow user_t { user_home_t xdg_cache_t xdg_config_t xdg_data_t }:file watch;
 
