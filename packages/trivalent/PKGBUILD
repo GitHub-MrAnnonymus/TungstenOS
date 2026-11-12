@@ -4,7 +4,7 @@
 pkgname=trivalent
 pkgver=157.0.8103.50
 _rpmrel=448571
-pkgrel=1
+pkgrel=2
 pkgdesc='Hardened Chromium for desktop Linux by secureblue (repackaged RPM)'
 arch=(x86_64)
 url='https://github.com/secureblue/Trivalent'
@@ -25,7 +25,14 @@ prepare() {
   rm -rf root && mkdir root
   bsdtar -xf "trivalent-${pkgver}-${_rpmrel}.x86_64.rpm" -C root
   mv root/usr/lib64 root/usr/lib
-  sed -i 's/\[0-9\]\.so"/[0-9]-arch[0-9].[0-9].so"/' root/etc/trivalent/trivalent.conf
+  # The GPU process loads Mesa's libgallium-<version>.so before its sandbox closes. The
+  # version is cut from the file name after the last "-", which fits Fedora's
+  # libgallium-26.2.6.so but gives "arch1.1" for Arch's libgallium-26.2.6-arch1.1.so: no
+  # driver, the GPU process crashes, and Trivalent falls back to software rendering.
+  sed -i 's|GALLIUMVER="${libgallium\[-1\]##\*-}"|GALLIUMVER="${libgallium[-1]##*/libgallium-}"|' \
+    root/etc/trivalent/trivalent.conf
+  grep -qF 'GALLIUMVER="${libgallium[-1]##*/libgallium-}"' root/etc/trivalent/trivalent.conf ||
+    { echo "trivalent.conf: libgallium version patch did not apply" >&2; return 1; }
   rm -f root/usr/lib/tmpfiles.d/*-drm-fix-secontexts.conf root/usr/share/user-tmpfiles.d/*-drm-fix-secontexts.conf
 }
 
