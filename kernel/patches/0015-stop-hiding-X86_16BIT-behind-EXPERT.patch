@@ -8,10 +8,10 @@ Subject: [PATCH 015/101] stop hiding X86_16BIT behind EXPERT
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 15fd9ec5ec..38e3150b7c 100644
+index bdad90f..b90a27c 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -1229,7 +1229,7 @@ config VM86
+@@ -1225,7 +1225,7 @@ config VM86
  	default X86_LEGACY_VM86
  
  config X86_16BIT

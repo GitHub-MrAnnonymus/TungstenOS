@@ -10,14 +10,16 @@ Signed-off-by: Thibaut Sautereau <thibaut.sautereau@ssi.gouv.fr>
 Signed-off-by: Levente Polyak <levente@leventepolyak.net>
 Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@ssi.gouv.fr>
 ---
- fs/inode.c               | 13 +++++++++++++
- fs/stat.c                | 23 ++++++++++++++++++++---
- include/linux/fs.h       | 11 +++++++++++
- include/linux/fsnotify.h |  3 +++
- 4 files changed, 47 insertions(+), 3 deletions(-)
+ fs/inode.c                 | 13 +++++++++++++
+ fs/stat.c                  | 23 ++++++++++++++++++++---
+ include/linux/capability.h |  5 +++++
+ include/linux/fs.h         | 11 +++++++++++
+ include/linux/fsnotify.h   |  3 +++
+ kernel/capability.c        |  6 ++++++
+ 6 files changed, 58 insertions(+), 3 deletions(-)
 
 diff --git a/fs/inode.c b/fs/inode.c
-index a9d37be390..804f837bfe 100644
+index efa801f..8dc31c4 100644
 --- a/fs/inode.c
 +++ b/fs/inode.c
 @@ -163,6 +163,10 @@ late_initcall(mg_debugfs_init);
@@ -48,7 +50,7 @@ index a9d37be390..804f837bfe 100644
  
  static int __init init_fs_inode_sysctls(void)
 diff --git a/fs/stat.c b/fs/stat.c
-index c461c30542..9d310cfa34 100644
+index c461c30..9d310cf 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
 @@ -52,7 +52,10 @@ void fill_mg_cmtime(struct kstat *stat, u32 request_mask, struct inode *inode)
@@ -107,11 +109,34 @@ index c461c30542..9d310cfa34 100644
  		if (ret)
  			return ret;
  	} else {
+diff --git a/include/linux/capability.h b/include/linux/capability.h
+index 37db92b..873416b 100644
+--- a/include/linux/capability.h
++++ b/include/linux/capability.h
+@@ -145,6 +145,7 @@ extern bool has_capability_noaudit(struct task_struct *t, int cap);
+ extern bool has_ns_capability_noaudit(struct task_struct *t,
+ 				      struct user_namespace *ns, int cap);
+ extern bool capable(int cap);
++extern bool capable_noaudit(int cap);
+ extern bool ns_capable(struct user_namespace *ns, int cap);
+ extern bool ns_capable_noaudit(struct user_namespace *ns, int cap);
+ extern bool ns_capable_setid(struct user_namespace *ns, int cap);
+@@ -167,6 +168,10 @@ static inline bool capable(int cap)
+ {
+ 	return true;
+ }
++static inline bool capable_noaudit(int cap)
++{
++	return true;
++}
+ static inline bool ns_capable(struct user_namespace *ns, int cap)
+ {
+ 	return true;
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index deb411e866..5dafdeec32 100644
+index a07031f..7bd6d8a 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -3689,4 +3689,15 @@ static inline bool extensible_ioctl_valid(unsigned int cmd_a,
+@@ -3668,4 +3668,15 @@ static inline bool extensible_ioctl_valid(unsigned int cmd_a,
  	return true;
  }
  
@@ -128,7 +153,7 @@ index deb411e866..5dafdeec32 100644
 +
  #endif /* _LINUX_FS_H */
 diff --git a/include/linux/fsnotify.h b/include/linux/fsnotify.h
-index bda798bc67..a5b2c16248 100644
+index bda798b..a5b2c16 100644
 --- a/include/linux/fsnotify.h
 +++ b/include/linux/fsnotify.h
 @@ -124,6 +124,9 @@ static inline int fsnotify_file(struct file *file, __u32 mask)
@@ -141,3 +166,20 @@ index bda798bc67..a5b2c16248 100644
  	return fsnotify_path(&file->f_path, mask);
  }
  
+diff --git a/kernel/capability.c b/kernel/capability.c
+index 829f49a..5bb7ee4 100644
+--- a/kernel/capability.c
++++ b/kernel/capability.c
+@@ -416,6 +416,12 @@ bool capable(int cap)
+ 	return ns_capable(&init_user_ns, cap);
+ }
+ EXPORT_SYMBOL(capable);
++
++bool capable_noaudit(int cap)
++{
++	return ns_capable_noaudit(&init_user_ns, cap);
++}
++EXPORT_SYMBOL(capable_noaudit);
+ #endif /* CONFIG_MULTIUSER */
+ 
+ /**

@@ -10,8 +10,15 @@ note() { echo "- $*" >> "$REPORT"; review=1; }
 review=0
 
 cur_tag=$(sed -n '1s/^# linux-hardened \(v[^ ]*\) .*/\1/p' patches/series)
+# Only within the series Arch's linux-hardened ships: config.base comes from it, and a
+# newer series built from an older config filled every new option with its default (7.3.1
+# left a laptop with a black screen). A new series waits until Arch has it.
+arch=$(curl -fsSL 'https://archlinux.org/packages/search/json/?name=linux-hardened&repo=Extra' |
+  jq -r '.results[] | select(.arch == "x86_64") | .pkgver' | head -n1)
+series=$(sed -nE 's/^([0-9]+\.[0-9]+).*/\1/p' <<<"$arch")
+[ -n "$series" ] || { echo "linux-hardened not found in [extra]" >&2; exit 1; }
 latest=$(git ls-remote --tags --refs https://github.com/anthraxx/linux-hardened \
-  | sed -n 's#.*refs/tags/##p' | grep -E '^v[0-9]+\.[0-9]+(\.[0-9]+)?-hardened[0-9]+$' | sort -V | tail -n1)
+  | sed -n 's#.*refs/tags/##p' | grep -E "^v${series//./\\.}(\.[0-9]+)?-hardened[0-9]+\$" | sort -V | tail -n1)
 [ -n "$cur_tag" ] && [ -n "$latest" ] || { echo "cannot determine kernel versions" >&2; exit 1; }
 if [ "$(printf '%s\n%s\n' "$cur_tag" "$latest" | sort -V | tail -n1)" = "$cur_tag" ]; then
   echo "kernel up to date ($cur_tag)"; exit 0

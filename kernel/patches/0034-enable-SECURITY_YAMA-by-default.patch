@@ -8,7 +8,7 @@ Subject: [PATCH 034/101] enable SECURITY_YAMA by default
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/security/yama/Kconfig b/security/yama/Kconfig
-index a810304123..b809050b25 100644
+index a810304..b809050 100644
 --- a/security/yama/Kconfig
 +++ b/security/yama/Kconfig
 @@ -2,7 +2,7 @@

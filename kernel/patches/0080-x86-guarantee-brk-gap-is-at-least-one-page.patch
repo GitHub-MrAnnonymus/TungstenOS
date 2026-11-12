@@ -11,7 +11,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
-index 5a16bd90f9..7d00430ec6 100644
+index 83022da..749e5dc 100644
 --- a/arch/x86/kernel/process.c
 +++ b/arch/x86/kernel/process.c
 @@ -1028,9 +1028,9 @@ unsigned long arch_align_stack(unsigned long sp)

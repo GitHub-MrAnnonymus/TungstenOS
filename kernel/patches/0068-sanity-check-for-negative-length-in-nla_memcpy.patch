@@ -11,7 +11,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 2 insertions(+)
 
 diff --git a/lib/nlattr.c b/lib/nlattr.c
-index be9c576b6e..484d839bcf 100644
+index be9c576..484d839 100644
 --- a/lib/nlattr.c
 +++ b/lib/nlattr.c
 @@ -837,6 +837,8 @@ int nla_memcpy(void *dest, const struct nlattr *src, int count)

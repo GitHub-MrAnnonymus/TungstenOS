@@ -9,7 +9,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/security/Kconfig b/security/Kconfig
-index 28d31eff03..aae25dff2e 100644
+index 28d31ef..aae25df 100644
 --- a/security/Kconfig
 +++ b/security/Kconfig
 @@ -82,7 +82,7 @@ config SECURITY_PERF_EVENTS_RESTRICT

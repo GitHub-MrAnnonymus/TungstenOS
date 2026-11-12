@@ -8,7 +8,7 @@ Subject: [PATCH 038/101] enable SYN_COOKIES by default
  1 file changed, 1 insertion(+)
 
 diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 301b476603..0f4cfea8e3 100644
+index 301b476..0f4cfea 100644
 --- a/net/ipv4/Kconfig
 +++ b/net/ipv4/Kconfig
 @@ -267,6 +267,7 @@ config IP_PIMSM_V2

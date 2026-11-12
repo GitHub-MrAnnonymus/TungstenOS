@@ -9,7 +9,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  1 file changed, 1 insertion(+)
 
 diff --git a/security/Kconfig.hardening b/security/Kconfig.hardening
-index a838119fd0..ae174f1770 100644
+index 8fea4f5..6850b14 100644
 --- a/security/Kconfig.hardening
 +++ b/security/Kconfig.hardening
 @@ -245,6 +245,7 @@ menu "Hardening of kernel data structures"

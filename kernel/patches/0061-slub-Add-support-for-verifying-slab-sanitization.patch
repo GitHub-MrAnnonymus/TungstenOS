@@ -22,10 +22,10 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  2 files changed, 43 insertions(+), 3 deletions(-)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index 09a9ef41c8..dff822c64d 100644
+index 681492f..3d911a4 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -251,6 +251,12 @@ static inline bool kmem_cache_debug(struct kmem_cache *s)
+@@ -245,6 +245,12 @@ static inline bool kmem_cache_debug(struct kmem_cache *s)
  	return kmem_cache_debug_flags(s, SLAB_DEBUG_FLAGS);
  }
  
@@ -38,7 +38,7 @@ index 09a9ef41c8..dff822c64d 100644
  void *fixup_red_left(struct kmem_cache *s, void *p)
  {
  	if (kmem_cache_debug_flags(s, SLAB_RED_ZONE))
-@@ -2743,7 +2749,7 @@ bool slab_free_hook(struct kmem_cache *s, void *x, bool init,
+@@ -2678,7 +2684,7 @@ bool slab_free_hook(struct kmem_cache *s, void *x, bool init,
  		 */
  		set_orig_size(s, x, orig_size);
  
@@ -47,7 +47,7 @@ index 09a9ef41c8..dff822c64d 100644
  			s->ctor(x);
  	}
  	/* KASAN might put x into memory quarantine, delaying its reuse. */
-@@ -2814,7 +2820,7 @@ static inline void *setup_object(struct kmem_cache *s, void *object)
+@@ -2749,7 +2755,7 @@ static inline void *setup_object(struct kmem_cache *s, void *object)
  {
  	setup_object_debug(s, object);
  	object = kasan_init_slab_obj(s, object);
@@ -56,7 +56,7 @@ index 09a9ef41c8..dff822c64d 100644
  		kasan_unpoison_new_object(s, object);
  		s->ctor(object);
  		kasan_poison_new_object(s, object);
-@@ -4663,7 +4669,7 @@ static __fastpath_inline
+@@ -4580,7 +4586,7 @@ static __fastpath_inline
  bool slab_post_alloc_hook(struct kmem_cache *s, gfp_t flags, size_t size,
  			  void **p, const struct slab_alloc_context *ac)
  {
@@ -65,7 +65,7 @@ index 09a9ef41c8..dff822c64d 100644
  	unsigned int zero_size = s->object_size;
  	gfp_t init_flags = flags & gfp_allowed_mask;
  	bool kasan_init = false;
-@@ -5006,6 +5012,17 @@ static __fastpath_inline void *slab_alloc_node(struct kmem_cache *s,
+@@ -4943,6 +4949,17 @@ static __fastpath_inline void *slab_alloc_node(struct kmem_cache *s,
  
  	maybe_wipe_obj_freeptr(s, object);
  
@@ -83,7 +83,7 @@ index 09a9ef41c8..dff822c64d 100644
  out:
  	/*
  	 * In case this fails due to memcg_slab_post_alloc_hook(),
-@@ -7483,6 +7500,21 @@ static bool __kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags,
+@@ -7406,6 +7423,21 @@ static bool __kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags,
  		stat_add(s, ALLOC_SLOWPATH, i);
  	}
  
@@ -106,7 +106,7 @@ index 09a9ef41c8..dff822c64d 100644
  
  error:
 diff --git a/security/Kconfig.hardening b/security/Kconfig.hardening
-index 5c40c2d37e..c93ce76802 100644
+index 61251f3..1051267 100644
 --- a/security/Kconfig.hardening
 +++ b/security/Kconfig.hardening
 @@ -216,6 +216,14 @@ config PAGE_SANITIZE_VERIFY

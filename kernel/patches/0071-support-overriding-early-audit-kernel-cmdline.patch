@@ -8,7 +8,7 @@ Subject: [PATCH 071/101] support overriding early audit kernel cmdline
  1 file changed, 3 insertions(+)
 
 diff --git a/kernel/audit.c b/kernel/audit.c
-index 9412af9144..34c2d4b047 100644
+index 9412af9..34c2d4b 100644
 --- a/kernel/audit.c
 +++ b/kernel/audit.c
 @@ -1789,6 +1789,9 @@ static int __init audit_enable(char *str)

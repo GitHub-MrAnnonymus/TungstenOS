@@ -21,7 +21,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  3 files changed, 19 insertions(+), 6 deletions(-)
 
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index c4f12c001c..ec608e3215 100644
+index 0aa0676..077e37f 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
 @@ -526,6 +526,9 @@ config SECTION_MISMATCH_WARN_ONLY
@@ -35,7 +35,7 @@ index c4f12c001c..ec608e3215 100644
  	bool "Force all function address 64B aligned"
  	depends on EXPERT && (X86_64 || ARM64 || PPC32 || PPC64 || ARC || RISCV || S390)
 diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
-index d7d45067d0..b501130c53 100644
+index d7d4506..b501130 100644
 --- a/scripts/Makefile.modpost
 +++ b/scripts/Makefile.modpost
 @@ -47,6 +47,7 @@ modpost-args =										\
@@ -47,7 +47,7 @@ index d7d45067d0..b501130c53 100644
  	$(if $(KBUILD_NSDEPS),-d modules.nsdeps)					\
  	$(if $(CONFIG_MODULE_ALLOW_MISSING_NAMESPACE_IMPORTS)$(KBUILD_NSDEPS),-N)	\
 diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
-index 5fa7d6cb43..34d5ec7151 100644
+index 034f256..040bf7e 100644
 --- a/scripts/mod/modpost.c
 +++ b/scripts/mod/modpost.c
 @@ -50,6 +50,7 @@ static bool sec_mismatch_warn_only = true;
@@ -58,7 +58,7 @@ index 5fa7d6cb43..34d5ec7151 100644
  /* ignore missing files */
  static bool ignore_missing_files;
  /* If set to 1, only warn (instead of error) about missing ns imports */
-@@ -1056,10 +1057,13 @@ static void default_mismatch_handler(struct module *mod, struct elf_info *elf,
+@@ -1051,10 +1052,13 @@ static void default_mismatch_handler(const char *modname, struct elf_info *elf,
  	if (!secref_whitelist(fromsec, fromsym, tosec, tosym))
  		return;
  

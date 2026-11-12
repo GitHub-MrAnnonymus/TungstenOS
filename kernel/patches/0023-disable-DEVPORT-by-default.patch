@@ -8,7 +8,7 @@ Subject: [PATCH 023/101] disable DEVPORT by default
  1 file changed, 1 deletion(-)
 
 diff --git a/drivers/char/Kconfig b/drivers/char/Kconfig
-index 9865227af1..73703260aa 100644
+index 9865227..7370326 100644
 --- a/drivers/char/Kconfig
 +++ b/drivers/char/Kconfig
 @@ -291,7 +291,6 @@ config NVRAM

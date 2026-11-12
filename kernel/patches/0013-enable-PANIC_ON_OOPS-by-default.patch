@@ -9,10 +9,10 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index 6b24a2c89b..bcd606a3b7 100644
+index 1278637..b43926f 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -1052,6 +1052,7 @@ menu "Debug Oops, Lockups and Hangs"
+@@ -1095,6 +1095,7 @@ menu "Debug Oops, Lockups and Hangs"
  
  config PANIC_ON_OOPS
  	bool "Panic on Oops"
@@ -20,7 +20,7 @@ index 6b24a2c89b..bcd606a3b7 100644
  	help
  	  Say Y here to enable the kernel to panic when it oopses. This
  	  has the same effect as setting oops=panic on the kernel command
-@@ -1061,7 +1062,7 @@ config PANIC_ON_OOPS
+@@ -1104,7 +1105,7 @@ config PANIC_ON_OOPS
  	  anything erroneous after an oops which could result in data
  	  corruption or other issues.
  

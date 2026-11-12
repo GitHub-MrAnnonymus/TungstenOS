@@ -2,10 +2,12 @@
 # NVIDIA modules are built here so they are signed with this build's module key.
 
 pkgbase=linux-tungsten
-
-pkgver=7.3.1
+# epoch: 7.3.1 was built from a 7.2 config.base (Arch had no 7.3 linux-hardened yet) and
+# left a laptop with a black screen; back on 7.2, which must sort above the published 7.3.1.
+epoch=1
+pkgver=7.2.13
 _nvver=615.78.08
-pkgrel=4
+pkgrel=1
 pkgdesc='TungstenOS kernel (Linux + selected linux-hardened patches, SELinux)'
 url='https://github.com/anthraxx/linux-hardened'
 arch=(x86_64)
@@ -27,7 +29,7 @@ validpgpkeys=(
   ABAF11C65A2970B130ABE3C479BE3E4300411886  # Linus Torvalds
   647F28654894E3BD457199BE38DBBDC86092693E  # Greg Kroah-Hartman
 )
-sha256sums=('fa595aad93734f829c963c2a90ef7c3673224fd7fdae7b49406e397cde2de231'
+sha256sums=('08e7b0c4f2dd1971f972da274b5e589a98989390ac56acd7a1a5af922363ea6c'
             'SKIP'
             '4a65b4ca211d25fdf70e182ca5c4a0be14f664e69670c32c9af65db16670f2e9'
             'SKIP'
@@ -249,7 +251,7 @@ _package-headers() {
 
 _package-nvidia-open() {
   pkgdesc="NVIDIA open GPU kernel modules for the $pkgdesc kernel"
-  depends=("$pkgbase=$pkgver-$pkgrel" "nvidia-utils=${_nvver}" libglvnd)
+  depends=("$pkgbase=${epoch:+$epoch:}$pkgver-$pkgrel" "nvidia-utils=${_nvver}" libglvnd)
   provides=(NVIDIA-MODULE nvidia-open)
   conflicts=(nvidia-open nvidia-open-dkms)
   license=('MIT AND GPL-2.0-only')

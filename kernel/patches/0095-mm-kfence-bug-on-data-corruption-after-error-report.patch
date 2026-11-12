@@ -14,7 +14,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  2 files changed, 14 insertions(+)
 
 diff --git a/lib/Kconfig.kfence b/lib/Kconfig.kfence
-index 6fbbebec68..e494618f71 100644
+index 6fbbebe..e494618 100644
 --- a/lib/Kconfig.kfence
 +++ b/lib/Kconfig.kfence
 @@ -96,4 +96,13 @@ config KFENCE_KUNIT_TEST
@@ -32,7 +32,7 @@ index 6fbbebec68..e494618f71 100644
 +
  endif # KFENCE
 diff --git a/mm/kfence/report.c b/mm/kfence/report.c
-index d548536864..043aafd3e3 100644
+index d548536..043aafd 100644
 --- a/mm/kfence/report.c
 +++ b/mm/kfence/report.c
 @@ -10,6 +10,7 @@

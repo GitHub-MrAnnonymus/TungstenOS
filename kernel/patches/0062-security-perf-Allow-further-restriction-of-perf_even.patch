@@ -29,16 +29,16 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
 Signed-off-by: Thibaut Sautereau <thibaut.sautereau@ssi.gouv.fr>
 Signed-off-by: Levente Polyak <levente@leventepolyak.net>
 ---
- Documentation/admin-guide/sysctl/kernel.rst |  2 ++
- include/linux/perf_event.h                  |  5 +++++
- kernel/events/core.c                        | 16 +++++++++++++++-
- security/Kconfig                            |  9 +++++++++
- tools/perf/Documentation/security.txt       |  1 +
- tools/perf/util/evsel.c                     |  1 +
- 6 files changed, 33 insertions(+), 1 deletion(-)
+ Documentation/admin-guide/sysctl/kernel.rst | 2 ++
+ include/linux/perf_event.h                  | 8 ++++++++
+ kernel/events/core.c                        | 7 ++++++-
+ security/Kconfig                            | 9 +++++++++
+ tools/perf/Documentation/security.txt       | 1 +
+ tools/perf/util/evsel.c                     | 1 +
+ 6 files changed, 27 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/sysctl/kernel.rst b/Documentation/admin-guide/sysctl/kernel.rst
-index ffea61d448..4808359acd 100644
+index c6994e5..78051f2 100644
 --- a/Documentation/admin-guide/sysctl/kernel.rst
 +++ b/Documentation/admin-guide/sysctl/kernel.rst
 @@ -1015,6 +1015,8 @@ with respect to CAP_PERFMON use cases.
@@ -51,30 +51,26 @@ index ffea61d448..4808359acd 100644
  
  
 diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-index 2d5e768787..254a1c97b3 100644
+index 858c59b..1058966 100644
 --- a/include/linux/perf_event.h
 +++ b/include/linux/perf_event.h
-@@ -1774,6 +1774,7 @@ static inline int perf_is_paranoid(void)
- 	return sysctl_perf_event_paranoid > -1;
- }
+@@ -1776,6 +1776,14 @@ static inline int perf_is_paranoid(void)
  
-+extern int perf_allow_open(void);
  extern int perf_allow_kernel(void);
- extern int perf_allow_cpu(void);
- extern int perf_allow_tracepoint(void);
-@@ -1993,6 +1994,10 @@ perf_event_pause(struct perf_event *event, bool reset)			{ return 0; }
- static inline int
- perf_exclude_event(struct perf_event *event, struct pt_regs *regs)	{ return 0; }
  
 +static inline int perf_allow_open(void)
 +{
-+	return perfmon_capable() ? 0 : -EACCES;
++	if (sysctl_perf_event_paranoid > 2 && !perfmon_capable())
++		return -EACCES;
++
++	return security_perf_event_open(PERF_SECURITY_OPEN);
 +}
- static inline int perf_allow_kernel(void)
++
+ static inline int perf_allow_cpu(void)
  {
- 	return perfmon_capable() ? 0 : -EACCES;
+ 	if (sysctl_perf_event_paranoid > 0 && !perfmon_capable())
 diff --git a/kernel/events/core.c b/kernel/events/core.c
-index c4217c996f..b2e2e99028 100644
+index f47ca6a..249ffcb 100644
 --- a/kernel/events/core.c
 +++ b/kernel/events/core.c
 @@ -492,8 +492,13 @@ static __always_inline bool is_guest_mediated_pmu_loaded(void)
@@ -91,7 +87,7 @@ index c4217c996f..b2e2e99028 100644
  
  /* Minimum for 512 kiB + 1 user control page. 'free' kiB per user. */
  static int sysctl_perf_event_mlock __read_mostly = 512 + (PAGE_SIZE / 1024);
-@@ -13903,7 +13908,7 @@ SYSCALL_DEFINE5(perf_event_open,
+@@ -13879,7 +13884,7 @@ SYSCALL_DEFINE5(perf_event_open,
  		return err;
  
  	/* Do we allow access to perf_event_open(2) ? */
@@ -100,24 +96,8 @@ index c4217c996f..b2e2e99028 100644
  	if (err)
  		return err;
  
-@@ -14760,6 +14765,15 @@ const struct perf_event_attr *perf_event_attrs(struct perf_event *event)
- 	return &event->attr;
- }
- 
-+int perf_allow_open(void)
-+{
-+	if (sysctl_perf_event_paranoid > 2 && !perfmon_capable())
-+		return -EACCES;
-+
-+	return security_perf_event_open(PERF_SECURITY_OPEN);
-+}
-+EXPORT_SYMBOL_GPL(perf_allow_open);
-+
- int perf_allow_kernel(void)
- {
- 	if (sysctl_perf_event_paranoid > 1 && !perfmon_capable())
 diff --git a/security/Kconfig b/security/Kconfig
-index b0a185a9f2..667528552d 100644
+index b0a185a..6675285 100644
 --- a/security/Kconfig
 +++ b/security/Kconfig
 @@ -70,6 +70,15 @@ config MSEAL_SYSTEM_MAPPINGS
@@ -137,7 +117,7 @@ index b0a185a9f2..667528552d 100644
  	bool "Enable different security models"
  	depends on SYSFS
 diff --git a/tools/perf/Documentation/security.txt b/tools/perf/Documentation/security.txt
-index 4fe3b8b195..a7d88cc23a 100644
+index 4fe3b8b..a7d88cc 100644
 --- a/tools/perf/Documentation/security.txt
 +++ b/tools/perf/Documentation/security.txt
 @@ -148,6 +148,7 @@ Perf tool provides a message similar to the one below:
@@ -149,10 +129,10 @@ index 4fe3b8b195..a7d88cc23a 100644
     in /etc/sysctl.conf (e.g. kernel.perf_event_paranoid = <setting>)
  
 diff --git a/tools/perf/util/evsel.c b/tools/perf/util/evsel.c
-index d4cb455f4a..de94bf0a83 100644
+index 968cd74..8a7b832 100644
 --- a/tools/perf/util/evsel.c
 +++ b/tools/perf/util/evsel.c
-@@ -4366,6 +4366,7 @@ int evsel__open_strerror(struct evsel *evsel, struct target *target,
+@@ -4382,6 +4382,7 @@ int evsel__open_strerror(struct evsel *evsel, struct target *target,
  		 ">= 0: Disallow raw and ftrace function tracepoint access\n"
  		 ">= 1: Disallow CPU event access\n"
  		 ">= 2: Disallow kernel profiling\n"

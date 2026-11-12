@@ -9,7 +9,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/security/Kconfig b/security/Kconfig
-index 667528552d..cf18f3b8b7 100644
+index 6675285..cf18f3b 100644
 --- a/security/Kconfig
 +++ b/security/Kconfig
 @@ -73,6 +73,7 @@ config MSEAL_SYSTEM_MAPPINGS

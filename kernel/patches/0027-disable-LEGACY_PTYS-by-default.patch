@@ -8,7 +8,7 @@ Subject: [PATCH 027/101] disable LEGACY_PTYS by default
  1 file changed, 1 deletion(-)
 
 diff --git a/drivers/tty/Kconfig b/drivers/tty/Kconfig
-index 5d6b0dd4d4..74136c5aa0 100644
+index df6832a..9e27a6c 100644
 --- a/drivers/tty/Kconfig
 +++ b/drivers/tty/Kconfig
 @@ -116,7 +116,6 @@ config UNIX98_PTYS

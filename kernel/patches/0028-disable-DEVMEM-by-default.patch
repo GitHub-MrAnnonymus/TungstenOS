@@ -8,7 +8,7 @@ Subject: [PATCH 028/101] disable DEVMEM by default
  1 file changed, 1 deletion(-)
 
 diff --git a/drivers/char/Kconfig b/drivers/char/Kconfig
-index 73703260aa..39cce82db6 100644
+index 7370326..39cce82 100644
 --- a/drivers/char/Kconfig
 +++ b/drivers/char/Kconfig
 @@ -258,7 +258,6 @@ config NSC_GPIO

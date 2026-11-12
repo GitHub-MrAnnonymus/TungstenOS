@@ -12,7 +12,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  1 file changed, 21 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
-index 75374c64b8..5fa7d6cb43 100644
+index 91b35ee..034f256 100644
 --- a/scripts/mod/modpost.c
 +++ b/scripts/mod/modpost.c
 @@ -49,6 +49,7 @@ static bool sec_mismatch_warn_only = true;
@@ -23,7 +23,7 @@ index 75374c64b8..5fa7d6cb43 100644
  /* ignore missing files */
  static bool ignore_missing_files;
  /* If set to 1, only warn (instead of error) about missing ns imports */
-@@ -827,6 +828,7 @@ enum mismatch {
+@@ -822,6 +823,7 @@ enum mismatch {
  	ANY_INIT_TO_ANY_EXIT,
  	ANY_EXIT_TO_ANY_INIT,
  	EXTABLE_TO_NON_TEXT,
@@ -31,7 +31,7 @@ index 75374c64b8..5fa7d6cb43 100644
  };
  
  /**
-@@ -883,6 +885,12 @@ static const struct sectioncheck sectioncheck[] = {
+@@ -878,6 +880,12 @@ static const struct sectioncheck sectioncheck[] = {
  	.bad_tosec = { ".altinstr_replacement", NULL },
  	.good_tosec = {ALL_TEXT_SECTIONS , NULL},
  	.mismatch = EXTABLE_TO_NON_TEXT,
@@ -44,7 +44,7 @@ index 75374c64b8..5fa7d6cb43 100644
  }
  };
  
-@@ -1048,7 +1056,10 @@ static void default_mismatch_handler(struct module *mod, struct elf_info *elf,
+@@ -1043,7 +1051,10 @@ static void default_mismatch_handler(const char *modname, struct elf_info *elf,
  	if (!secref_whitelist(fromsec, fromsym, tosec, tosym))
  		return;
  
@@ -56,7 +56,7 @@ index 75374c64b8..5fa7d6cb43 100644
  
  	if (!tosym[0])
  		snprintf(taddr_str, sizeof(taddr_str), "0x%x", (unsigned int)taddr);
-@@ -1082,6 +1093,11 @@ static void default_mismatch_handler(struct module *mod, struct elf_info *elf,
+@@ -1077,6 +1088,11 @@ static void default_mismatch_handler(const char *modname, struct elf_info *elf,
  		else
  			error("%s+0x%lx references non-executable section '%s'\n",
  			      fromsec, (long)faddr, tosec);

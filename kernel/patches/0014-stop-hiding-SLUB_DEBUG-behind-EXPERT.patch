@@ -9,7 +9,7 @@ It can make sense to disable this to reduce attack surface / complexity.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/mm/Kconfig.debug b/mm/Kconfig.debug
-index 15dca19dd0..4708529cb7 100644
+index 91b3e02..fe46f89 100644
 --- a/mm/Kconfig.debug
 +++ b/mm/Kconfig.debug
 @@ -47,7 +47,7 @@ config DEBUG_PAGEALLOC_ENABLE_DEFAULT

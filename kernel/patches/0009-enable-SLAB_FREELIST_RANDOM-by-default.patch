@@ -9,10 +9,10 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/mm/Kconfig b/mm/Kconfig
-index 026cc8c187..39bf201ddd 100644
+index 54ce3cf..e5f637a 100644
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
-@@ -200,6 +200,7 @@ config SLAB_MERGE_DEFAULT
+@@ -204,6 +204,7 @@ config SLAB_MERGE_DEFAULT
  config SLAB_FREELIST_RANDOM
  	bool "Randomize slab freelist"
  	depends on !SLUB_TINY

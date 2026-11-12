@@ -9,10 +9,10 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 deletion(-)
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 38e3150b7c..b477a9ab97 100644
+index b90a27c..b998916 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -1230,7 +1230,6 @@ config VM86
+@@ -1226,7 +1226,6 @@ config VM86
  
  config X86_16BIT
  	bool "Enable support for 16-bit segments"

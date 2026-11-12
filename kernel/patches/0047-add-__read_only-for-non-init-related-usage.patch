@@ -8,7 +8,7 @@ Subject: [PATCH 047/101] add __read_only for non-init related usage
  1 file changed, 2 insertions(+)
 
 diff --git a/include/linux/cache.h b/include/linux/cache.h
-index e69768f50d..432c30a1fc 100644
+index e69768f..432c30a 100644
 --- a/include/linux/cache.h
 +++ b/include/linux/cache.h
 @@ -60,6 +60,8 @@

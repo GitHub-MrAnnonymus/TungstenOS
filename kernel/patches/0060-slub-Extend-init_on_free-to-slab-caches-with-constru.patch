@@ -18,10 +18,10 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  2 files changed, 27 insertions(+), 3 deletions(-)
 
 diff --git a/mm/slab.h b/mm/slab.h
-index 8fd6835e42..eaf5935623 100644
+index ba08da0..0116f9b 100644
 --- a/mm/slab.h
 +++ b/mm/slab.h
-@@ -916,9 +916,15 @@ static inline bool slab_want_init_on_alloc(gfp_t flags, struct kmem_cache *c)
+@@ -756,9 +756,15 @@ static inline bool slab_want_init_on_alloc(gfp_t flags, struct kmem_cache *c)
  static inline bool slab_want_init_on_free(struct kmem_cache *c)
  {
  	if (static_branch_maybe(CONFIG_INIT_ON_FREE_DEFAULT_ON,
@@ -41,10 +41,10 @@ index 8fd6835e42..eaf5935623 100644
  }
  
 diff --git a/mm/slub.c b/mm/slub.c
-index 4619d2fc9a..09a9ef41c8 100644
+index 7b00246..681492f 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -2743,6 +2743,8 @@ bool slab_free_hook(struct kmem_cache *s, void *x, bool init,
+@@ -2678,6 +2678,8 @@ bool slab_free_hook(struct kmem_cache *s, void *x, bool init,
  		 */
  		set_orig_size(s, x, orig_size);
  
@@ -53,7 +53,7 @@ index 4619d2fc9a..09a9ef41c8 100644
  	}
  	/* KASAN might put x into memory quarantine, delaying its reuse. */
  	return !kasan_slab_free(s, x, init, still_accessible, false);
-@@ -2786,6 +2788,22 @@ bool slab_free_freelist_hook(struct kmem_cache *s, void **head, void **tail,
+@@ -2721,6 +2723,22 @@ bool slab_free_freelist_hook(struct kmem_cache *s, void **head, void **tail,
  			 * accordingly if object's reuse is delayed.
  			 */
  			--(*cnt);

@@ -9,7 +9,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/security/Kconfig.hardening b/security/Kconfig.hardening
-index 81c81ad983..a838119fd0 100644
+index 6923036..8fea4f5 100644
 --- a/security/Kconfig.hardening
 +++ b/security/Kconfig.hardening
 @@ -221,6 +221,7 @@ config FORTIFY_SOURCE

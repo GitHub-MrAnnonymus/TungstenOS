@@ -14,7 +14,7 @@ Subject: [PATCH 049/101] Revert "mark kernel_set_to_readonly as
  2 files changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
-index 2734208acd..0908c44d51 100644
+index 2734208..0908c44 100644
 --- a/arch/x86/mm/init_32.c
 +++ b/arch/x86/mm/init_32.c
 @@ -718,7 +718,7 @@ void __init mem_init(void)
@@ -41,10 +41,10 @@ index 2734208acd..0908c44d51 100644
  	pr_info("Testing CPA: Reverting %lx-%lx\n", start, start + size);
  	set_pages_rw(virt_to_page(start), size >> PAGE_SHIFT);
 diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
-index 93edf4e0ce..70e6821802 100644
+index 7c6bd72..d57f29c 100644
 --- a/arch/x86/mm/init_64.c
 +++ b/arch/x86/mm/init_64.c
-@@ -1354,7 +1354,7 @@ void __init mem_init(void)
+@@ -1400,7 +1400,7 @@ void __init mem_init(void)
  	preallocate_vmalloc_pages();
  }
  
@@ -53,7 +53,7 @@ index 93edf4e0ce..70e6821802 100644
  
  void mark_rodata_ro(void)
  {
-@@ -1367,9 +1367,10 @@ void mark_rodata_ro(void)
+@@ -1413,9 +1413,10 @@ void mark_rodata_ro(void)
  
  	printk(KERN_INFO "Write protecting the kernel read-only data: %luk\n",
  	       (end - start) >> 10);

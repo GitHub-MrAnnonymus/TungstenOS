@@ -8,7 +8,7 @@ Subject: [PATCH 089/101] enable BPF JIT hardening by default (if available)
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 7f11555a50..59835547b9 100644
+index 5ec94c3..4459ecf 100644
 --- a/kernel/bpf/core.c
 +++ b/kernel/bpf/core.c
 @@ -549,7 +549,7 @@ void bpf_prog_kallsyms_del_all(struct bpf_prog *fp)
