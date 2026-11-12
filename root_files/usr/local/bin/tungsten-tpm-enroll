@@ -5,6 +5,8 @@
 set -euo pipefail
 [ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }
 PCRLOCK=/usr/lib/systemd/systemd-pcrlock
+# pcrlock's default PCRs without 1, 5 and 15 (see systemd-pcrlock-make-policy.service.d).
+PCRS=0+2+3+4+7+11+13+14
 POLICY=/var/lib/systemd/pcrlock.json
 DEV=/dev/disk/by-partlabel/root
 case "${1:-}" in
@@ -45,14 +47,14 @@ if [ -e "$POLICY" ]; then
   # recovery PIN shown at the first enrollment. --force: make-policy compares the new
   # prediction only with pcrlock.json and skips the TPM write if they are identical, but
   # pcrlock.json can be ahead of the TPM's NV index after a failed write.
-  "$PCRLOCK" make-policy --force --policy="$POLICY" \
-    || "$PCRLOCK" make-policy --force --policy="$POLICY" --recovery-pin=query
+  "$PCRLOCK" make-policy --pcr="$PCRS" --force --policy="$POLICY" \
+    || "$PCRLOCK" make-policy --pcr="$PCRS" --force --policy="$POLICY" --recovery-pin=query
 else
   echo ">>> Creating the pcrlock policy. Store the recovery PIN shown below; it is"
   echo ">>> needed to update the policy if the TPM state ever stops matching."
-  "$PCRLOCK" make-policy --policy="$POLICY" --recovery-pin=show
+  "$PCRLOCK" make-policy --pcr="$PCRS" --policy="$POLICY" --recovery-pin=show
 fi
-"$PCRLOCK" predict
+"$PCRLOCK" predict --pcr="$PCRS"
 
 meta=$(cryptsetup luksDump --dump-json-metadata "$DEV")
 non_tpm=$(jq '[.tokens[] | select(.type == "systemd-tpm2") | .keyslots[]] as $tpm
