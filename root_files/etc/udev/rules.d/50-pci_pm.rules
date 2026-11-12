@@ -1,1 +1,6 @@
-SUBSYSTEM=="pci", ATTR{power/control}="auto"
+# Runtime power management for PCI devices (the kernel default is "on": never suspend).
+# Not for network controllers (class 0x02xxxx): an Intel AX210 suspended between probe and
+# first use fell off the bus when NetworkManager brought it up (AER, all registers
+# 0xffffffff, "Failed to start RT ucode: -110") on every boot, and many Ethernet chips
+# misbehave the same way. Their drivers do their own power saving while up.
+SUBSYSTEM=="pci", ATTR{class}!="0x02*", ATTR{power/control}="auto"
