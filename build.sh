@@ -210,10 +210,18 @@ semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/lib/systemd/systemd-pcrlock
 semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/bin/Xwayland
 # Local /etc changes live in the overlay's upper directory on the root partition.
 semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
+# udisks mounts in /run/media/<user>, refpolicy labels only /media: there /run/media got
+# var_run_t and the user's folder udisks' own runtime type, which the session may not even
+# look at (dontaudit). As /media, both are mnt_t (the session may list them, udisks may
+# create and mount on them; tungsten-selinux.conf creates /run/media labeled at boot).
+semanage fcontext -N -S "$POLICY" -a -e /media /run/media
 # logind reads boot loader entries on the ESP (reboot into a chosen entry).
 semanage boolean -N -S "$POLICY" -m --on systemd_logind_get_bootloader
 # The compositor (user_t) maps GPU buffers.
 semanage boolean -N -S "$POLICY" -m --on xserver_allow_dri
+# The session may write to USB sticks and other file systems without SELinux labels (FAT,
+# exFAT, NTFS); without it, only reading. Nothing on them can be executed.
+semanage boolean -N -S "$POLICY" -m --on user_rw_noexattrfile
 # systemd-tmpfiles creates the directories of /var (libvirt, AccountsService, udisks2,
 # xkb, the greeter's cache, ...) on a fresh root partition: each package's tmpfiles.d
 # entry needs the target type, which refpolicy grants only per service.
