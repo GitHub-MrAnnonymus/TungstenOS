@@ -9,10 +9,10 @@ Subject: [PATCH 044/101] kconfig: enable RANDOMIZE_KSTACK_OFFSET_DEFAULT by
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/Kconfig b/arch/Kconfig
-index bf9b5af..f51e039 100644
+index 4ea9fa84b0..f76851c49c 100644
 --- a/arch/Kconfig
 +++ b/arch/Kconfig
-@@ -1564,6 +1564,7 @@ config RANDOMIZE_KSTACK_OFFSET
+@@ -1581,6 +1581,7 @@ config RANDOMIZE_KSTACK_OFFSET
  config RANDOMIZE_KSTACK_OFFSET_DEFAULT
  	bool "Default state of kernel stack offset randomization"
  	depends on RANDOMIZE_KSTACK_OFFSET

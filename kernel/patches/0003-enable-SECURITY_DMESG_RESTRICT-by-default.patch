@@ -9,7 +9,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/security/Kconfig b/security/Kconfig
-index f7bf6cd..3d5c65d 100644
+index f7bf6cdc62..3d5c65d2ca 100644
 --- a/security/Kconfig
 +++ b/security/Kconfig
 @@ -9,7 +9,7 @@ source "security/keys/Kconfig"

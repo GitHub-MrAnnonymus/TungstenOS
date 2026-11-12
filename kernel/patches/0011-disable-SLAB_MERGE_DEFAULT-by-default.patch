@@ -8,10 +8,10 @@ Subject: [PATCH 011/101] disable SLAB_MERGE_DEFAULT by default
  1 file changed, 1 deletion(-)
 
 diff --git a/mm/Kconfig b/mm/Kconfig
-index 657039a..4274a8d 100644
+index 10057a46bc..613e907d0d 100644
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
-@@ -189,7 +189,6 @@ config SLUB_TINY
+@@ -185,7 +185,6 @@ config SLUB_TINY
  
  config SLAB_MERGE_DEFAULT
  	bool "Allow slab caches to be merged"

@@ -9,7 +9,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/security/Kconfig.hardening b/security/Kconfig.hardening
-index ba4e316..d894025 100644
+index 3550eb11a1..82bde0973d 100644
 --- a/security/Kconfig.hardening
 +++ b/security/Kconfig.hardening
 @@ -214,6 +214,7 @@ menu "Bounds checking"

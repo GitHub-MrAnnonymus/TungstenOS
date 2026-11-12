@@ -8,7 +8,7 @@ Subject: [PATCH 090/101] enable protected_{fifos,regular} by default
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/fs/namei.c b/fs/namei.c
-index 750f6d9..e7cbdd0 100644
+index a943ee5ccb..e0056495ad 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -1203,8 +1203,8 @@ static inline void put_link(struct nameidata *nd)

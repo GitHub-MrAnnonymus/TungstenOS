@@ -13,7 +13,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  3 files changed, 20 insertions(+)
 
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index d7aac9d..e998775 100644
+index d7aac9de1c..e998775fca 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -356,6 +356,13 @@ static inline bool tag_clear_highpages(struct page *page, int numpages,
@@ -31,10 +31,10 @@ index d7aac9d..e998775 100644
   * If we pass in a base or tail page, we can zero up to PAGE_SIZE.
   * If we pass in a head page, we can zero up to the size of the compound page.
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 73645d2..ab8c685 100644
+index 12fac9084c..9b8c4067bd 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
-@@ -1826,6 +1826,12 @@ inline void post_alloc_hook(struct page *page, unsigned int order,
+@@ -1838,6 +1838,12 @@ inline void post_alloc_hook(struct page *page, unsigned int order,
  	 */
  	kernel_unpoison_pages(page, 1 << order);
  
@@ -48,7 +48,7 @@ index 73645d2..ab8c685 100644
  	 * As memory initialization might be integrated into KASAN,
  	 * KASAN unpoisoning and memory initialization code must be
 diff --git a/security/Kconfig.hardening b/security/Kconfig.hardening
-index c80ad0b..61251f3 100644
+index 06459c66ea..5c40c2d37e 100644
 --- a/security/Kconfig.hardening
 +++ b/security/Kconfig.hardening
 @@ -209,6 +209,13 @@ config ZERO_CALL_USED_REGS
