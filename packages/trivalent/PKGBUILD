@@ -2,9 +2,9 @@
 # the signed repository metadata and pins the RPM checksum.
 
 pkgname=trivalent
-pkgver=157.0.8103.50
-_rpmrel=448571
-pkgrel=2
+pkgver=157.0.8103.78
+_rpmrel=448613
+pkgrel=1
 pkgdesc='Hardened Chromium for desktop Linux by secureblue (repackaged RPM)'
 arch=(x86_64)
 url='https://github.com/secureblue/Trivalent'
@@ -19,7 +19,7 @@ optdepends=('pipewire: WebRTC screen sharing under Wayland')
 options=(!strip !debug)
 source=("https://repo.secureblue.dev/Packages/trivalent-${pkgver}-${_rpmrel}.x86_64.rpm")
 noextract=("trivalent-${pkgver}-${_rpmrel}.x86_64.rpm")
-sha256sums=('a2470fc3ceebfaca6472efa6dfad21462233dbae40897142b8eb16da8722c8d0')
+sha256sums=('cfa245beee7e1f4241696700e24916f6418607d515872ef677b977168eec5e67')
 
 prepare() {
   rm -rf root && mkdir root
