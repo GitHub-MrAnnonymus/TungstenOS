@@ -191,10 +191,11 @@ while :; do
   # homed's default allocates most of the free space to the home's image up front: Flatpak,
   # the journal and the rest of /var share the root partition and would be left with almost
   # nothing ("No space left on device" on the first large Flatpak). Half for the home, fixed
-  # (homectl resize changes it).
+  # (homectl resize changes it). The usbguard group lets usbguard-notifier watch devices
+  # and read the rules (read-only: /etc/usbguard/IPCAccessControl.d/:usbguard).
   create_home "Creating $user…" "$user_pw" "$user" "${args[@]}" \
     --storage=luks --noexec=yes --shell=/usr/bin/zsh --disk-size=50% --rebalance-weight=off \
-    "${LIMITS[@]}" && break
+    --member-of=usbguard "${LIMITS[@]}" && break
 done
 unset admin_pw user_pw
 
