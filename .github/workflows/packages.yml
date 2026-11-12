@@ -238,17 +238,22 @@ jobs:
           # rebuild of a version that is already published is dropped (only a new
           # version publishes new bytes). Debug packages are skipped.
           rm -f repo/*-debug-*.pkg.tar.zst*
+          : > built.txt
           find new -name '*.pkg.tar.zst' ! -name '*-debug-*' -print0 | while IFS= read -r -d '' p; do
+            echo "$(basename "$p")" >> built.txt
             if [ -e "repo/$(basename "$p")" ]; then
               echo "already published, keeping it: $(basename "$p")"; continue
             fi
             gpg --batch --yes --local-user "$KEY" --detach-sign --output "$p.sig" "$p"
             mv -f "$p" "$p.sig" repo/
           done
+          mv built.txt repo/.built.txt
           cd repo
-          # Only the newest version of each package stays. repo-add takes its arguments in
-          # name order, where 7.2.10 sorts before 7.2.8, and would let the older version
-          # replace (and with --remove delete) the newer one.
+          # One version of each package stays: the one built in this run (the PKGBUILD in
+          # git is the truth, so going back to an older version is a commit), otherwise the
+          # newest. repo-add takes its arguments in name order, where 7.2.10 sorts before
+          # 7.2.8, and would let the older version replace (and with --remove delete) the
+          # newer one.
           declare -A newest
           for p in ./*.pkg.tar.zst; do
             info=$(bsdtar -xOf "$p" .PKGINFO)
@@ -256,7 +261,17 @@ jobs:
             ver=$(sed -n 's/^pkgver = //p' <<<"$info")
             if [ -z "${newest[$name]:-}" ]; then newest[$name]="$ver $p"; continue; fi
             read -r best bestfile <<<"${newest[$name]}"
-            if [ "$(vercmp "$ver" "$best")" -gt 0 ]; then
+            built=0; grep -qxF "$(basename "$p")" .built.txt && built=1
+            best_built=0; grep -qxF "$(basename "$bestfile")" .built.txt && best_built=1
+            if [ "$built" != "$best_built" ]; then
+              if [ "$built" = 1 ]; then
+                echo "replacing $(basename "$bestfile") with $(basename "$p") (built in this run)"
+                rm -f "$bestfile" "$bestfile.sig"; newest[$name]="$ver $p"
+              else
+                echo "keeping $(basename "$bestfile") (built in this run) over $(basename "$p")"
+                rm -f "$p" "$p.sig"
+              fi
+            elif [ "$(vercmp "$ver" "$best")" -gt 0 ]; then
               echo "replacing $(basename "$bestfile") with $(basename "$p")"
               rm -f "$bestfile" "$bestfile.sig"; newest[$name]="$ver $p"
             else
@@ -264,6 +279,7 @@ jobs:
               rm -f "$p" "$p.sig"
             fi
           done
+          rm -f .built.txt
           # Rebuilt from the files present, so the database always matches them.
           rm -f tungsten.db.tar.zst tungsten.files.tar.zst
           repo-add --remove --sign --key "$KEY" tungsten.db.tar.zst ./*.pkg.tar.zst

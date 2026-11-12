@@ -2,9 +2,6 @@
 # NVIDIA modules are built here so they are signed with this build's module key.
 
 pkgbase=linux-tungsten
-# epoch: 7.3.1 was built from a 7.2 config.base (Arch had no 7.3 linux-hardened yet) and
-# left a laptop with a black screen; back on 7.2, which must sort above the published 7.3.1.
-epoch=1
 pkgver=7.2.13
 _nvver=615.78.08
 pkgrel=1
@@ -251,7 +248,7 @@ _package-headers() {
 
 _package-nvidia-open() {
   pkgdesc="NVIDIA open GPU kernel modules for the $pkgdesc kernel"
-  depends=("$pkgbase=${epoch:+$epoch:}$pkgver-$pkgrel" "nvidia-utils=${_nvver}" libglvnd)
+  depends=("$pkgbase=$pkgver-$pkgrel" "nvidia-utils=${_nvver}" libglvnd)
   provides=(NVIDIA-MODULE nvidia-open)
   conflicts=(nvidia-open nvidia-open-dkms)
   license=('MIT AND GPL-2.0-only')
