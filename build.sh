@@ -135,6 +135,10 @@ set_toml blocked_query_response "'refused'"
 set_toml dnscrypt_ephemeral_keys true
 set_toml block_ipv6 true
 set_toml skip_incompatible true
+# Wait for the network as long as it takes (default: 60 s). After giving up it retries only
+# at the next certificate refresh, hours later: a Wi-Fi card that came up late left the
+# system without DNS until dnscrypt-proxy was restarted.
+set_toml netprobe_timeout -1
 
 # The only keyring systemd-sysupdate trusts.
 install -Dm644 "$SRC"/keys/tungsten.pgp "$WORKDIR"/usr/lib/systemd/import-pubring.pgp
