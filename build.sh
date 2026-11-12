@@ -59,7 +59,7 @@ PACKAGES=(
   # Desktop
   plymouth greetd greetd-dms-greeter flatpak
   hyprland uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dux-shell quickshell qtengine
-  matugen polkit alacritty zsh nautilus nwg-look adw-gtk-theme kdeconnect papirus-icon-theme
+  matugen polkit alacritty zsh dux-files nwg-look adw-gtk-theme kdeconnect papirus-icon-theme
   # zsh (/etc/skel/.zshrc): plugins and prompt from the image, not downloaded into homes
   zsh-completions zsh-autosuggestions zsh-syntax-highlighting fzf-tab fzf zoxide atuin oh-my-posh
   ttf-manrope ttf-jetbrains-mono  # UI and monospace fonts (fontconfig: 50-tungsten-fonts.conf)

@@ -27,7 +27,7 @@ hl.bind("SUPER + CTRL + SHIFT + Right", hl.dsp.window.move({ workspace = "e+1" }
 hl.unbind("SUPER + CTRL + down")
 hl.bind("SUPER + CTRL + down", hl.dsp.window.move({ workspace = "+1", follow = false }), { description = "Move to Next (silent)" })
 hl.unbind("SUPER + E")
-hl.bind("SUPER + E", hl.dsp.exec_cmd("uwsm-app -- nautilus"), { description = "nautilus" })
+hl.bind("SUPER + E", hl.dsp.exec_cmd("uwsm-app -- dfiles"), { description = "Files" })
 hl.unbind("SUPER + T")
 hl.bind("SUPER + T", hl.dsp.exec_cmd("uwsm-app -- alacritty"), { description = "Alacritty" })
 hl.unbind("SUPER + W")
