@@ -1,0 +1,46 @@
+# Built from source; not in Arch's repositories (the AUR has prebuilt binaries only).
+# Tags are unsigned: pinned by commit.
+
+pkgname=dux-files
+pkgver=2.1.2
+_commit=994e99772f78e52dc4b8cb9b947c95159252be10  # tag v2.1.2
+pkgrel=1
+pkgdesc='Dux Files: file manager and portal file chooser in the Dux Shell style'
+arch=(x86_64)
+url='https://github.com/duxlabs-dev/dux-files'
+license=(MIT)
+depends=(quickshell qt6-declarative udisks2)
+makedepends=(git go)
+provides=(dfiles)
+source=("git+https://github.com/duxlabs-dev/dux-files.git#commit=${_commit}"
+        "git+https://github.com/duxlabs-dev/dux-qml-common.git")
+sha256sums=('SKIP' 'SKIP')
+
+prepare() {
+  cd dux-files
+  git submodule init
+  # The submodule is still named dank-qml-common in .gitmodules (path dux-qml-common).
+  git config submodule.dank-qml-common.url "$srcdir/dux-qml-common"
+  git -c protocol.file.allow=always submodule update
+}
+
+build() {
+  cd dux-files/core
+  # The QML UI is embedded in the binary (make build: -tags withshell). PIE as Arch's Go
+  # package guidelines ask.
+  export CGO_ENABLED=0 GOTOOLCHAIN=local GOPATH="$srcdir/gopath"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  make build VERSION="$pkgver" COMMIT="${_commit:0:8}" \
+    BUILD_TIME="$(date -u -d "@${SOURCE_DATE_EPOCH:-0}" '+%Y-%m-%d_%H:%M:%S')"
+}
+
+package() {
+  cd dux-files
+  # As upstream's make install with PREFIX=/usr, without the polkit action: it runs dfiles
+  # through pkexec, which TungstenOS does not have. The user service goes to the system's
+  # user unit directory instead of ~/.config.
+  make PREFIX=/usr DESTDIR="$pkgdir" install-bin install-icon install-desktop \
+    install-metainfo install-dbus install-portal
+  install -Dm644 assets/systemd/dfiles.service "$pkgdir/usr/lib/systemd/user/dfiles.service"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
