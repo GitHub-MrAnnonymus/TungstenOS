@@ -340,6 +340,12 @@ optional_policy(`
 	allow chromium_t user_tmp_t:sock_file write;
 	allow chromium_t user_tmpfs_t:file { getattr map read };
 	allow chromium_t user_t:file { getattr open read };
+	# GPU acceleration: Mesa and Chromium identify the GPU from sysfs (PCI vendor and
+	# device of /sys/dev/char/226:*, the device list of udev). refpolicy grants that only with
+	# the chromium_read_system_info tunable (which also opens /proc state and the machine
+	# ID) and hides the refusal: without it Mesa loads no driver, the GPU process exits
+	# and Trivalent renders in software.
+	dev_read_sysfs(chromium_t)
 ')
 
 optional_policy(`

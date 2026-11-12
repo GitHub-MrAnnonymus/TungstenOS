@@ -156,11 +156,19 @@ systemd-repart --dry-run=no --empty=force --definitions="$DEFS" \
   --key-file="$keyfile" --offline="$OFFLINE" "$DISK"
 shred -u "$keyfile"
 DEV=$DISK
-[ "$VM" = 1 ] && { DEV=$(losetup --show -fP "$DISK"); udevadm settle; }
+[ "$VM" = 1 ] && DEV=$(losetup --show -fP "$DISK")
+# The kernel knows the new partitions at once, but their device nodes come from udev a
+# moment later: mounting right away fails ("Can't lookup blockdev").
+udevadm settle
+# From the partition table itself (by the ESP's type GUID): lsblk's PARTTYPENAME comes
+# from udev's database and can be empty on the live ISO, and mount "" fails the same way.
+esp_part=$(sfdisk -d "$DEV" | awk -F' : ' 'toupper($2) ~ /TYPE=C12A7328-F81F-11D2-BA4B-00A0C93EC93B/ {print $1; exit}')
+[ -n "$esp_part" ] || { echo "No EFI system partition on $DEV after partitioning" >&2; sfdisk -d "$DEV" >&2; exit 1; }
+udevadm wait --timeout=30 "$esp_part"
 
 # The first UKI gets boot counting, as sysupdate does.
 ESP=$(mktemp -d)
-mount "$(lsblk -lnpo NAME,PARTTYPENAME "$DEV" | awk '/EFI System/ {print $1; exit}')" "$ESP"
+mount "$esp_part" "$ESP"
 install -Dm644 "$BOOT" "$ESP/EFI/systemd/systemd-bootx64.efi"
 install -Dm644 "$BOOT" "$ESP/EFI/BOOT/BOOTX64.EFI"
 install -Dm444 "$UKI" "$ESP/EFI/Linux/${IMAGE_ID}_${VER}+3-0.efi"
