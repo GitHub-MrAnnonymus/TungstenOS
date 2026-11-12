@@ -86,12 +86,16 @@ systemd_read_logind_runtime_files(user_t)
 # Hyprland replaces a stale Xwayland socket in /tmp/.X11-unix.
 allow user_t xdm_tmp_t:sock_file { getattr setattr unlink };
 
-# udisks takes the cryptsetup lock in /run/cryptsetup.
+# udisks takes the cryptsetup lock in /run/cryptsetup. It records the mount points it
+# creates in /run/mount/utab, which libmount replaces through a lock and a temporary file;
+# refpolicy only allows writing existing files there. Unrecorded, the mount point stayed
+# behind after unmounting, and the next mount got a new one (Ventoy, Ventoy1, ...).
 optional_policy(`
 	gen_require(`
 		type devicekit_disk_t;
 	')
 	lvm_manage_runtime_files(devicekit_disk_t)
+	mount_manage_runtime_files(devicekit_disk_t)
 ')
 
 # Trivalent's launcher starts the browser through bwrap (to hide ld.so.preload);
