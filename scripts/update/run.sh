@@ -29,10 +29,13 @@ open_pr() {
     echo "  pull request for $b is already up to date"
   else
     git push -q -f origin "$b"
+    # Assigned to the repository owner: GitHub notifies (and emails) about pull requests
+    # only those taking part, and a bot's pull request otherwise involves nobody.
+    local owner=${GITHUB_REPOSITORY_OWNER:-}
     if gh pr view "$b" --json state -q .state 2>/dev/null | grep -qx OPEN; then
-      gh pr edit "$b" --title "$title" --body "$body" >/dev/null
+      gh pr edit "$b" --title "$title" --body "$body" ${owner:+--add-assignee "$owner"} >/dev/null
     else
-      gh pr create --base "$BRANCH" --head "$b" --title "$title" --body "$body" >/dev/null
+      gh pr create --base "$BRANCH" --head "$b" --title "$title" --body "$body" ${owner:+--assignee "$owner"} >/dev/null
     fi
     echo "  pull request: $b"
   fi
