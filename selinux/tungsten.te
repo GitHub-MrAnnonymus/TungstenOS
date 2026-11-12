@@ -86,6 +86,15 @@ systemd_read_logind_runtime_files(user_t)
 # Hyprland replaces a stale Xwayland socket in /tmp/.X11-unix.
 allow user_t xdm_tmp_t:sock_file { getattr setattr unlink };
 
+# WirePlumber opens the cameras for PipeWire (the camera portal, browsers, video calls).
+optional_policy(`
+	gen_require(`
+		type wireplumber_t;
+	')
+	dev_read_video_dev(wireplumber_t)
+	dev_write_video_dev(wireplumber_t)
+')
+
 # udisks takes the cryptsetup lock in /run/cryptsetup. It records the mount points it
 # creates in /run/mount/utab, which libmount replaces through a lock and a temporary file;
 # refpolicy only allows writing existing files there. Unrecorded, the mount point stayed
@@ -1133,6 +1142,8 @@ gen_require(`
 ')
 allow user_systemd_tmpfiles_t systemd_user_runtime_t:dir { manage_dir_perms relabelfrom relabelto };
 allow user_systemd_tmpfiles_t systemd_user_runtime_t:lnk_file { manage_lnk_file_perms relabelfrom relabelto };
+# It stats the sockets it passes on the way ($XDG_RUNTIME_DIR/systemd/io.systemd.Manager).
+allow user_systemd_tmpfiles_t systemd_user_runtime_t:sock_file getattr;
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:dir { manage_dir_perms relabelfrom relabelto };
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:{ file lnk_file } { manage_file_perms relabelfrom relabelto };
 # dconf's change notification file ($XDG_RUNTIME_DIR/dconf/user, tungsten-dconf.conf):
