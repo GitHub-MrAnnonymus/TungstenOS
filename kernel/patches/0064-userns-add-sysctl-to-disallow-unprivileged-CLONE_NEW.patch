@@ -41,7 +41,7 @@ index 9c3be15..bb05d4a 100644
  {
  	return &init_user_ns;
 diff --git a/kernel/fork.c b/kernel/fork.c
-index 8544481..95f6cc7 100644
+index 00159e2..1f74b46 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -85,6 +85,7 @@
@@ -52,7 +52,7 @@ index 8544481..95f6cc7 100644
  #include <linux/oom.h>
  #include <linux/khugepaged.h>
  #include <linux/signalfd.h>
-@@ -2014,6 +2015,10 @@ __latent_entropy struct task_struct *copy_process(
+@@ -2015,6 +2016,10 @@ __latent_entropy struct task_struct *copy_process(
  	if ((clone_flags & (CLONE_NEWUSER|CLONE_FS)) == (CLONE_NEWUSER|CLONE_FS))
  		return ERR_PTR(-EINVAL);
  
@@ -63,7 +63,7 @@ index 8544481..95f6cc7 100644
  	/*
  	 * Thread groups must share signals as well, and detached threads
  	 * can only be started up within the thread group.
-@@ -3251,6 +3256,12 @@ int ksys_unshare(unsigned long unshare_flags)
+@@ -3258,6 +3263,12 @@ int ksys_unshare(unsigned long unshare_flags)
  	if (unshare_flags & CLONE_NEWNS)
  		unshare_flags |= CLONE_FS;
  
