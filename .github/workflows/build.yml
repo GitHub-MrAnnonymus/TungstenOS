@@ -28,12 +28,32 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.v.outputs.tag }}
+      skip: ${{ steps.skip.outputs.skip }}
     steps:
       - id: v
         run: echo "tag=$(date -u +'%Y%m%d%H%M')" >> "$GITHUB_OUTPUT"
+      # A push that also changes packages or the kernel starts the package build, which
+      # starts this workflow once the packages are published. Building now would race it
+      # (a new package is not in the repo yet) or ship the old ones.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'push'
+        with: { fetch-depth: 0 }
+      - id: skip
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          skip=false
+          if [[ ! $BEFORE =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null &&
+             git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE '^(packages|kernel)/'; then
+            skip=true
+            echo "Packages or the kernel changed too: the package build starts the image build."
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
   build:
     needs: version
+    if: needs.version.outputs.skip != 'true'
     # Signing secrets live in the 'release' environment, which only master can use.
     environment: release
     runs-on: ubuntu-latest
