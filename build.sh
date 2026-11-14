@@ -8,6 +8,20 @@ set -euo pipefail
 : "${OS_BUILD_TAG:?}" "${UPDATE_URL:?}" "${TUNGSTEN_REPO:?}" "${SB_DIR:?}"
 
 SRC="$(cd "$(dirname -- "$0")" && pwd)"
+# Build time per phase, in the log and at the end (GitHub: also the job summary).
+PHASE_NAME= PHASE_START=$SECONDS PHASES=()
+phase() {
+  [ -z "$PHASE_NAME" ] || PHASES+=("$(printf '%5ds  %s' $((SECONDS - PHASE_START)) "$PHASE_NAME")")
+  PHASE_NAME=$1 PHASE_START=$SECONDS
+  [ -z "$1" ] || echo "=== $1"
+}
+phase_summary() {
+  phase ""
+  printf 'Build phases:\n'; printf '  %s\n' "${PHASES[@]}"
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    { echo '### Image build phases'; echo '```'; printf '%s\n' "${PHASES[@]}"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+  fi
+}
 # The public half of the PCR signing key: the release key, or a development key.
 PCR_PUB=$SRC/keys/tpm2-pcr-public-key.pem
 [ -f "$SB_DIR"/tpm2-pcr-public-key.pem ] && PCR_PUB=$SB_DIR/tpm2-pcr-public-key.pem
@@ -28,6 +42,7 @@ umount -R "$WORKDIR" 2>/dev/null || :
 rm -rf "$WORKDIR" "$EXTDIR" "$OUT" && mkdir -p "$WORKDIR" "$EXTDIR" "$OUT"
 
 # --- Packages ---
+phase "Packages"
 # [tungsten] goes first so its packages win over same-named providers.
 PACMAN_CONF=/tmp/pacman-tungsten.conf
 awk -v repo="$TUNGSTEN_REPO" '
@@ -99,6 +114,7 @@ pacman --config "$PACMAN_CONF" --root "$WORKDIR" -Sl tungsten | grep -c '^tungst
   || { echo "quickshell is not the patched [tungsten] build; update packages/quickshell" >&2; exit 1; }
 
 # --- Configuration ---
+phase "Configuration"
 cp -r "$SRC"/root_files/. "$WORKDIR"/
 chmod 600 "$WORKDIR"/etc/crypttab   # as Arch's filesystem package ships it
 # gnome-keyring creates ~/.local/share/keyrings on the first login; without ~/.local it
@@ -166,6 +182,7 @@ AUDIT_ALL=${TUNGSTEN_AUDIT_ALL:-0}
 if [ "$AUDIT_ALL" = 1 ] && [ "${UPDATE_URL:-}" != https://tungsten.invalid/ ]; then
   echo "TUNGSTEN_AUDIT_ALL is for development builds only" >&2; exit 1
 fi
+phase "Configuration (chroot)"
 arch-chroot "$WORKDIR" /bin/bash -s "$POLICY" "$AUDIT_ALL" <<'CHROOT'
 set -euo pipefail
 POLICY=$1 AUDIT_ALL=$2
@@ -205,57 +222,69 @@ if [ "$AUDIT_ALL" = 1 ]; then
   echo "Development build: dontaudit rules disabled" >&2
   semodule -n -s "$POLICY" -DB
 fi
-# Every login account is user_u (user_r, user_t): no role change is possible from a
-# session. The administrator only authorizes: run0 gets sysadm_t from PID 1's PAM
-# session (root's context), not from the caller's SELinux user.
-semanage login -N -S "$POLICY" -m -s user_u __default__
-# /etc defaults in the image carry the labels of their /etc paths.
-semanage fcontext -N -S "$POLICY" -a -e /etc /usr/share/factory/etc
-# systemd-pcrlock runs in its caller's domain (init_t for its services, sysadm_t for
-# tungsten-tpm-enroll) instead of systemd_pcrphase_t: that domain is made for
-# systemd-pcrextend and systemd-tpm2-setup, while pcrlock also reads /var, the event log
-# and block devices and writes the ESP credential the initrd unlocks with. Refused there
-# (silently, dontaudit), the TPM got each new policy but the ESP kept the old one.
-# A local file context, as refpolicy's systemd module defines this path itself.
-semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/lib/systemd/systemd-pcrlock
-# Xwayland runs in the session's domain (user_t), like Hyprland, which starts it; local, as
-# refpolicy's wm module defines the path (wm_exec_t). user_wm_t cannot read the keymap its
-# xkbcomp (switched back to user_t) writes to /tmp ("Failed to activate virtual core
-# keyboard"), and isolates nothing: it may switch to user_t by running any program.
-semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/bin/Xwayland
-# Local /etc changes live in the overlay's upper directory on the root partition.
-semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
-# udisks mounts in /run/media/<user>, refpolicy labels only /media: there /run/media got
-# var_run_t and the user's folder udisks' own runtime type, which the session may not even
-# look at (dontaudit). As /media, both are mnt_t (the session may list them, udisks may
-# create and mount on them; tungsten-selinux.conf creates /run/media labeled at boot).
-semanage fcontext -N -S "$POLICY" -a -e /media /run/media
-# gVisor: runsc, its sidecars and the wrapper Podman calls are OCI runtimes. conmon starts
-# them back in the Podman domain (podman_user_t for rootless), as refpolicy does for crun.
-# Files only: a directory of an executable type cannot even be searched.
-for f in /usr/lib/gvisor/runsc /usr/lib/gvisor/runsc-podman '/usr/lib/gvisor/gvisor-bin/.*'; do
-  semanage fcontext -N -S "$POLICY" -a -f f -t container_engine_exec_t "$f"
-done
-# Podman's quadlet is the user manager's generator for ~/.config/containers/systemd; as
-# lib_t the user manager may not run it.
-semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/lib/podman/quadlet
-# logind reads boot loader entries on the ESP (reboot into a chosen entry).
-semanage boolean -N -S "$POLICY" -m --on systemd_logind_get_bootloader
-# The compositor (user_t) maps GPU buffers.
-semanage boolean -N -S "$POLICY" -m --on xserver_allow_dri
-# The session may write to USB sticks and other file systems without SELinux labels (FAT,
-# exFAT, NTFS); without it, only reading. Nothing on them can be executed.
-semanage boolean -N -S "$POLICY" -m --on user_rw_noexattrfile
-# systemd-tmpfiles creates the directories of /var (libvirt, AccountsService, udisks2,
-# xkb, the greeter's cache, ...) on a fresh root partition: each package's tmpfiles.d
-# entry needs the target type, which refpolicy grants only per service.
-semanage boolean -N -S "$POLICY" -m --on systemd_tmpfiles_manage_all
-# Not even root (sysadm_t) can switch to permissive, load another policy or change
-# booleans at runtime; the policy changes only with an image update. Booting with
-# enforcing=0 needs a kernel command line change, i.e. an unsigned add-on, which Secure
-# Boot rejects.
-semanage boolean -N -S "$POLICY" -m --on secure_mode_policyload
-semanage boolean -N -S "$POLICY" -m --on secure_mode_setbool
+# Local SELinux settings, imported in one transaction: every separate semanage call
+# rebuilds the whole binary policy (about 15 rebuilds before, one now).
+#
+# login: every login account is user_u (user_r, user_t): no role change is possible from
+#   a session. The administrator only authorizes: run0 gets sysadm_t from PID 1's PAM
+#   session (root's context), not from the caller's SELinux user.
+# fcontext:
+# - /etc defaults in the image carry the labels of their /etc paths.
+# - systemd-pcrlock runs in its caller's domain (init_t for its services, sysadm_t for
+#   tungsten-tpm-enroll) instead of systemd_pcrphase_t: that domain is made for
+#   systemd-pcrextend and systemd-tpm2-setup, while pcrlock also reads /var, the event
+#   log and block devices and writes the ESP credential the initrd unlocks with. Refused
+#   there (silently, dontaudit), the TPM got each new policy but the ESP kept the old
+#   one. A local file context, as refpolicy's systemd module defines this path itself.
+# - Xwayland runs in the session's domain (user_t), like Hyprland, which starts it; local,
+#   as refpolicy's wm module defines the path (wm_exec_t). user_wm_t cannot read the
+#   keymap its xkbcomp (switched back to user_t) writes to /tmp ("Failed to activate
+#   virtual core keyboard"), and isolates nothing: it may switch to user_t by running
+#   any program.
+# - Local /etc changes live in the overlay's upper directory on the root partition.
+# - udisks mounts in /run/media/<user>, refpolicy labels only /media: there /run/media got
+#   var_run_t and the user's folder udisks' own runtime type, which the session may not
+#   even look at (dontaudit). As /media, both are mnt_t (the session may list them,
+#   udisks may create and mount on them; tungsten-selinux.conf creates /run/media
+#   labeled at boot).
+# - gVisor: runsc, its sidecars and the wrapper Podman calls are OCI runtimes. conmon
+#   starts them back in the Podman domain (podman_user_t for rootless), as refpolicy does
+#   for crun. Files only: a directory of an executable type cannot even be searched.
+# - Podman's quadlet is the user manager's generator for ~/.config/containers/systemd;
+#   as lib_t the user manager may not run it.
+# boolean:
+# - systemd_logind_get_bootloader: logind reads boot loader entries on the ESP (reboot
+#   into a chosen entry).
+# - xserver_allow_dri: the compositor (user_t) maps GPU buffers.
+# - user_rw_noexattrfile: the session may write to USB sticks and other file systems
+#   without SELinux labels (FAT, exFAT, NTFS); without it, only reading. Nothing on them
+#   can be executed.
+# - systemd_tmpfiles_manage_all: systemd-tmpfiles creates the directories of /var
+#   (libvirt, AccountsService, udisks2, xkb, the greeter's cache, ...) on a fresh root
+#   partition: each package's tmpfiles.d entry needs the target type, which refpolicy
+#   grants only per service.
+# - secure_mode_policyload, secure_mode_setbool: not even root (sysadm_t) can switch to
+#   permissive, load another policy or change booleans at runtime; the policy changes
+#   only with an image update. Booting with enforcing=0 needs a kernel command line
+#   change, i.e. an unsigned add-on, which Secure Boot rejects.
+semanage import -N -S "$POLICY" <<'SEMANAGE'
+login -m -s user_u __default__
+fcontext -a -e /etc /usr/share/factory/etc
+fcontext -a -t bin_t /usr/lib/systemd/systemd-pcrlock
+fcontext -a -t bin_t /usr/bin/Xwayland
+fcontext -a -e /etc /var/lib/tungsten/etc/upper
+fcontext -a -e /media /run/media
+fcontext -a -f f -t container_engine_exec_t /usr/lib/gvisor/runsc
+fcontext -a -f f -t container_engine_exec_t /usr/lib/gvisor/runsc-podman
+fcontext -a -f f -t container_engine_exec_t '/usr/lib/gvisor/gvisor-bin/.*'
+fcontext -a -t bin_t /usr/lib/podman/quadlet
+boolean -m --on systemd_logind_get_bootloader
+boolean -m --on xserver_allow_dri
+boolean -m --on user_rw_noexattrfile
+boolean -m --on systemd_tmpfiles_manage_all
+boolean -m --on secure_mode_policyload
+boolean -m --on secure_mode_setbool
+SEMANAGE
 # run0: PID 1 runs its PAM session, so pam_selinux looks up root's context "from init_t";
 # use the admin domain instead of the user manager domain (selinux/tungsten.te).
 ctx=/etc/selinux/$POLICY/contexts/users/root
@@ -393,6 +422,7 @@ arch-chroot "$WORKDIR" /bin/bash -c '
   done; :'
 
 # --- Drop files nothing in the image can use (there is no compiler) ---
+phase "Drop files nothing in the image can use"
 rm -rf "$WORKDIR"/usr/include "$WORKDIR"/usr/src/debug \
        "$WORKDIR"/usr/share/{doc,gtk-doc,info,devhelp,gir-1.0,vala} \
        "$WORKDIR"/usr/lib/{cmake,pkgconfig} "$WORKDIR"/usr/share/pkgconfig
@@ -401,6 +431,7 @@ echo "Largest directories in /usr:"
 du -x --max-depth=3 "$WORKDIR"/usr 2>/dev/null | sort -rn | sed -n '2,21p' | numfmt --field=1 --from-unit=1024 --to=iec | sed "s#$WORKDIR##"
 
 # --- Package database: read-only in /usr, so `pacman -Q` describes exactly this image ---
+phase "Package database"
 # (sync: the repositories' package lists at build time, for -Qm/-Qn and -Si). Extensions
 # add their own packages' entries (build_extension). /var/lib/pacman stays for the
 # extension builds but is not part of the installed system.
@@ -410,6 +441,7 @@ grep -q '^#DBPath' "$WORKDIR"/etc/pacman.conf
 sed -i 's|^#DBPath.*|DBPath      = /usr/lib/pacman/|' "$WORKDIR"/etc/pacman.conf
 
 # --- Hermetic /usr: everything outside /usr is recreated from /usr on boot ---
+phase "Hermetic /usr"
 FACTORY="$WORKDIR"/usr/share/factory
 TMPFILES="$WORKDIR"/usr/lib/tmpfiles.d/tungsten-factory.conf
 rm -rf "$FACTORY" && mkdir -p "$FACTORY/var/lib"
@@ -433,6 +465,7 @@ cp -a "$WORKDIR"/etc "$FACTORY"/etc
 } > "$TMPFILES"
 
 # --- System extensions ---
+phase "System extensions"
 # Each is built on an overlay above the finished base tree, so it contains exactly the
 # files its packages add or change. Only /usr is kept.
 FC="$WORKDIR/etc/selinux/$POLICY/contexts/files/file_contexts"
@@ -510,6 +543,7 @@ build_extension() {
     > "$E"/tree/usr/lib/extension-release.d/extension-release."$name"
   umount "$E"/rw
 
+  phase "Extension $name: EROFS and verity"
   mkfs.erofs -L "$name" --mount-point=/usr --file-contexts="$FC" \
     -zzstd,level=15 -C262144 -Efragments,ztailpacking "$E"/usr.erofs "$E"/tree/usr
   printf '[Partition]\nType=usr\nCopyBlocks=%s\nVerity=data\nVerityMatchKey=usr\n' "$E"/usr.erofs > "$E"/repart.d/10-usr.conf
@@ -523,20 +557,23 @@ build_extension() {
   [[ ${EXT_HASH[$name]} =~ ^[0-9a-f]{64}$ ]] || { echo "$name: no verity root hash" >&2; exit 1; }
   echo "$name extension hash: ${EXT_HASH[$name]}"
 }
-for e in "${EXTENSIONS[@]}"; do build_extension "$e"; done
+for e in "${EXTENSIONS[@]}"; do phase "Extension $e: packages and tree"; build_extension "$e"; done
 
 # --- Bootloader (installed to the ESP by systemd-boot-update.service) ---
+phase "Bootloader"
 sbsign --key "$SB_DIR"/db.key --cert "$SB_DIR"/db.pem \
   --output "$WORKDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed \
   "$WORKDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi
 cp "$WORKDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed "$OUT/${IMAGE_ID}_${OS_BUILD_TAG}.systemd-bootx64.efi"
 
 # --- /usr image and verity ---
+phase "/usr EROFS"
 USR_IMG=/tmp/usr.erofs
 VERITY_IMG=/tmp/usr.verity
 mkfs.erofs -L "${OS_BUILD_TAG}" --mount-point=/usr --file-contexts="$FC" \
   -zzstd,level=15 -C262144 -Efragments,ztailpacking "$USR_IMG" "$WORKDIR/usr"
 
+phase "/usr verity"
 VERITY_HASH=$(veritysetup format "$USR_IMG" "$VERITY_IMG" | awk '/Root hash:/ {print $3}')
 [ "${#VERITY_HASH}" -eq 64 ] || { echo "Failed to extract verity root hash"; exit 1; }
 # Partition UUIDs derive from the root hash (Discoverable Partitions Spec).
@@ -553,6 +590,7 @@ done
 ls -lh "$OUT"
 
 # --- IPE policy (initramfs only, as it embeds the verity hash) ---
+phase "IPE policy"
 mkdir -p "$WORKDIR"/etc/ipe_setup
 cat > "$WORKDIR"/etc/ipe_setup/hardened.policy <<EOF
 policy_name=hardened policy_version=0.0.0
@@ -577,6 +615,7 @@ openssl smime -sign -in "$WORKDIR"/etc/ipe_setup/hardened.policy \
 arch-chroot "$WORKDIR" mkinitcpio -p linux-tungsten
 
 # --- UKI ---
+phase "UKI"
 BOOT="$WORKDIR"/boot
 CMDLINE=(
   # Boot: verified /usr, encrypted writable root
@@ -640,3 +679,4 @@ sbsign --key "$SB_DIR"/db.key --cert "$SB_DIR"/db.pem \
 
 rm -rf /tmp/ucode.img /tmp/uki.efi /tmp/boot-log.addon.efi "$PACMAN_CONF" "$SEBUILD" "$EXTDIR"
 ls -lh "$OUT"
+phase_summary
