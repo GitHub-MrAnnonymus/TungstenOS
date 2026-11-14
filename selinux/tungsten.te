@@ -1504,6 +1504,12 @@ allow user_t tungsten_guard_runtime_t:dir { list_dir_perms watch };
 allow user_t tungsten_guard_runtime_t:file watch;
 # guard-execwatch reads the audit log with ausearch.
 logging_read_audit_log(init_t)
+# The USB port lock (usb-lock) also runs from udev (relock after an unplug) and writes its
+# state for the widget there.
+gen_require(`
+	type udev_t;
+')
+manage_files_pattern(udev_t, tungsten_guard_runtime_t, tungsten_guard_runtime_t)
 
 # tungsten-secureboot-update (init_t): appends signed updates to db/dbx in efivarfs and
 # toggles the immutable flag around the write (FS_IOC_SETFLAGS).

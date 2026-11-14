@@ -1,0 +1,11 @@
+// The active local session may lock and unlock the empty external USB ports
+// (tungsten-usb-lock.service) without a password: from Tungsten Guard, and automatically
+// with the screen lock. Someone at the unlocked session could plug devices in anyway.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "tungsten-usb-lock.service" &&
+        (action.lookup("verb") == "start" || action.lookup("verb") == "stop") &&
+        subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});

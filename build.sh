@@ -176,7 +176,7 @@ systemctl enable \
   greetd NetworkManager firewalld usbguard tungsten-usbguard-init dnscrypt-proxy ntpd-rs \
   systemd-homed systemd-homed-firstboot auditd power-profiles-daemon \
   tungsten-relabel tungsten-clear-console tungsten-sysext-sysusers \
-  tungsten-guard-check.timer tungsten-guard-execwatch fwupd-refresh.timer tungsten-secureboot-update tungsten-wifi-recover \
+  tungsten-guard-check.timer tungsten-guard-execwatch fwupd-refresh.timer tungsten-secureboot-update tungsten-wifi-recover tungsten-usb-lock-status \
   systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-flatpak-update.timer \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \

@@ -1,0 +1,11 @@
+# Writes the USB port state for Tungsten Guard at boot (/run/tungsten-guard/usb.json).
+[Unit]
+Description=USB port lock state for Tungsten Guard
+After=systemd-tmpfiles-setup.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/tungsten/usb-lock status
+
+[Install]
+WantedBy=multi-user.target

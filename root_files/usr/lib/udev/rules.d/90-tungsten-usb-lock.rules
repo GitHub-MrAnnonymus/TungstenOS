@@ -1,0 +1,3 @@
+# While the USB ports are locked (tungsten-usb-lock.service), a port whose device is
+# unplugged is locked too.
+ACTION=="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", TEST=="/run/tungsten-usb-lock/locked", RUN+="/usr/lib/tungsten/usb-lock relock"

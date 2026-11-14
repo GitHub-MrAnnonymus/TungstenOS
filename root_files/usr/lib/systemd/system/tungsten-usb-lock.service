@@ -1,0 +1,11 @@
+# Started: the empty external USB ports are locked (/usr/lib/tungsten/usb-lock). Stopped:
+# unlocked. Tungsten Guard and the screen lock start and stop it; the active local session
+# may do so without a password (polkit: 50-tungsten-usb-lock.rules).
+[Unit]
+Description=Lock empty external USB ports
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/tungsten/usb-lock lock
+ExecStop=/usr/lib/tungsten/usb-lock unlock

@@ -1,0 +1,57 @@
+#!/bin/bash
+# Locks the empty external USB ports at the controller: a device plugged into a locked port
+# is not powered up for enumeration, so nothing of it reaches the kernel's USB code (unlike
+# USBGuard, which authorizes devices after the kernel has read their descriptors).
+# External ports are those the firmware marks as hotplug (ACPI _PLD, connect_type); internal
+# ones (webcam, Bluetooth, fingerprint reader) and ports with a device stay as they are.
+# Root can unlock them again: the firmware's own USB setting, with a BIOS password, is the
+# protection against a compromised system.
+#
+#   usb-lock lock      lock the empty external ports (tungsten-usb-lock.service start)
+#   usb-lock unlock    unlock them (service stop)
+#   usb-lock relock    after a device was unplugged, lock its port if locked (udev)
+#   usb-lock status    write the state for Tungsten Guard
+set -uo pipefail
+RUN=/run/tungsten-usb-lock
+STATUS=/run/tungsten-guard/usb.json
+
+ports() { ls -d /sys/bus/usb/devices/usb*/*-0:1.0/usb*-port* 2>/dev/null; }
+external() { [ "$(cat "$1/connect_type" 2>/dev/null)" = hotplug ]; }
+occupied() { [ -e "$1/device" ]; }
+
+status() {
+  local p n_ext=0 n_locked=0 locked=false
+  for p in $(ports); do
+    external "$p" || continue
+    n_ext=$((n_ext + 1))
+    [ "$(cat "$p/disable" 2>/dev/null)" = 1 ] && n_locked=$((n_locked + 1))
+  done
+  [ -e "$RUN/locked" ] && locked=true
+  mkdir -p "$(dirname "$STATUS")"
+  printf '{"locked": %s, "external": %d, "disabled": %d}\n' "$locked" "$n_ext" "$n_locked" > "$STATUS.new"
+  chmod 0644 "$STATUS.new" && mv -f "$STATUS.new" "$STATUS"
+}
+
+lock_empty() {
+  local p
+  for p in $(ports); do
+    external "$p" && ! occupied "$p" || continue
+    echo 1 > "$p/disable" 2>/dev/null && echo "locked ${p##*/}"
+  done
+}
+
+case "${1:-}" in
+  lock)
+    mkdir -p "$RUN" && touch "$RUN/locked"
+    lock_empty ;;
+  unlock)
+    rm -f "$RUN/locked"
+    for p in $(ports); do
+      external "$p" && [ "$(cat "$p/disable" 2>/dev/null)" = 1 ] && echo 0 > "$p/disable" && echo "unlocked ${p##*/}"
+    done ;;
+  relock)
+    [ -e "$RUN/locked" ] && lock_empty ;;
+  status) ;;
+  *) echo "usage: usb-lock lock|unlock|relock|status" >&2; exit 2 ;;
+esac
+status

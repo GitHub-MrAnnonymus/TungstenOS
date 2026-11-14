@@ -3,6 +3,9 @@
 # decrypted in memory while the machine is unattended. Watches the session's LockedHint
 # and Lock signal at logind; the lock screen unlocks the keyrings again through PAM
 # (/etc/pam.d/dankshell), otherwise the next app that needs a secret asks for the password.
+# With USB auto-lock on (Tungsten Guard: ~/.config/tungsten/usb-autolock), it also locks
+# the empty external USB ports while the session is locked, and unlocks them afterwards
+# unless they were already locked by hand.
 set -euo pipefail
 
 # The user's graphical session at logind (services of the user manager do not get
@@ -22,8 +25,24 @@ lock_keyrings() {
     && echo "locked ${#collections[@]} keyring collection(s)"
 }
 
+AUTOLOCK=${XDG_CONFIG_HOME:-$HOME/.config}/tungsten/usb-autolock
+MARK=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/tungsten-usb-autolocked
+
+lock_usb() {
+  [ -e "$AUTOLOCK" ] || return 0
+  systemctl is-active -q tungsten-usb-lock.service && return 0   # locked by hand: leave it
+  systemctl start tungsten-usb-lock.service && touch "$MARK" && echo "locked USB ports"
+}
+
+unlock_usb() {
+  [ -e "$MARK" ] || return 0
+  rm -f "$MARK"
+  systemctl stop tungsten-usb-lock.service && echo "unlocked USB ports"
+}
+
 gdbus monitor --system --dest org.freedesktop.login1 --object-path "$session" | while read -r line; do
   case $line in
-    *"'LockedHint': <true>"*|*".Session.Lock ()"*) lock_keyrings ;;
+    *"'LockedHint': <true>"*|*".Session.Lock ()"*) lock_keyrings; lock_usb ;;
+    *"'LockedHint': <false>"*|*".Session.Unlock ()"*) unlock_usb ;;
   esac
 done

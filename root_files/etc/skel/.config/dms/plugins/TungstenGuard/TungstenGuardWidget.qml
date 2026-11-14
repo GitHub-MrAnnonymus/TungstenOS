@@ -18,6 +18,18 @@ PluginComponent {
     property string uid: ""
     property var status: null
     property var blocked: []          // newest first, at most 20
+    property var usb: null            // /run/tungsten-guard/usb.json (usb-lock)
+    property bool usbAutolock: false  // ~/.config/tungsten/usb-autolock exists
+    readonly property string autolockFile: Quickshell.env("HOME") + "/.config/tungsten/usb-autolock"
+
+    function setUsbLocked(locked) {
+        Quickshell.execDetached(["systemctl", locked ? "start" : "stop", "tungsten-usb-lock.service"]);
+    }
+
+    function setUsbAutolock(on) {
+        Quickshell.execDetached(["sh", "-c", on ? 'mkdir -p "$(dirname "$1")" && : > "$1"' : 'rm -f "$1"', "sh", autolockFile]);
+        usbAutolock = on;
+    }
 
     readonly property string osAvailable: status?.os?.available ?? ""
     readonly property int flatpakCount: status?.flatpaks ?? 0
@@ -157,6 +169,25 @@ PluginComponent {
         const more = fresh.length > 1 ? " (and " + (fresh.length - 1) + " more)" : "";
         notify("Blocked: " + e.path.split("/").pop(),
                e.path + " may not run here" + more + ". Programs run only from the system image and Flatpak apps.");
+    }
+
+    FileView {
+        path: root.dir + "/usb.json"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.usb = JSON.parse(text());
+            } catch (e) {}
+        }
+    }
+
+    FileView {
+        path: root.autolockFile
+        printErrors: false
+        onLoaded: root.usbAutolock = true
+        onLoadFailed: root.usbAutolock = false
     }
 
     Process {
@@ -497,6 +528,29 @@ PluginComponent {
                                 : (applied > 0 ? applied + " TungstenOS revocation update" + (applied > 1 ? "s" : "") + " applied"
                                                : "No TungstenOS revocations needed so far")
                                   + (refused.length > 0 ? " · " + refused.length + " not for this machine's keys" : "")
+                    }
+
+                    Tile {
+                        visible: root.usb !== null && (root.usb.external ?? 0) > 0
+                        readonly property bool locked: root.usb?.locked ?? false
+                        icon: locked ? "usb_off" : "usb"
+                        tint: locked ? Theme.primary : Theme.onSurfaceVariant
+                        title: locked ? "USB ports locked" : "USB ports open"
+                        detail: (locked ? (root.usb.disabled + " of " + root.usb.external + " external ports off; plugged-in devices keep working")
+                                        : "New devices are checked by USBGuard")
+                                + " · auto-lock with the screen " + (root.usbAutolock ? "on" : "off")
+
+                        DIconButton {
+                            iconName: root.usbAutolock ? "screen_lock_portrait" : "lock_clock"
+                            tooltipText: root.usbAutolock ? "Stop locking USB ports with the screen" : "Lock USB ports whenever the screen locks"
+                            onClicked: root.setUsbAutolock(!root.usbAutolock)
+                        }
+
+                        DIconButton {
+                            iconName: (root.usb?.locked ?? false) ? "lock_open" : "lock"
+                            tooltipText: (root.usb?.locked ?? false) ? "Unlock the USB ports" : "Lock the empty external USB ports now"
+                            onClicked: root.setUsbLocked(!(root.usb?.locked ?? false))
+                        }
                     }
 
                     Tile {
