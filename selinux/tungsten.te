@@ -1510,6 +1510,14 @@ gen_require(`
 	type udev_t;
 ')
 manage_files_pattern(udev_t, tungsten_guard_runtime_t, tungsten_guard_runtime_t)
+# The session locks and unlocks the ports by starting and stopping
+# tungsten-usb-lock.service (Tungsten Guard, the screen lock, the first login). systemd
+# checks the caller against the unit file label before polkit, and user_t may not manage
+# system units: the stop was refused (USER_AVC) and the ports stayed locked. Only this unit
+# gets its own type; polkit (50-tungsten-usb-lock.rules) still requires the active session.
+type tungsten_usb_lock_unit_t;
+init_unit_file(tungsten_usb_lock_unit_t)
+allow user_t tungsten_usb_lock_unit_t:service { start stop status };
 
 # tungsten-secureboot-update (init_t): appends signed updates to db/dbx in efivarfs and
 # toggles the immutable flag around the write (FS_IOC_SETFLAGS).
