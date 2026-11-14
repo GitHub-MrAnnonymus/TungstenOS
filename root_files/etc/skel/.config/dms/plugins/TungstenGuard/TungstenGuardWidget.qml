@@ -22,15 +22,59 @@ PluginComponent {
     readonly property string osAvailable: status?.os?.available ?? ""
     readonly property int flatpakCount: status?.flatpaks ?? 0
     readonly property var firmware: status?.firmware ?? []
-    readonly property bool dbxUpdate: firmware.some(f => f.dbx)
+    // Warnings the user dismissed, by key; a key includes the state it was about, so a
+    // different problem (a new dbx version, another Secure Boot state) warns again.
+    property var dismissed: []
+    // Events at or before this time are cleared from the history.
+    property real clearedTime: 0
+    readonly property var dbxEntry: firmware.find(f => f.dbx) ?? null
+    readonly property string dbxKey: dbxEntry ? "dbx:" + dbxEntry.new : ""
+    readonly property bool dbxUpdate: dbxEntry !== null && !isDismissed(dbxKey)
     readonly property int updateCount: (osAvailable ? 1 : 0) + (flatpakCount > 0 ? 1 : 0) + firmware.length
     readonly property var hw: status?.hardware ?? null
     readonly property bool secureBootOn: (hw?.secure_boot ?? "").startsWith("enabled")
     readonly property bool imageVerified: (hw?.verity ?? false) && (hw?.selinux ?? "") === "Enforcing"
-    // Problems that weaken the system itself (not just pending updates).
-    readonly property bool hwProblem: hw !== null && (!secureBootOn || hw.disk === "weak" || !imageVerified)
-    // Blocked programs within the last day keep the shield on alert.
-    readonly property bool recentBlock: blocked.length > 0 && (Date.now() / 1000 - blocked[0].time) < 86400
+    readonly property string sbKey: "secureboot:" + (hw?.secure_boot ?? "")
+    readonly property string diskKey: "disk:weak"
+    readonly property string verifyKey: "verify:" + (hw?.verity ?? "") + ":" + (hw?.ipe ?? "") + ":" + (hw?.selinux ?? "")
+    readonly property bool sbWarn: hw !== null && !secureBootOn && !isDismissed(sbKey)
+    readonly property bool diskWarn: hw !== null && hw.disk === "weak" && !isDismissed(diskKey)
+    readonly property bool verifyWarn: hw !== null && !imageVerified && !isDismissed(verifyKey)
+    // Problems that weaken the system itself (not just pending updates), unless dismissed.
+    readonly property bool hwProblem: sbWarn || diskWarn || verifyWarn
+    readonly property var history: blocked.filter(e => e.time > clearedTime)
+    // Blocked programs within the last day keep the shield on alert, until cleared.
+    readonly property bool recentBlock: history.length > 0 && (Date.now() / 1000 - history[0].time) < 86400
+
+    function isDismissed(key) {
+        return dismissed.indexOf(key) >= 0;
+    }
+
+    function dismiss(key) {
+        if (isDismissed(key))
+            return;
+        dismissed = dismissed.concat([key]);
+        saveState("dismissed", dismissed);
+    }
+
+    function restore(key) {
+        dismissed = dismissed.filter(k => k !== key);
+        saveState("dismissed", dismissed);
+    }
+
+    function clearHistory() {
+        if (blocked.length === 0)
+            return;
+        clearedTime = blocked[0].time;
+        saveState("clearedTime", clearedTime);
+    }
+
+    onPluginServiceChanged: {
+        if (pluginService) {
+            dismissed = loadState("dismissed", []) || [];
+            clearedTime = loadState("clearedTime", 0) || 0;
+        }
+    }
 
     function stateIcon() {
         if (dbxUpdate || recentBlock || hwProblem)
@@ -169,156 +213,352 @@ PluginComponent {
         }
     }
 
-    popoutWidth: 420
+    popoutWidth: 440
+
+    readonly property string headline: {
+        if (!status)
+            return "Waiting for the first check";
+        if (hwProblem || dbxUpdate || recentBlock)
+            return "Needs attention";
+        if (updateCount > 0)
+            return updateCount === 1 ? "1 update" : updateCount + " updates";
+        return "Protected";
+    }
 
     popoutContent: Component {
         PopoutComponent {
-            headerText: "Tungsten Guard"
-            detailsText: root.status ? "Checked " + new Date(root.status.checked).toLocaleString(Qt.locale(), Locale.ShortFormat) : "Waiting for the first check…"
+            id: popout
+            headerText: ""
+            property int tab: 0
 
-            Column {
-                width: parent.width
-                spacing: Theme.spacingM
+            // One item of a grouped list: tonal card, large radii only at the group's ends.
+            component Tile: DCard {
+                id: tile
+                property string icon
+                property string title
+                property string detail
+                property color tint: Theme.onSurface
+                property bool first: false
+                property bool last: false
+                // A warning the user can dismiss (warnKey) or restore once dismissed.
+                property string warnKey: ""
+                property bool warning: false
+                readonly property bool dismissedWarning: warnKey !== "" && root.isDismissed(warnKey)
+                default property alias actions: actionSlot.data
+                readonly property real startR: first ? Theme.cornerRadiusL : Theme.groupedListInnerRadius
+                readonly property real endR: last ? Theme.cornerRadiusL : Theme.groupedListInnerRadius
 
-                component Line: Row {
-                    property string icon
-                    property string title
-                    property string detail
-                    property color tint: Theme.surfaceText
+                width: parent ? parent.width : 0
+                height: Math.max(tileRow.implicitHeight, Theme.iconSize) + pad * 2
+                restRadius: Theme.groupedListInnerRadius
+                topLeftRadius: startR
+                topRightRadius: startR
+                bottomLeftRadius: endR
+                bottomRightRadius: endR
+
+                Row {
+                    id: tileRow
                     width: parent.width
                     spacing: Theme.spacingM
 
                     DIcon {
-                        name: parent.icon
+                        name: tile.icon
                         size: Theme.iconSize
-                        color: parent.tint
+                        color: tile.dismissedWarning ? Theme.onSurfaceVariant : tile.tint
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
                     Column {
                         width: parent.width - Theme.iconSize - Theme.spacingM
+                               - (actionSlot.width > 0 ? actionSlot.width + Theme.spacingM : 0)
                         anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2
 
                         StyledText {
-                            text: parent.parent.title
-                            color: Theme.surfaceText
+                            width: parent.width
+                            text: tile.title
+                            color: Theme.onSurface
                             font.pixelSize: Theme.fontSizeMedium
+                            wrapMode: Text.WordWrap
                         }
 
                         StyledText {
-                            text: parent.parent.detail
-                            color: Theme.surfaceVariantText
-                            font.pixelSize: Theme.fontSizeSmall
                             width: parent.width
+                            visible: text !== ""
+                            text: tile.detail + (tile.dismissedWarning ? (tile.detail ? " · " : "") + "warning dismissed" : "")
+                            color: Theme.onSurfaceVariant
+                            font.pixelSize: Theme.fontSizeSmall
                             wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    Row {
+                        id: actionSlot
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Theme.spacingXS
+
+                        DIconButton {
+                            visible: tile.warnKey !== "" && (tile.warning || tile.dismissedWarning)
+                            iconName: tile.dismissedWarning ? "undo" : "close"
+                            tooltipText: tile.dismissedWarning ? "Warn about this again" : "Dismiss this warning"
+                            onClicked: tile.dismissedWarning ? root.restore(tile.warnKey) : root.dismiss(tile.warnKey)
+                        }
+                    }
+                }
+            }
+
+            Column {
+                width: parent.width
+                spacing: Theme.spacingM
+
+                // --- Hero: overall state ---
+                DCard {
+                    width: parent.width
+                    height: heroRow.implicitHeight + pad * 2
+                    restRadius: Theme.cornerRadiusL
+
+                    Row {
+                        id: heroRow
+                        width: parent.width
+                        spacing: Theme.spacingL
+
+                        DIcon {
+                            name: root.stateIcon()
+                            size: Theme.iconSize * 2.2
+                            color: (root.hwProblem || root.dbxUpdate || root.recentBlock) ? Theme.warning : Theme.primary
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - Theme.iconSize * 2.2 - Theme.spacingL
+
+                            StyledText {
+                                width: parent.width
+                                text: root.headline
+                                color: Theme.onSurface
+                                font.pixelSize: Theme.fontSizeXLarge
+                                font.weight: Font.Medium
+                                wrapMode: Text.WordWrap
+                            }
+
+                            StyledText {
+                                width: parent.width
+                                text: root.status ? "Tungsten Guard · checked "
+                                      + new Date(root.status.checked).toLocaleTimeString(Qt.locale(), Locale.ShortFormat)
+                                    : "Tungsten Guard"
+                                color: Theme.onSurfaceVariant
+                                font.pixelSize: Theme.fontSizeSmall
+                            }
                         }
                     }
                 }
 
-                StyledText {
-                    text: "Updates"
-                    color: Theme.primary
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.weight: Font.Medium
+                DTabBar {
+                    width: parent.width
+                    currentIndex: popout.tab
+                    model: [
+                        { text: "Updates" + (root.updateCount > 0 ? " · " + root.updateCount : ""), icon: "system_update" },
+                        { text: "Security", icon: root.hwProblem ? "gpp_maybe" : "shield" },
+                        { text: "Activity" + (root.history.length > 0 ? " · " + root.history.length : ""), icon: "history" }
+                    ]
+                    onTabClicked: index => popout.tab = index
                 }
 
-                Line {
-                    icon: root.osAvailable ? "system_update" : "check_circle"
-                    tint: root.osAvailable ? Theme.primary : Theme.surfaceText
-                    title: root.osAvailable ? "TungstenOS " + root.osAvailable + " is available" : "TungstenOS is up to date"
-                    detail: "Installed: " + (root.status?.os?.current || "unknown") + (root.osAvailable ? ". Installs into the inactive slot; active after a reboot." : "")
+                // All three pages stay laid out on top of each other, so the popout keeps the
+                // height of the tallest one and does not resize when switching tabs.
+                Item {
+                    width: parent.width
+                    height: Math.max(updatesPage.implicitHeight, securityPage.implicitHeight,
+                                     activityPage.implicitHeight + clearRow.height + Theme.spacingS)
+
+                // --- Updates ---
+                Column {
+                    id: updatesPage
+                    width: parent.width
+                    spacing: 2
+                    opacity: popout.tab === 0 ? 1 : 0
+                    visible: opacity > 0
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
+
+                    Tile {
+                        first: true
+                        icon: root.osAvailable ? "system_update" : "check_circle"
+                        tint: root.osAvailable ? Theme.primary : Theme.onSurfaceVariant
+                        title: root.osAvailable ? "TungstenOS " + root.osAvailable : "TungstenOS is up to date"
+                        detail: "Installed: " + (root.status?.os?.current || "unknown")
+                                + (root.osAvailable ? " · active after a reboot" : "")
+
+                        DButton {
+                            visible: root.osAvailable !== ""
+                            text: "Install"
+                            iconName: "download"
+                            onClicked: Quickshell.execDetached(["updatectl", "update"])
+                        }
+                    }
+
+                    Tile {
+                        icon: root.flatpakCount > 0 ? "apps" : "check_circle"
+                        tint: root.flatpakCount > 0 ? Theme.primary : Theme.onSurfaceVariant
+                        title: root.flatpakCount > 0 ? root.flatpakCount + " Flatpak updates" : "Flatpak apps are up to date"
+                        detail: root.flatpakCount > 0 ? "Installed automatically once a day" : ""
+                    }
+
+                    Tile {
+                        last: root.firmware.length === 0
+                        visible: root.firmware.length === 0
+                        icon: "check_circle"
+                        tint: Theme.onSurfaceVariant
+                        title: "Firmware is up to date"
+                    }
+
+                    Repeater {
+                        model: root.firmware
+                        delegate: Tile {
+                            required property var modelData
+                            required property int index
+                            last: index === root.firmware.length - 1
+                            warnKey: modelData.dbx ? root.dbxKey : ""
+                            warning: modelData.dbx === true
+                            icon: modelData.dbx ? "gpp_maybe" : "memory"
+                            tint: modelData.dbx ? Theme.warning : Theme.primary
+                            title: modelData.dbx ? "Secure Boot revocations (dbx)" : modelData.name
+                            detail: modelData.version + " → " + modelData.new + " · fwupdmgr update"
+                        }
+                    }
                 }
 
-                DButton {
-                    visible: root.osAvailable !== ""
-                    text: "Install update"
-                    iconName: "download"
-                    onClicked: Quickshell.execDetached(["updatectl", "update"])
+                // --- Security ---
+                Column {
+                    id: securityPage
+                    width: parent.width
+                    spacing: 2
+                    opacity: popout.tab === 1 ? 1 : 0
+                    visible: opacity > 0
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
+
+                    Tile {
+                        first: true
+                        visible: root.hw === null
+                        last: true
+                        icon: "hourglass_empty"
+                        tint: Theme.onSurfaceVariant
+                        title: "Not checked yet"
+                    }
+
+                    Tile {
+                        first: true
+                        visible: root.hw !== null
+                        warnKey: root.secureBootOn ? "" : root.sbKey
+                        warning: !root.secureBootOn
+                        icon: root.secureBootOn ? "verified" : "gpp_bad"
+                        tint: root.secureBootOn ? Theme.primary : Theme.warning
+                        title: root.secureBootOn ? "Secure Boot is on" : "Secure Boot is off"
+                        detail: root.secureBootOn ? "Only boot software signed for this computer starts"
+                                                  : (root.hw?.secure_boot || "unknown") + " · turn it on in the firmware setup"
+                    }
+
+                    Tile {
+                        visible: root.hw !== null
+                        readonly property string d: root.hw?.disk ?? "unknown"
+                        warnKey: d === "weak" ? root.diskKey : ""
+                        warning: d === "weak"
+                        icon: d === "weak" ? "lock_open" : "lock"
+                        tint: d === "weak" ? Theme.warning : Theme.primary
+                        title: d === "tpm-pin" ? "Disk bound to the TPM, with PIN"
+                             : d === "tpm" ? "Disk bound to the TPM"
+                             : d === "passphrase" ? "Disk unlocks with the passphrase"
+                             : d === "weak" ? "Disk unlocks with any TungstenOS boot"
+                             : "Disk encryption unknown"
+                        detail: d === "weak" ? "Bind it to this computer: run0 tungsten-tpm-enroll"
+                              : d.startsWith("tpm") ? "Unlocks only if firmware, Secure Boot and boot loader are unchanged"
+                              : d === "passphrase" ? "Bind it to the TPM: run0 tungsten-tpm-enroll" : ""
+                    }
+
+                    Tile {
+                        visible: root.hw !== null
+                        readonly property bool present: root.hw?.tpm !== null && root.hw?.tpm !== undefined
+                        icon: "memory"
+                        tint: present ? Theme.primary : Theme.onSurfaceVariant
+                        title: present ? "TPM " + root.hw.tpm + ".0" : "No TPM"
+                        detail: present ? (root.hw.tpm_lockout ? "PIN guessing is rate-limited; the lockout cannot be reset"
+                                                               : "PIN lockout not set up (tungsten-tpm-enroll)") : ""
+                    }
+
+                    Tile {
+                        visible: root.hw !== null
+                        warnKey: root.imageVerified ? "" : root.verifyKey
+                        warning: !root.imageVerified
+                        icon: root.imageVerified ? "verified_user" : "gpp_bad"
+                        tint: root.imageVerified ? Theme.primary : Theme.warning
+                        title: root.imageVerified ? "Verified system" : "System verification incomplete"
+                        detail: "dm-verity " + (root.hw?.verity ? "✓" : "✗")
+                                + " · IPE " + (root.hw?.ipe ? "✓" : "✗")
+                                + " · SELinux " + (root.hw?.selinux || "?")
+                    }
+
+                    Tile {
+                        visible: root.hw !== null
+                        last: true
+                        icon: "developer_board"
+                        tint: Theme.primary
+                        title: "Platform security " + (root.hw?.hsi ?? "unknown")
+                        detail: (root.hw?.hsi_failed ?? []).length > 0
+                                ? "Not met: " + root.hw.hsi_failed.join(", ")
+                                : (root.hw?.hsi ? "All firmware platform checks pass" : "fwupd not available")
+                    }
                 }
 
-                Line {
-                    icon: root.flatpakCount > 0 ? "apps" : "check_circle"
-                    tint: root.flatpakCount > 0 ? Theme.primary : Theme.surfaceText
-                    title: root.flatpakCount > 0 ? root.flatpakCount + " Flatpak updates" : "Flatpak apps are up to date"
-                    detail: root.flatpakCount > 0 ? "Installed automatically by the daily Flatpak update." : ""
+                // --- Activity ---
+                Row {
+                    id: clearRow
+                    anchors.right: parent.right
+                    opacity: activityPage.opacity
+                    visible: activityPage.visible && root.history.length > 0
+                    height: visible ? clearButton.implicitHeight : 0
+
+                    DButton {
+                        id: clearButton
+                        text: "Clear history"
+                        iconName: "delete_sweep"
+                        onClicked: root.clearHistory()
+                    }
                 }
 
-                Line {
-                    icon: root.dbxUpdate ? "gpp_maybe" : (root.firmware.length > 0 ? "memory" : "check_circle")
-                    tint: root.dbxUpdate ? Theme.warning : (root.firmware.length > 0 ? Theme.primary : Theme.surfaceText)
-                    title: root.firmware.length > 0 ? root.firmware.length + " firmware updates" : "Firmware is up to date"
-                    detail: root.firmware.map(f => f.name + " " + f.version + " → " + f.new).join("\n")
-                            + (root.firmware.length > 0 ? "\nInstall with: fwupdmgr update" : "")
-                }
+                Column {
+                    id: activityPage
+                    width: parent.width
+                    y: clearRow.visible ? clearRow.height + Theme.spacingS : 0
+                    spacing: 2
+                    opacity: popout.tab === 2 ? 1 : 0
+                    visible: opacity > 0
+                    Behavior on opacity { NumberAnimation { duration: 120 } }
 
-                StyledText {
-                    visible: root.hw !== null
-                    text: "Hardware security"
-                    color: Theme.primary
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.weight: Font.Medium
-                }
+                    Tile {
+                        first: true
+                        last: true
+                        visible: root.history.length === 0
+                        icon: "check_circle"
+                        tint: Theme.onSurfaceVariant
+                        title: "Nothing blocked"
+                        detail: "Programs run only from the system image and Flatpak apps"
+                    }
 
-                Line {
-                    visible: root.hw !== null
-                    icon: root.secureBootOn ? "verified" : "gpp_bad"
-                    tint: root.secureBootOn ? Theme.surfaceText : Theme.warning
-                    title: root.secureBootOn ? "Secure Boot is on" : "Secure Boot is off"
-                    detail: root.secureBootOn ? "The firmware starts only boot software signed for this computer."
-                                              : "Firmware state: " + (root.hw?.secure_boot || "unknown") + ". Turn it on in the firmware setup."
+                    Repeater {
+                        model: root.history.slice(0, 8)
+                        delegate: Tile {
+                            required property var modelData
+                            required property int index
+                            first: index === 0
+                            last: index === Math.min(root.history.length, 8) - 1
+                            icon: "block"
+                            tint: (Date.now() / 1000 - modelData.time) < 86400 ? Theme.warning : Theme.onSurfaceVariant
+                            title: modelData.path.split("/").pop()
+                            detail: new Date(modelData.time * 1000).toLocaleString(Qt.locale(), Locale.ShortFormat)
+                                    + " · " + modelData.path + (modelData.by ? " · from " + modelData.by : "")
+                        }
+                    }
                 }
-
-                Line {
-                    visible: root.hw !== null
-                    readonly property string d: root.hw?.disk ?? "unknown"
-                    icon: d === "weak" ? "lock_open" : "lock"
-                    tint: d === "weak" ? Theme.warning : Theme.surfaceText
-                    title: d === "tpm-pin" ? "Disk bound to the TPM, with PIN"
-                         : d === "tpm" ? "Disk bound to the TPM"
-                         : d === "passphrase" ? "Disk unlocks with the passphrase"
-                         : d === "weak" ? "Disk unlocks with any TungstenOS boot"
-                         : "Disk encryption state unknown"
-                    detail: d === "weak" ? "Bind it to this computer: run0 tungsten-tpm-enroll"
-                          : d.startsWith("tpm") ? "Unlocks only if firmware, Secure Boot and boot loader are unchanged."
-                          : d === "passphrase" ? "Bind it to the TPM any time: run0 tungsten-tpm-enroll" : ""
-                }
-
-                Line {
-                    visible: root.hw !== null
-                    readonly property bool ok: root.hw?.tpm !== null && root.hw?.tpm !== undefined
-                    icon: ok ? "memory" : "help"
-                    tint: Theme.surfaceText
-                    title: ok ? "TPM " + root.hw.tpm + ".0" : "No TPM"
-                    detail: ok ? (root.hw.tpm_lockout ? "PIN guessing is rate-limited; the lockout cannot be reset."
-                                                      : "PIN lockout not set up yet (tungsten-tpm-enroll does it).") : ""
-                }
-
-                Line {
-                    visible: root.hw !== null
-                    icon: root.imageVerified ? "verified_user" : "gpp_bad"
-                    tint: root.imageVerified ? Theme.surfaceText : Theme.warning
-                    title: root.imageVerified ? "Verified system" : "System verification incomplete"
-                    detail: "/usr " + (root.hw?.verity ? "verified by dm-verity" : "NOT verified")
-                            + " · IPE " + (root.hw?.ipe ? "active" : "inactive")
-                            + " · SELinux " + (root.hw?.selinux || "unknown")
-                }
-
-                Line {
-                    visible: root.hw !== null && root.hw.hsi !== null
-                    icon: "developer_board"
-                    tint: Theme.surfaceText
-                    title: "Platform security " + (root.hw?.hsi ?? "")
-                    detail: (root.hw?.hsi_failed ?? []).length > 0
-                            ? "Not met: " + root.hw.hsi_failed.join(", ") + "\nDetails: fwupdmgr security"
-                            : "All firmware platform checks pass."
-                }
-
-                Line {
-                    icon: root.blocked.length > 0 ? "block" : "check_circle"
-                    tint: root.recentBlock ? Theme.warning : Theme.surfaceText
-                    title: root.blocked.length > 0 ? "Blocked programs" : "No blocked programs"
-                    detail: root.blocked.slice(0, 5).map(e => new Date(e.time * 1000).toLocaleTimeString(Qt.locale(), Locale.ShortFormat)
-                                                          + "  " + e.path + (e.by ? " (" + e.by + ")" : "")).join("\n")
                 }
             }
         }
