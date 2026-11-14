@@ -16,6 +16,10 @@ setcap_if() { [ -f "$2" ] && setcap "$1" "$2" && echo "caps $1 on $2"; }
 setcap_if cap_sys_admin=ep /usr/bin/fusermount3
 # Password checks for non-homed accounts
 setcap_if cap_dac_read_search,cap_audit_write=ep /usr/bin/unix_chkpwd
+# Rootless Podman maps the subordinate IDs of /etc/subuid and /etc/subgid (shadow is built
+# with file capabilities; set them here as well, as nothing works without them)
+setcap_if cap_setuid=ep /usr/bin/newuidmap
+setcap_if cap_setgid=ep /usr/bin/newgidmap
 
 left=$(find /usr -xdev -type f -perm /6000)
 if [ -n "$left" ]; then echo "setuid/setgid files remain: $left" >&2; exit 1; fi

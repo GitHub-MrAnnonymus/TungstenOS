@@ -1,0 +1,10 @@
+{
+  "Image": "docker.io/library/archlinux:latest",
+  "Runtime": "",
+  "Automount": true,
+  "Mounts": [],
+  "Env": ["CARGO_TARGET_DIR=/var/tmp/cargo-target"],
+  "Cmd": ["/bin/bash"],
+  "InitCmd": [],
+  "ExtraOptions": []
+}

@@ -1,0 +1,10 @@
+#!/bin/sh
+# runsc as Podman's runtime, with the flags TungstenOS needs:
+#  --directfs=false     homes are noexec: with direct file access the gofer remounts the
+#                       image read-only, which drops the locked noexec flag (EPERM).
+#  --overlay2=root:memory  the container's own writes (installed packages, build output)
+#                       live in memory: in a file next to the image (the default) they are
+#                       on the noexec home, and programs built in the container could not run.
+#  --ignore-cgroups     rootless: the user manager owns the cgroup; Podman puts the
+#                       container in its own scope.
+exec /usr/lib/gvisor/runsc --directfs=false --overlay2=root:memory --ignore-cgroups "$@"

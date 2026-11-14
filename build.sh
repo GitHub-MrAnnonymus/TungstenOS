@@ -68,6 +68,9 @@ PACKAGES=(
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
   power-profiles-daemon trivalent qemu-desktop libvirt virt-manager bazaar android-tools tailscale
 
+  # Dev containers: rootless Podman with gVisor as its only runtime (visorbox, runsc)
+  podman passt gvisor visorbox
+
   # Tools
   less git jq fastfetch tmux helix rsync unzip zip arch-repro-status nano neovim
   gum  # first-boot wizard (/usr/lib/tungsten/firstboot-users)
@@ -215,6 +218,11 @@ semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
 # look at (dontaudit). As /media, both are mnt_t (the session may list them, udisks may
 # create and mount on them; tungsten-selinux.conf creates /run/media labeled at boot).
 semanage fcontext -N -S "$POLICY" -a -e /media /run/media
+# gVisor: runsc, its sidecars and the wrapper Podman calls are OCI runtimes. conmon starts
+# them back in the Podman domain (podman_user_t for rootless), as refpolicy does for crun.
+for f in /usr/lib/gvisor/runsc /usr/lib/tungsten/runsc '/usr/lib/gvisor/gvisor-bin(/.*)?'; do
+  semanage fcontext -N -S "$POLICY" -a -t container_engine_exec_t "$f"
+done
 # logind reads boot loader entries on the ESP (reboot into a chosen entry).
 semanage boolean -N -S "$POLICY" -m --on systemd_logind_get_bootloader
 # The compositor (user_t) maps GPU buffers.
@@ -299,6 +307,22 @@ grep -q pam_gnome_keyring /etc/pam.d/greetd || {
 # screen (a console login still works).
 grep -q '^account *include *system-local-login' /etc/pam.d/greetd
 sed -i '/^account *include *system-local-login/i account    requisite    pam_succeed_if.so quiet user notingroup wheel' /etc/pam.d/greetd
+
+# Containers run only in gVisor. crun (Podman's dependency) would run them natively on the
+# host kernel, in the Podman domain, which may execute container files: users could run
+# their own native code, which noexec homes and SELinux otherwise prevent. Without the
+# binary only runsc is left (containers.conf.d/50-tungsten.conf makes it the default).
+rm -f /usr/bin/crun /usr/bin/runc
+# Subordinate UIDs and GIDs for rootless Podman (newuidmap; visorbox uses --userns=keep-id).
+# homed accounts are not in /etc/passwd, and their UIDs come from a fixed range
+# (60001-60513): one entry per UID, which shadow accepts in place of the name, 65536 IDs
+# each from 524288 on, so every account created later has its range too.
+for f in /etc/subuid /etc/subgid; do
+  for uid in $(seq 60001 60513); do
+    echo "$uid:$((524288 + (uid - 60001) * 65536)):65536"
+  done > "$f"
+  chmod 644 "$f"
+done
 
 # Admin tools that live in /usr/lib/systemd, callable by name (run0 systemd-pcrlock ...).
 for t in systemd-pcrlock systemd-sysupdate; do
