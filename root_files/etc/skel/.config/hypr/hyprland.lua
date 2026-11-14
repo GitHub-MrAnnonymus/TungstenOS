@@ -47,7 +47,7 @@ hl.config({
         blur = {
 				enabled = true,
 				size = 10,
-				passes = 3,
+				passes = 5,
 				new_optimizations = true,
 				ignore_opacity = true,
 				noise = 0.02,
@@ -105,19 +105,52 @@ hl.layer_rule({ match = { namespace = "^dms:.*" }, no_anim = true })
 hl.layer_rule({
     match = { namespace = "dms:(polkit|notification-center-modal|workspace-overview|color-picker|clipboard|spotlight|settings|process-list-modal)" },
     blur = true,
-    ignore_alpha = 0.5
+    ignore_alpha = 0.55
 })
 
 -- Shell components (bar, popouts, etc.)
 hl.layer_rule({
     match = { namespace = "dms:(bar|tooltip|toast|dock-context-menu|tray-menu-window|control-center|notification-center-popout|dash|system-update|process-list-popout|battery|popout|app-launcher)" },
     blur = true,
-    ignore_alpha = 0.5
+    ignore_alpha = 0.55
 })
 
 hl.window_rule({
-        match = { namespace = "dms:polkit" },
---	dim_around = true,
+    match = {
+        class = "^(dev\\.duxlabs\\.shell|com\\.danklinux\\.dms)$",
+        title = "^(Authentication)$",
+    },
+    dim_around = true,
+})
+
+hl.window_rule({
+    name  = "bitwarden-popup",
+    match = { class = "^(chrome-nngceckbapebfimnlniiiahkandclblb-.*)$" },
+    float  = true,
+    center = true,
+})
+
+--Open/Save file dialogs
+hl.window_rule({
+  name  = "files-dialog",
+  match = { class = "^(dev\\.duxlabs\\.files)$", title = "^(All Files)$" },
+  float  = true,
+  center = true,
+  size   = { 1000, 700 },
+})
+
+hl.window_rule({
+  match = { class = "^(dev\\.duxlabs\\.files)$", title = "^(Open File)$" },
+  float  = true,
+  center = true,
+  size   = { 1000, 700 },
+})
+
+hl.window_rule({
+  match = { class = "^(dev\\.duxlabs\\.files)$", title = "^(Open Folder)$" },
+  float  = true,
+  center = true,
+  size   = { 1000, 700 },
 })
 
 require("dms.colors")
