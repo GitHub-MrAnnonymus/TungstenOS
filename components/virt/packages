@@ -1,0 +1,2 @@
+# Virtual machines: QEMU, libvirt (qemu:///system) and virt-manager
+qemu-desktop libvirt virt-manager dnsmasq

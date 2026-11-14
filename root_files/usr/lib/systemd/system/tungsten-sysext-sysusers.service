@@ -1,0 +1,18 @@
+# systemd-sysusers runs before systemd-sysext merges the extensions, so users and groups
+# that only an extension declares (libvirt's libvirt-qemu and libvirt) would never be
+# created. Run it again on the merged /usr, before tmpfiles needs those owners.
+[Unit]
+Description=Create users and groups declared by system extensions
+DefaultDependencies=no
+After=systemd-sysext.service systemd-sysusers.service
+Before=systemd-tmpfiles-setup.service sysinit.target shutdown.target
+Conflicts=shutdown.target
+ConditionDirectoryNotEmpty=/var/lib/extensions
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/systemd-sysusers
+
+[Install]
+WantedBy=sysinit.target

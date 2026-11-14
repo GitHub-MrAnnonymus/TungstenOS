@@ -66,7 +66,7 @@ PACKAGES=(
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
-  power-profiles-daemon trivalent qemu-desktop libvirt virt-manager bazaar android-tools tailscale
+  power-profiles-daemon trivalent bazaar android-tools tailscale
 
   # Dev containers: rootless Podman with gVisor as its only runtime (visorbox, runsc)
   podman passt fuse-overlayfs gvisor visorbox
@@ -166,7 +166,7 @@ locale-gen
 systemctl enable \
   greetd NetworkManager firewalld usbguard tungsten-usbguard-init dnscrypt-proxy ntpd-rs \
   systemd-homed systemd-homed-firstboot auditd power-profiles-daemon \
-  libvirtd.socket tungsten-relabel tungsten-clear-console \
+  tungsten-relabel tungsten-clear-console tungsten-sysext-sysusers \
   systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-flatpak-update.timer \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \
@@ -457,6 +457,28 @@ build_extension() {
   done
   umount "$E"/merged
 
+  # What the packages add to /etc (libvirt's configuration and default network, ...) goes
+  # to /usr/share/factory/etc, and tmpfiles copies it to /etc at boot where it is missing,
+  # so local changes stay. Base files the packages changed (passwd, group, ...) stay out.
+  local f rel etc_new=() etc_changed=()
+  if [ -d "$E"/rw/upper/etc ]; then
+    while IFS= read -r -d '' f; do
+      rel=${f#"$E"/rw/upper/}
+      case $rel in etc/ld.so.cache|etc/pacman.d/*) continue ;; esac
+      if [ -e "$WORKDIR/$rel" ] || [ -L "$WORKDIR/$rel" ]; then etc_changed+=("/$rel"); else etc_new+=("$rel"); fi
+    done < <(find "$E"/rw/upper/etc \( -type f -o -type l \) -print0 | sort -z)
+  fi
+  if [ ${#etc_new[@]} -gt 0 ]; then
+    mkdir -p "$E"/rw/upper/usr/lib/tmpfiles.d
+    for rel in "${etc_new[@]}"; do
+      mkdir -p "$E/rw/upper/usr/share/factory/$(dirname "$rel")"
+      cp -dp "$E/rw/upper/$rel" "$E/rw/upper/usr/share/factory/$rel"
+      echo "C /$rel - - - - /usr/share/factory/$rel"
+    done > "$E"/rw/upper/usr/lib/tmpfiles.d/tungsten-ext-"$name".conf
+    echo "$name: ${#etc_new[@]} files for /etc as factory defaults"
+  fi
+  [ ${#etc_changed[@]} -eq 0 ] || echo "::warning::$name: changes to base files in /etc are not part of the extension: ${etc_changed[*]}"
+
   # Copy without xattrs: overlayfs metadata must not reach the image.
   cp -dR --preserve=mode,ownership,timestamps,links "$E"/rw/upper/usr "$E"/tree/usr
   # The extension's packages in the package database (the base's entries are in the base).
@@ -466,8 +488,6 @@ build_extension() {
       "$E"/tree/usr/lib/pacman/local/
   fi
   find "$E"/tree/usr -type c -delete
-  local dropped; dropped=$(find "$E"/rw/upper/etc -mindepth 1 -maxdepth 1 ! -name ld.so.cache ! -name pacman.d -printf '/etc/%P ' 2>/dev/null || :)
-  [ -z "$dropped" ] || echo "::warning::$name: changes outside /usr are not part of the extension: $dropped"
   rm -rf "$E"/tree/usr/include "$E"/tree/usr/src "$E"/tree/usr/share/{doc,gtk-doc,info,man} \
          "$E"/tree/usr/lib/{cmake,pkgconfig}
   # nvidia-modprobe needs no setuid bit: nvidia-utils' udev rule runs it as root.

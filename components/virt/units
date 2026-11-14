@@ -1,0 +1,2 @@
+# Socket activation, as "systemctl enable libvirtd.socket" does with its Also= units
+libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket virtlogd.socket virtlockd.socket

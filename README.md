@@ -45,8 +45,9 @@ Each release contains one image for x86_64 systems with AMD or Intel graphics, p
 |---|---|
 | `nvidia` | Open NVIDIA kernel modules (signed during the kernel build), `nvidia-utils` and hybrid-graphics device links |
 | `asus` | asusctl and rog-control-center for ASUS laptops |
+| `virt` | Virtual machines: QEMU, libvirt (`qemu:///system`) and virt-manager |
 
-Each extension is a dm-verity image signed with the db key. It is built in the same run as `/usr` and merges only into that exact version (`SYSEXT_LEVEL`); `systemd-sysext` refuses unsigned images, and the IPE policy in the UKI pins each extension's root hash for kernel modules and firmware. Extensions are defined in `components/<name>/`: `packages`, `units` to enable, and `root_files/usr`.
+Each extension is a dm-verity image signed with the db key. It is built in the same run as `/usr` and merges only into that exact version (`SYSEXT_LEVEL`); `systemd-sysext` refuses unsigned images, and the IPE policy in the UKI pins each extension's root hash for kernel modules and firmware. Extensions are defined in `components/<name>/`: `packages`, `units` to enable, and `root_files/usr`. Files the packages add to `/etc` are shipped as factory defaults and copied to `/etc` at boot where missing; users and groups they declare are created after the merge.
 
 Installed extensions are sysupdate features and are updated with `/usr`. To add or remove one later:
 
