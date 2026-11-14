@@ -223,6 +223,9 @@ semanage fcontext -N -S "$POLICY" -a -e /media /run/media
 for f in /usr/lib/gvisor/runsc /usr/lib/tungsten/runsc '/usr/lib/gvisor/gvisor-bin(/.*)?'; do
   semanage fcontext -N -S "$POLICY" -a -t container_engine_exec_t "$f"
 done
+# Podman's quadlet is the user manager's generator for ~/.config/containers/systemd; as
+# lib_t the user manager may not run it.
+semanage fcontext -N -S "$POLICY" -a -t bin_t /usr/lib/podman/quadlet
 # logind reads boot loader entries on the ESP (reboot into a chosen entry).
 semanage boolean -N -S "$POLICY" -m --on systemd_logind_get_bootloader
 # The compositor (user_t) maps GPU buffers.

@@ -1148,6 +1148,9 @@ allow user_systemd_tmpfiles_t systemd_user_runtime_t:lnk_file { manage_lnk_file_
 # It stats the sockets it passes on the way ($XDG_RUNTIME_DIR/systemd/io.systemd.Manager).
 allow user_systemd_tmpfiles_t systemd_user_runtime_t:sock_file getattr;
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:dir { manage_dir_perms relabelfrom relabelto };
+# The links' missing parents start in the top level of the home (~/.var): created there
+# as user_home_t, as by the user.
+filetrans_pattern(user_systemd_tmpfiles_t, user_home_dir_t, user_home_t, dir)
 allow user_systemd_tmpfiles_t { user_home_t xdg_data_t }:{ file lnk_file } { manage_file_perms relabelfrom relabelto };
 # dconf's change notification file ($XDG_RUNTIME_DIR/dconf/user, tungsten-dconf.conf):
 # Trivalent may use it but not create it, and is often the first dconf client of a session.
