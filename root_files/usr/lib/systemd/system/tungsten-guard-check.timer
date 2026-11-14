@@ -2,9 +2,11 @@
 Description=Check for updates at boot and every hour
 
 [Timer]
-OnBootSec=2min
+# Soon after boot, so the widget is not empty for minutes (it says "waiting for the first
+# check" until then); the spread only keeps machines from checking in step.
+OnBootSec=30s
 OnUnitActiveSec=1h
-RandomizedDelaySec=5min
+RandomizedDelaySec=1min
 Persistent=true
 
 [Install]
