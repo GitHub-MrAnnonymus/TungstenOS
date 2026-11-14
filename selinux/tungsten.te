@@ -506,8 +506,8 @@ allow systemd_tmpfiles_t security_t:file { getattr setattr };
 allow systemd_tmpfiles_t user_home_t:dir { add_name getattr open read search setattr write };
 allow systemd_tmpfiles_t user_home_t:file { create getattr open setattr write };
 # The greeter's cache (/var/cache/dms-greeter, user_home_t) holds links (the theme files,
-# fontconfig's cache): "Z" in tungsten-greeter.conf walks them.
-allow systemd_tmpfiles_t user_home_t:lnk_file { getattr relabelfrom relabelto };
+# fontconfig's cache): "Z" in tungsten-greeter.conf walks them and fixes their owner.
+allow systemd_tmpfiles_t user_home_t:lnk_file { getattr relabelfrom relabelto setattr };
 dontaudit systemd_tmpfiles_t dosfs_t:dir setattr;
 optional_policy(`
 	gen_require(`
