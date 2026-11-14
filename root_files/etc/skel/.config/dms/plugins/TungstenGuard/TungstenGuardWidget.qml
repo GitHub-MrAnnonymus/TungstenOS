@@ -401,12 +401,15 @@ PluginComponent {
                     onTabClicked: index => popout.tab = index
                 }
 
-                // All three pages stay laid out on top of each other, so the popout keeps the
-                // height of the tallest one and does not resize when switching tabs.
+                // The pages are laid out on top of each other and cross-fade; the popout takes
+                // the height of the current one (the shell animates its own size), so a short
+                // tab does not show the empty space of the longest.
                 Item {
                     width: parent.width
-                    height: Math.max(updatesPage.implicitHeight, securityPage.implicitHeight,
-                                     activityPage.implicitHeight + clearRow.height + Theme.spacingS)
+                    clip: true
+                    height: popout.tab === 0 ? updatesPage.implicitHeight
+                          : popout.tab === 1 ? securityPage.implicitHeight
+                          : activityPage.implicitHeight + clearRow.height + Theme.spacingS
 
                 // --- Updates ---
                 Column {
@@ -580,10 +583,13 @@ PluginComponent {
                         last: true
                         icon: "developer_board"
                         tint: Theme.primary
-                        title: "Platform security " + (root.hw?.hsi ?? "unknown")
-                        detail: (root.hw?.hsi_failed ?? []).length > 0
-                                ? "Not met: " + root.hw.hsi_failed.join(", ")
-                                : (root.hw?.hsi ? "All firmware platform checks pass" : "fwupd not available")
+                        // fwupd's level, e.g. "HSI:3!": "!" means runtime issues (fwupdmgr security).
+                        readonly property string hsi: root.hw?.hsi ?? ""
+                        title: "Platform security " + (hsi ? hsi.replace("!", "") : "unknown")
+                        detail: ((root.hw?.hsi_failed ?? []).length > 0
+                                 ? "Not met: " + root.hw.hsi_failed.join(", ")
+                                 : (hsi ? "All firmware platform checks pass" : "fwupd not available"))
+                                + (hsi.indexOf("!") >= 0 ? " · runtime issues (fwupdmgr security)" : "")
                     }
                 }
 

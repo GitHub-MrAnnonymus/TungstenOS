@@ -54,11 +54,14 @@ selinux=$(getenforce 2>/dev/null || echo Disabled)
 # fwupd's Host Security ID (HSI:0 to HSI:4) and the platform checks that failed.
 hsi=null; hsi_failed='[]'
 if j=$(fwupdmgr security --json --force 2>/dev/null); then
-  hsi=$(jq -c '(.HostSecurityId // empty) | split(" ")[0]' <<<"$j" 2>/dev/null) || hsi=null
+  # The JSON has no HSI level; the daemon's property has it ("HSI:2 (v2.1.9)").
+  hsi=$(busctl get-property org.freedesktop.fwupd / org.freedesktop.fwupd HostSecurityId 2>/dev/null |
+        sed -n 's/^s "\(HSI:[0-9][^ "]*\).*/"\1"/p')
   [ -n "$hsi" ] || hsi=null
-  hsi_failed=$(jq -c '[.SecurityAttributes[]? | select((.HsiResult // "") as $r
-      | ["not-enabled","not-valid","not-locked","not-encrypted","not-tainted","not-supported","not-found"] | index($r))
-      | select((.HsiLevel // 0) > 0) | (.Name // .AppstreamId)] | unique' <<<"$j" 2>/dev/null) || hsi_failed='[]'
+  # A check passed when fwupd flags it "success"; the result text alone does not say so
+  # ("SPI write: not-enabled" is the good outcome).
+  hsi_failed=$(jq -c '[.SecurityAttributes[]? | select((.HsiLevel // 0) > 0)
+      | select((.Flags // []) | index("success") | not) | (.Name // .AppstreamId)] | unique' <<<"$j" 2>/dev/null) || hsi_failed='[]'
 fi
 # TungstenOS Secure Boot database updates (tungsten-secureboot-update.service).
 sbdb=$(jq -c '{applied: (.applied // {} | length), pending: (.pending // []), refused: (.refused // [])}' \
