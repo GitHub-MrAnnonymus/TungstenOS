@@ -545,7 +545,7 @@ build_extension() {
 
   phase "Extension $name: EROFS and verity"
   mkfs.erofs -L "$name" --mount-point=/usr --file-contexts="$FC" \
-    -zzstd,level=15 -C262144 -Efragments,ztailpacking "$E"/usr.erofs "$E"/tree/usr
+    -zzstd,level=15 -C262144 -Efragments,ztailpacking,48bit "$E"/usr.erofs "$E"/tree/usr
   printf '[Partition]\nType=usr\nCopyBlocks=%s\nVerity=data\nVerityMatchKey=usr\n' "$E"/usr.erofs > "$E"/repart.d/10-usr.conf
   printf '[Partition]\nType=usr-verity\nVerity=hash\nVerityMatchKey=usr\nMinimize=best\n' > "$E"/repart.d/20-usr-verity.conf
   printf '[Partition]\nType=usr-verity-sig\nVerity=signature\nVerityMatchKey=usr\n' > "$E"/repart.d/30-usr-verity-sig.conf
@@ -568,10 +568,13 @@ cp "$WORKDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed "$OUT/${IMAGE_
 
 # --- /usr image and verity ---
 phase "/usr EROFS"
+# 48bit (Linux 6.15+): byte-aligned compressed extents. Block-aligned zstd needs a binary
+# search per cluster (zstd cannot fill an exact output size): measured on 5 GB of system
+# files with 4 workers, 1026 s and 1543 MB block-aligned, 116 s and 1514 MB with 48bit.
 USR_IMG=/tmp/usr.erofs
 VERITY_IMG=/tmp/usr.verity
 mkfs.erofs -L "${OS_BUILD_TAG}" --mount-point=/usr --file-contexts="$FC" \
-  -zzstd,level=15 -C262144 -Efragments,ztailpacking "$USR_IMG" "$WORKDIR/usr"
+  -zzstd,level=15 -C262144 -Efragments,ztailpacking,48bit "$USR_IMG" "$WORKDIR/usr"
 
 phase "/usr verity"
 VERITY_HASH=$(veritysetup format "$USR_IMG" "$VERITY_IMG" | awk '/Root hash:/ {print $3}')
