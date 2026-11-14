@@ -1,6 +1,8 @@
 [Unit]
 Description=Add the user folders to the file manager sidebar (first login)
 ConditionPathExists=!%S/tungsten/user-folders
+# Not for system accounts (the greeter, whose home is /).
+ConditionUser=!@system
 
 [Service]
 Type=oneshot
