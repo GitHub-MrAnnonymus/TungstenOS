@@ -10,16 +10,23 @@
 #   usb-lock lock      lock the empty external ports (tungsten-usb-lock.service start)
 #   usb-lock unlock    unlock them (service stop)
 #   usb-lock relock    after a device was unplugged, lock its port if locked (udev)
-#   usb-lock boot      lock from boot until the first login (tungsten-usb-lock-boot.service),
-#                      on laptops by default; /etc/tungsten/usb-lock-at-boot (yes/no) decides
-#                      otherwise. On a desktop, a USB keyboard plugged in only after booting
-#                      could not type at the login screen.
+#   usb-lock initrd    lock right after udev found the USB controllers, before the disk
+#                      passphrase (tungsten-usb-lock-initrd.service), on laptops: the
+#                      encrypted /etc with the setting is not readable yet. /run, and with it
+#                      the lock state, carries over into the system.
+#   usb-lock boot      in the system (tungsten-usb-lock-boot.service): lock until the first
+#                      login, on laptops by default; /etc/tungsten/usb-lock-at-boot (yes/no)
+#                      decides otherwise, and "no" also lifts the initrd lock. On a desktop,
+#                      a USB keyboard plugged in only after booting could not type at the
+#                      login screen.
 #   usb-lock status    write the state for Tungsten Guard
 set -uo pipefail
 RUN=/run/tungsten-usb-lock
 STATUS=/run/tungsten-guard/usb.json
 
 ports() { ls -d /sys/bus/usb/devices/usb*/*-0:1.0/usb*-port* 2>/dev/null; }
+# Notebook, laptop, sub-notebook, convertible, detachable (SMBIOS chassis types).
+laptop() { case $(cat /sys/class/dmi/id/chassis_type 2>/dev/null) in 8|9|10|14|31|32) return 0 ;; esac; return 1; }
 external() { [ "$(cat "$1/connect_type" 2>/dev/null)" = hotplug ]; }
 occupied() { [ -e "$1/device" ]; }
 
@@ -56,17 +63,23 @@ case "${1:-}" in
     done ;;
   relock)
     [ -e "$RUN/locked" ] && lock_empty ;;
+  initrd)
+    laptop || exit 0
+    # udev loads the xHCI drivers a moment after the controllers appear.
+    for _ in $(seq 30); do [ -n "$(ports)" ] && break; sleep 0.1; done
+    mkdir -p "$RUN" && touch "$RUN/locked" "$RUN/boot"
+    lock_empty ;;
   boot)
     want=$(cat /etc/tungsten/usb-lock-at-boot 2>/dev/null)
-    if [ -z "$want" ]; then
-      # Notebook, laptop, sub-notebook, convertible, detachable (SMBIOS chassis types).
-      case $(cat /sys/class/dmi/id/chassis_type 2>/dev/null) in
-        8|9|10|14|31|32) want=yes ;; *) want=no ;;
-      esac
-    fi
+    if [ -z "$want" ]; then laptop && want=yes || want=no; fi
     if [ "$want" = yes ]; then
       mkdir -p "$RUN" && touch "$RUN/boot"
+      # The service is the lock's state for the session (stop = unlock); it locks again
+      # what the initrd locked, and ports that appeared since.
       systemctl start --no-block tungsten-usb-lock.service
+      exit 0
+    elif [ -e "$RUN/locked" ]; then
+      exec "$0" unlock   # locked by the initrd, but not wanted here
     fi ;;
   status) ;;
   *) echo "usage: usb-lock lock|unlock|relock|status" >&2; exit 2 ;;

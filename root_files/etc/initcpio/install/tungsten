@@ -12,6 +12,13 @@ build() {
     add_symlink /etc/systemd/system/sysinit.target.wants/tungsten-ipe-policy.service \
         /usr/lib/systemd/system/tungsten-ipe-policy.service
 
+    # Empty external USB ports locked on laptops before the disk passphrase (usb-lock)
+    add_binary /usr/lib/tungsten/usb-lock
+    map add_binary bash ls cat mkdir touch chmod mv rm seq sleep
+    add_systemd_unit tungsten-usb-lock-initrd.service
+    add_symlink /etc/systemd/system/sysinit.target.wants/tungsten-usb-lock-initrd.service \
+        /usr/lib/systemd/system/tungsten-usb-lock-initrd.service
+
     # No boot without SELinux (see the unit)
     add_systemd_unit tungsten-selinux-required.service
     add_symlink /etc/systemd/system/sysinit.target.wants/tungsten-selinux-required.service \
@@ -81,5 +88,5 @@ build() {
 }
 
 help() {
-    echo "TungstenOS: IPE policy, /etc overlay and root partition creation."
+    echo "TungstenOS: IPE policy, /etc overlay, root partition creation and the USB port lock."
 }

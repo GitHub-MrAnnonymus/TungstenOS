@@ -1,0 +1,16 @@
+# In the initrd: lock the empty external USB ports on laptops before the disk passphrase
+# prompt (/usr/lib/tungsten/usb-lock initrd). The system takes the lock over
+# (tungsten-usb-lock-boot.service) and the first login lifts it.
+[Unit]
+Description=Lock empty external USB ports (initrd)
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+After=systemd-udev-trigger.service
+Before=cryptsetup-pre.target sysinit.target
+Wants=cryptsetup-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/usr/bin/udevadm settle --timeout=5
+ExecStart=/usr/lib/tungsten/usb-lock initrd
