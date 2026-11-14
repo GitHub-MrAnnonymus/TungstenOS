@@ -1,0 +1,45 @@
+#!/bin/bash
+# Some Intel Wi-Fi cards (seen: AX210 on an ASUS Tiger Lake laptop) come out of the
+# firmware in a state where their first start fails: the card reports a fatal PCIe error,
+# the port cuts the link (DPC), and every register reads 0xffffffff until the card is
+# removed and the bus rescanned. Before NetworkManager starts, bring each iwlwifi
+# interface up once and recover it that way if it fails. On working hardware this only
+# brings the interface up and down again.
+set -uo pipefail
+
+gone() { [ "$(cat "/sys/bus/pci/devices/$1/vendor" 2>/dev/null)" != 0x8086 ]; }
+
+# Only machines with an Intel network controller (PCI class 0x0280xx) wait at all.
+intel=0
+for d in /sys/bus/pci/devices/*; do
+  [ "$(cat "$d/vendor")" = 0x8086 ] && [[ $(cat "$d/class") == 0x0280* ]] && intel=1
+done
+[ "$intel" = 1 ] || exit 0
+
+# udev loads iwlwifi a moment after the device appears; wait for its interfaces.
+for _ in $(seq 50); do
+  ifs=()
+  for n in /sys/class/net/*; do
+    [ "$(basename "$(readlink -f "$n/device/driver" 2>/dev/null)")" = iwlwifi ] && ifs+=("$(basename "$n")")
+  done
+  [ ${#ifs[@]} -gt 0 ] && break
+  sleep 0.2
+done
+
+for ifc in "${ifs[@]}"; do
+  pci=$(basename "$(readlink -f "/sys/class/net/$ifc/device")")
+  if timeout 10 ip link set dev "$ifc" up 2>/dev/null && ! gone "$pci"; then
+    ip link set dev "$ifc" down
+    continue
+  fi
+  echo "$ifc ($pci) failed to start; removing and rescanning the device"
+  echo 1 > "/sys/bus/pci/devices/$pci/remove" 2>/dev/null || :
+  sleep 1
+  echo 1 > /sys/bus/pci/rescan
+  for _ in $(seq 50); do
+    [ -e "/sys/bus/pci/devices/$pci/net" ] && break
+    sleep 0.2
+  done
+  if gone "$pci"; then echo "$pci did not come back" >&2; else echo "$pci recovered"; fi
+done
+exit 0
