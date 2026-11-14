@@ -59,7 +59,7 @@ PACKAGES=(
   # Desktop
   plymouth greetd greetd-dms-greeter flatpak
   hyprland uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk dux-shell quickshell qtengine
-  matugen polkit alacritty zsh dux-files nwg-look adw-gtk-theme kdeconnect papirus-icon-theme
+  matugen polkit alacritty zsh dux-files dux-search nwg-look adw-gtk-theme kdeconnect papirus-icon-theme
   # zsh (/etc/skel/.zshrc): plugins and prompt from the image, not downloaded into homes
   zsh-completions zsh-autosuggestions zsh-syntax-highlighting fzf-tab fzf zoxide atuin oh-my-posh
   ttf-manrope ttf-jetbrains-mono  # UI and monospace fonts (fontconfig: 50-tungsten-fonts.conf)
@@ -175,9 +175,10 @@ systemctl disable systemd-timesyncd.service
 # Locale, keymap and timezone come from the image, and root stays locked: never ask.
 systemctl mask systemd-firstboot.service
 # Locks the keyrings while a session is locked; XDG folders in the sidebar; user tmpfiles
-# (Steam's data directory, tungsten-steam.conf), which the image's presets leave disabled.
+# (Steam's data directory, tungsten-steam.conf), which the image's presets leave disabled;
+# Dux Search's index service (file search in the Dux Shell launcher).
 systemctl --global enable tungsten-keyring-lock.service tungsten-user-folders.service \
-  systemd-tmpfiles-setup.service systemd-tmpfiles-clean.timer
+  systemd-tmpfiles-setup.service systemd-tmpfiles-clean.timer dsearch.service
 # See /etc/systemd/logind.conf
 systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
 

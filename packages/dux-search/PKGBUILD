@@ -1,0 +1,40 @@
+# Built from source; not in Arch's repositories. Tags are unsigned: pinned by commit.
+# Dux Shell's launcher searches files through it (dsearch serve, a user service).
+
+pkgname=dux-search
+pkgver=2.1.0
+_commit=d9495f1ddf05e9269923b166d9422a5db97527d6  # tag v2.1.0
+pkgrel=1
+pkgdesc='Dux Search: indexed filesystem search for Dux Shell'
+arch=(x86_64)
+url='https://github.com/duxlabs-dev/dux-search'
+license=(MIT)
+makedepends=(git go)
+provides=(dsearch danksearch)
+source=("git+https://github.com/duxlabs-dev/dux-search.git#commit=${_commit}")
+sha256sums=('SKIP')
+
+build() {
+  cd dux-search
+  # As upstream's Makefile (static, no cgo), as PIE.
+  export CGO_ENABLED=0 GOTOOLCHAIN=local GOPATH="$srcdir/gopath"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  go build -ldflags "-X main.Version=v$pkgver -X main.commit=${_commit::7}" \
+    -o dsearch ./cmd/dsearch
+}
+
+check() {
+  cd dux-search
+  ./dsearch version 2>&1 | grep -q "v$pkgver" ||
+    { echo "dsearch reports the wrong version" >&2; ./dsearch version; return 1; }
+}
+
+package() {
+  cd dux-search
+  install -Dm755 dsearch "$pkgdir/usr/bin/dsearch"
+  # Upstream's unit expects /usr/local/bin.
+  sed 's|/usr/local/bin/dsearch|/usr/bin/dsearch|' assets/dsearch.service |
+    install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/user/dsearch.service"
+  install -Dm644 config.example.toml "$pkgdir/usr/share/doc/$pkgname/config.example.toml"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
