@@ -2,5 +2,7 @@
 vt = 1
 
 [default_session]
-command = "/usr/bin/dms-greeter --command hyprland --config /etc/greetd/hypr.lua --cache-dir /var/cache/dms-greeter"
+# GSettings in memory: Hyprland stores its cursor theme there, and the greeter user has no
+# home ("/") for dconf to write to ("Failed to create file /.config/dconf/user...").
+command = "/usr/bin/env GSETTINGS_BACKEND=memory /usr/bin/dms-greeter --command hyprland --config /etc/greetd/hypr.lua --cache-dir /var/cache/dms-greeter"
 user = "greeter"
