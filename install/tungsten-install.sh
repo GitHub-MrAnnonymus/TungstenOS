@@ -207,9 +207,9 @@ Installed $IMAGE_ID $VER with extensions: ${EXTS[*]:-none}.
 2. Boot and enter the recovery passphrase. The first boot then creates two
    accounts: an administrator (its password authorizes run0 and polkit; it cannot
    log in at the login screen) and your everyday account.
-3. Bind the root partition to the TPM with a systemd-pcrlock policy: the first-boot
-   wizard offers it as its last step. If you skip it, log in with the everyday account
-   and run (run0 asks for the administrator's password):
+3. The first-boot wizard asks how the disk unlocks: bound to the TPM with a
+   systemd-pcrlock policy, or the recovery passphrase at every boot. To bind later,
+   log in with the everyday account and run (run0 asks for the administrator's password):
      run0 tungsten-tpm-enroll
    It asks whether to require a PIN, and shows a pcrlock recovery PIN once;
    store that with the passphrase.

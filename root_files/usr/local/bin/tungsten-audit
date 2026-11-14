@@ -65,15 +65,23 @@ else
   fail "/usr is not verified by dm-verity"
 fi
 meta=$(cryptsetup luksDump --dump-json-metadata /dev/disk/by-partlabel/root 2>/dev/null)
+# Bound with pcrlock, or not bound at all (a passphrase at every boot, by choice in the
+# first-boot wizard). A TPM key without pcrlock is repart's: the TPM releases it to any
+# boot of a UKI signed for TungstenOS, without checking firmware or Secure Boot.
+tpm_tokens=$(jq '[.tokens[] | select(.type == "systemd-tpm2")] | length' <<<"$meta" 2>/dev/null || echo 0)
 if jq -e '[.tokens[] | select(.type == "systemd-tpm2" and (."tpm2_pcrlock" == true))] | length > 0' <<<"$meta" >/dev/null; then
   pass "Root partition bound to the TPM with a pcrlock policy"
+elif [ "$tpm_tokens" = 0 ]; then
+  pass "Root partition unlocks with a passphrase only (not bound to the TPM)"
 else
-  fail "Root partition not bound to the TPM (run0 tungsten-tpm-enroll)"
+  fail "Root partition has a TPM key without pcrlock: any TungstenOS boot unlocks it (run0 tungsten-tpm-enroll)"
 fi
-if tpm2_getcap properties-variable 2>/dev/null | grep -q 'lockoutAuthSet: *1'; then
-  pass "TPM PIN lockout cannot be reset"
-else
-  fail "TPM lockout authorization is empty (run0 tungsten-tpm-enroll)"
+if [ "$tpm_tokens" != 0 ]; then
+  if tpm2_getcap properties-variable 2>/dev/null | grep -q 'lockoutAuthSet: *1'; then
+    pass "TPM PIN lockout cannot be reset"
+  else
+    fail "TPM lockout authorization is empty (run0 tungsten-tpm-enroll)"
+  fi
 fi
 exit "$exit_code"
 EOF

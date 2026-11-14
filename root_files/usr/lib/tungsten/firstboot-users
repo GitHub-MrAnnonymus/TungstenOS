@@ -199,19 +199,47 @@ while :; do
 done
 unset admin_pw user_pw
 
-# 5. TPM binding, optional. Until then the disk unlocks with repart's key: the TPM releases
-# it to any boot of a UKI signed for TungstenOS, without checking firmware or Secure Boot.
+# 5. Disk unlock: bind to the TPM with pcrlock, or a passphrase at every boot. Either way
+# repart's key goes: the TPM releases it to any boot of a UKI signed for TungstenOS,
+# without checking firmware or Secure Boot, which is too weak to keep.
 step=$((step + 1))
 header "Step $step of $STEPS · Disk unlock"
-say "The disk now unlocks by itself whenever a TungstenOS system boots. Binding it to this" \
-    "computer's TPM also checks the firmware, its Secure Boot settings and the boot loader:" \
-    "if any of them change, the disk asks for the recovery passphrase instead." "" \
-    "With a PIN, the TPM releases the key only after you type it at boot, and it locks" \
-    "itself after repeated wrong PINs."
+say "How should the disk unlock at boot?" "" \
+    "$(gum style --bold 'TPM:') this computer's TPM releases the key only if the firmware, its Secure" \
+    "Boot settings and the boot loader are unchanged; otherwise the disk asks for the recovery" \
+    "passphrase. Optionally with a PIN at every boot, which the TPM locks after repeated" \
+    "wrong attempts." "" \
+    "$(gum style --bold 'Passphrase:') you type the recovery passphrase at every boot. You can bind" \
+    "to the TPM later with: run0 tungsten-tpm-enroll"
 echo
-tpm_bound=0
-choice=$(gum choose --header "Bind the disk to the TPM?" "Bind now (recommended)" "Later") || choice=Later
-if [ "$choice" != Later ]; then
+tpm_bound=0 passphrase_only=0
+choice=$(gum choose --header "Unlock with" "TPM (recommended)" "Passphrase at every boot") || choice=TPM
+# Removes repart's TPM key, leaving the passphrase. Only with another key slot (the
+# installer's passphrase or step 2's), or nothing would unlock the disk any more.
+remove_tpm_key() {
+  local meta others
+  meta=$(cryptsetup luksDump --dump-json-metadata "$ROOTDEV" 2>/dev/null) || meta=
+  others=$(jq '[.tokens[] | select(.type == "systemd-tpm2") | .keyslots[]] as $tpm
+      | [.keyslots | keys[] | select(. as $k | $tpm | index($k) | not)] | length' <<<"$meta" 2>/dev/null || echo 0)
+  if [ "$others" -eq 0 ]; then
+    warn "The disk has no passphrase, so its TPM key stays; add one and bind later with:" \
+         "run0 tungsten-tpm-enroll" >&2
+    read -r -t 300 -p "  Press Enter to continue. " _ || :
+    return 1
+  fi
+  : > "$LOG"
+  if gum spin --title "Removing the TPM key…" -- \
+       bash -c 'systemd-cryptenroll --unlock-tpm2-device=auto --wipe-slot=tpm2 "$1" >>"$2" 2>&1' _ "$ROOTDEV" "$LOG"; then
+    passphrase_only=1
+    return 0
+  fi
+  warn "Could not remove the TPM key: $(tail -n 2 "$LOG")" >&2
+  read -r -t 300 -p "  Press Enter to continue. " _ || :
+  return 1
+}
+if [ "$choice" = "Passphrase at every boot" ]; then
+  remove_tpm_key || :
+else
   pin_arg=--no-pin; pin=
   if gum confirm --default=false "Require a PIN at every boot?"; then
     pin_arg=--pin
@@ -232,9 +260,11 @@ if [ "$choice" != Later ]; then
     gum style --margin "0 2" --bold "Store the recovery PIN shown above with the recovery passphrase."
     read -r -p "  Press Enter once it is written down. " _ || :
   else
-    warn "Binding to the TPM failed; the disk still unlocks as before." \
-         "Try again later with: run0 tungsten-tpm-enroll" >&2
+    # Not repart's key instead: a passphrase at every boot until it works.
+    warn "Binding to the TPM failed (see above). The disk will ask for the recovery" \
+         "passphrase at every boot; try again later with: run0 tungsten-tpm-enroll" >&2
     read -r -t 300 -p "  Press Enter to continue. " _ || :
+    remove_tpm_key || :
   fi
   unset pin
 fi
@@ -244,9 +274,14 @@ step=$((step + 1))
 header "Step $step of $STEPS · Ready"
 gum style --margin "0 2" --foreground "$OK" --bold "All set. Log in as $user at the login screen."
 echo
-if [ "$tpm_bound" != 1 ]; then
-  say "To bind the disk to this computer's TPM later (it asks for the administrator's" \
-      "password):" "" "$(gum style --foreground "$ACCENT" '    run0 tungsten-tpm-enroll')"
+if [ "$passphrase_only" = 1 ]; then
+  say "The disk asks for the recovery passphrase at every boot. To bind it to the TPM later" \
+      "(it asks for the administrator's password):" "" \
+      "$(gum style --foreground "$ACCENT" '    run0 tungsten-tpm-enroll')"
+  echo
+elif [ "$tpm_bound" != 1 ]; then
+  warn "The disk still unlocks with any TungstenOS boot. Bind it to the TPM with:" \
+       "    run0 tungsten-tpm-enroll"
   echo
 fi
 gum spin --spinner dot --title "Starting the login screen…" -- sleep 3
