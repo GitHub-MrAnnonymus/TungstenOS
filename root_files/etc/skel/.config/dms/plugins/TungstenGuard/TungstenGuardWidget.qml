@@ -416,6 +416,7 @@ PluginComponent {
                                      rowHeight * 4.5)
 
                     component Page: Flickable {
+                        id: page
                         required property int index
                         anchors.fill: parent
                         contentWidth: width
@@ -424,7 +425,12 @@ PluginComponent {
                         opacity: popout.tab === index ? 1 : 0
                         visible: opacity > 0
                         Behavior on opacity { NumberAnimation { duration: 120 } }
-                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                        // The shell's own scrollbar (as in DFlickable): a thin pill, shown while
+                        // scrolling or hovered.
+                        ScrollBar.vertical: DScrollbar {
+                            z: 2
+                            targetFlickable: page
+                        }
                     }
 
                 // --- Updates ---
