@@ -593,5 +593,14 @@ ukify build \
 sbsign --key "$SB_DIR"/db.key --cert "$SB_DIR"/db.pem \
   --output "$OUT/${IMAGE_ID}_${OS_BUILD_TAG}.efi" /tmp/uki.efi
 
-rm -rf /tmp/ucode.img /tmp/uki.efi "$PACMAN_CONF" "$SEBUILD" "$EXTDIR"
+# Boot log add-on, published with each release and not installed: copied next to one UKI
+# (EFI/Linux/<uki>.efi.extra.d/), it makes that UKI show every kernel and systemd message
+# from the firmware framebuffer on, for a boot that hangs on a black screen. Only logging:
+# no shell, no change to what boots. Not tungsten_*.efi, which sysupdate takes for UKIs.
+ukify build --cmdline "loglevel=7 ignore_loglevel earlycon=efifb keep_bootcon plymouth.enable=0 systemd.show_status=1" \
+  --output /tmp/boot-log.addon.efi
+sbsign --key "$SB_DIR"/db.key --cert "$SB_DIR"/db.pem \
+  --output "$OUT/boot-log.addon.efi" /tmp/boot-log.addon.efi
+
+rm -rf /tmp/ucode.img /tmp/uki.efi /tmp/boot-log.addon.efi "$PACMAN_CONF" "$SEBUILD" "$EXTDIR"
 ls -lh "$OUT"
