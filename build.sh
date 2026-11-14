@@ -69,7 +69,7 @@ PACKAGES=(
   power-profiles-daemon trivalent qemu-desktop libvirt virt-manager bazaar android-tools tailscale
 
   # Dev containers: rootless Podman with gVisor as its only runtime (visorbox, runsc)
-  podman passt gvisor visorbox
+  podman passt fuse-overlayfs gvisor visorbox
 
   # Tools
   less git jq fastfetch tmux helix rsync unzip zip arch-repro-status nano neovim
@@ -220,8 +220,9 @@ semanage fcontext -N -S "$POLICY" -a -e /etc /var/lib/tungsten/etc/upper
 semanage fcontext -N -S "$POLICY" -a -e /media /run/media
 # gVisor: runsc, its sidecars and the wrapper Podman calls are OCI runtimes. conmon starts
 # them back in the Podman domain (podman_user_t for rootless), as refpolicy does for crun.
-for f in /usr/lib/gvisor/runsc /usr/lib/tungsten/runsc '/usr/lib/gvisor/gvisor-bin(/.*)?'; do
-  semanage fcontext -N -S "$POLICY" -a -t container_engine_exec_t "$f"
+# Files only: a directory of an executable type cannot even be searched.
+for f in /usr/lib/gvisor/runsc /usr/lib/gvisor/runsc-podman '/usr/lib/gvisor/gvisor-bin/.*'; do
+  semanage fcontext -N -S "$POLICY" -a -f f -t container_engine_exec_t "$f"
 done
 # Podman's quadlet is the user manager's generator for ~/.config/containers/systemd; as
 # lib_t the user manager may not run it.

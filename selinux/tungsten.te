@@ -1187,6 +1187,14 @@ optional_policy(`
 		attribute user_application_exec_domain;
 	')
 	podman_user_role(user, user_t, user_application_exec_domain, user_r)
+	# Gaps in the rootless domain (seen under --audit-all): the machine ID, the random
+	# device, and checking whether systemd runs (/run/systemd/system).
+	gen_require(`
+		type podman_user_t, systemd_unit_t;
+	')
+	files_read_etc_runtime_files(podman_user_t)
+	dev_read_urand(podman_user_t)
+	allow podman_user_t systemd_unit_t:dir getattr;
 	# Cleaning up (rm of ~/.local/share/containers, podman system reset).
 	container_manage_all_home_content(user_t)
 ')

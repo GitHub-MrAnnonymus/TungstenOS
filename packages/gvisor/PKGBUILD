@@ -6,14 +6,16 @@
 pkgname=gvisor
 pkgver=20261109.0
 _commit=c36d70fce46ce8ae807e4ad55ac7894e9bb11711  # go branch, contains tag release-20261109.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Application kernel for containers: runsc, the OCI runtime, and its sidecars'
 arch=(x86_64)
 url='https://gvisor.dev'
 license=(Apache-2.0)
 makedepends=(git go gcc)
-source=("git+https://github.com/google/gvisor.git#commit=${_commit}")
-sha256sums=('SKIP')
+source=("git+https://github.com/google/gvisor.git#commit=${_commit}"
+        runsc-podman.c)
+sha256sums=('SKIP'
+            'c0b5fe82b06c80ce78a0ffcbcdd6ca1815916a44feeb66918ec423ce1a48fb7c')
 options=(!debug !lto)
 
 build() {
@@ -37,6 +39,8 @@ build() {
       -fcf-protection=full -Wl,--build-id=none -o "out/gvisor-bin/${c#*:}" \
       "runsc/${c%%:*}/${c%%:*}.c"
   done
+  # Podman's runtime on TungstenOS: runsc with the flags it needs there (see the source).
+  gcc $CPPFLAGS $CFLAGS $LDFLAGS -o out/runsc-podman "$srcdir/runsc-podman.c"
 }
 
 check() {
@@ -50,6 +54,7 @@ package() {
   # runsc looks for its sidecars in gvisor-bin/ next to its real path (it resolves
   # /proc/self/exe), so the link in /usr/bin finds them.
   install -Dm755 out/runsc "$pkgdir/usr/lib/gvisor/runsc"
+  install -Dm755 out/runsc-podman "$pkgdir/usr/lib/gvisor/runsc-podman"
   install -Dm755 -t "$pkgdir/usr/lib/gvisor/gvisor-bin" out/gvisor-bin/*
   install -d "$pkgdir/usr/bin"
   ln -s ../lib/gvisor/runsc "$pkgdir/usr/bin/runsc"
