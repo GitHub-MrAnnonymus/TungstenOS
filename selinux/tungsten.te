@@ -1255,6 +1255,13 @@ optional_policy(`
 	files_read_etc_runtime_files(podman_user_t)
 	# Podman walks PATH and XDG_DATA_DIRS, which include the Flatpak exports; it needs nothing there.
 	dontaudit podman_user_t flatpak_content_t:dir search;
+	# gVisor (runsc, in the Podman domain): the sandbox unmounts the host proc in its own
+	# mount namespace, so the Sentry cannot see host processes (refused: the sandbox died
+	# before the container started), and reads memory settings in /proc/sys/vm.
+	kernel_unmount_proc(podman_user_t)
+	kernel_read_vm_sysctls(podman_user_t)
+	# fusermount3 and fuse-overlayfs (rootless storage) read the mount table in /run/mount.
+	mount_read_runtime_files(podman_user_t)
 	dev_read_urand(podman_user_t)
 	allow podman_user_t systemd_unit_t:dir getattr;
 	# Cleaning up (rm of ~/.local/share/containers, podman system reset).
