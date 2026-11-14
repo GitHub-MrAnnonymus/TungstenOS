@@ -77,6 +77,9 @@ run dux-search      scripts/update/git-tag.sh dux-search https://github.com/duxl
 run qt-rebuild      scripts/update/qt-rebuild.sh
 push_branch
 
+# Security advisories become issues; they change no files.
+scripts/update/advisories.sh || failed+=(advisories)
+
 changed=$(git diff --name-only "$START" HEAD)
 groups=()
 grep -qE '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' <<<"$changed" && groups+=(kernel)
