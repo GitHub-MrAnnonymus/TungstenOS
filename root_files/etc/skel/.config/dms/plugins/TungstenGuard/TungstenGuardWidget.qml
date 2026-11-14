@@ -3,6 +3,7 @@
 // Reads what root services write to /run/tungsten-guard (tungsten-guard-check.timer,
 // tungsten-guard-execwatch.service); it runs nothing privileged itself.
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import qs.Common
@@ -401,24 +402,39 @@ PluginComponent {
                     onTabClicked: index => popout.tab = index
                 }
 
-                // The pages are laid out on top of each other and cross-fade; the popout takes
-                // the height of the current one (the shell animates its own size), so a short
-                // tab does not show the empty space of the longest.
+                // The pages lie on top of each other and cross-fade, in an area of one height
+                // for every tab: the tallest page, at most about four and a half rows, and a
+                // longer page scrolls. A height that follows the tab flickers: the shell
+                // animates its frame with a spring while the content jumps.
                 Item {
+                    id: pages
                     width: parent.width
-                    clip: true
-                    height: popout.tab === 0 ? updatesPage.implicitHeight
-                          : popout.tab === 1 ? securityPage.implicitHeight
-                          : activityPage.implicitHeight + clearRow.height + Theme.spacingS
+                    readonly property real rowHeight: updatesPage.children.length > 0 && updatesPage.children[0].height > 0
+                                                      ? updatesPage.children[0].height + updatesPage.spacing : 72
+                    height: Math.min(Math.max(updatesPage.implicitHeight, securityPage.implicitHeight,
+                                              activityPage.implicitHeight + clearRow.height + Theme.spacingS),
+                                     rowHeight * 4.5)
+
+                    component Page: Flickable {
+                        required property int index
+                        anchors.fill: parent
+                        contentWidth: width
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        opacity: popout.tab === index ? 1 : 0
+                        visible: opacity > 0
+                        Behavior on opacity { NumberAnimation { duration: 120 } }
+                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    }
 
                 // --- Updates ---
+                Page {
+                    index: 0
+                    contentHeight: updatesPage.implicitHeight
                 Column {
                     id: updatesPage
                     width: parent.width
                     spacing: 2
-                    opacity: popout.tab === 0 ? 1 : 0
-                    visible: opacity > 0
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
 
                     Tile {
                         first: true
@@ -466,15 +482,16 @@ PluginComponent {
                         }
                     }
                 }
+                }
 
                 // --- Security ---
+                Page {
+                    index: 1
+                    contentHeight: securityPage.implicitHeight
                 Column {
                     id: securityPage
                     width: parent.width
                     spacing: 2
-                    opacity: popout.tab === 1 ? 1 : 0
-                    visible: opacity > 0
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
 
                     Tile {
                         first: true
@@ -592,13 +609,16 @@ PluginComponent {
                                 + (hsi.indexOf("!") >= 0 ? " · runtime issues (fwupdmgr security)" : "")
                     }
                 }
+                }
 
                 // --- Activity ---
+                Page {
+                    index: 2
+                    contentHeight: activityPage.y + activityPage.implicitHeight
                 Row {
                     id: clearRow
                     anchors.right: parent.right
-                    opacity: activityPage.opacity
-                    visible: activityPage.visible && root.history.length > 0
+                    visible: root.history.length > 0
                     height: visible ? clearButton.implicitHeight : 0
 
                     DButton {
@@ -614,9 +634,6 @@ PluginComponent {
                     width: parent.width
                     y: clearRow.visible ? clearRow.height + Theme.spacingS : 0
                     spacing: 2
-                    opacity: popout.tab === 2 ? 1 : 0
-                    visible: opacity > 0
-                    Behavior on opacity { NumberAnimation { duration: 120 } }
 
                     Tile {
                         first: true
@@ -642,6 +659,7 @@ PluginComponent {
                                     + " · " + modelData.path + (modelData.by ? " · from " + modelData.by : "")
                         }
                     }
+                }
                 }
                 }
             }
