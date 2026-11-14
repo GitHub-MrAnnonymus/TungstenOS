@@ -1,5 +1,6 @@
 #!/bin/bash
-# Checks for updates (TungstenOS, Flatpaks, firmware including the Secure Boot dbx) and
+# Checks for updates (TungstenOS, Flatpaks, firmware including the Secure Boot dbx) and the
+# hardware security state (Secure Boot, TPM, disk unlock, verified /usr, fwupd's HSI), and
 # writes the result to /run/tungsten-guard/status.json, which the Dux Shell widget reads.
 # tungsten-guard-check.service runs it at boot and hourly (tungsten-guard-check.timer).
 set -uo pipefail
@@ -27,9 +28,48 @@ if j=$(fwupdmgr get-updates --json --no-unreported-check --no-metadata-check 2>/
          dbx: ((.Plugin // "") == "uefi_dbx" or ((.Name // "") | test("dbx"; "i")))}]' <<<"$j" 2>/dev/null) || fw='[]'
 fi
 
+# --- Hardware security ---
+# Secure Boot: "enabled (user)" when the firmware enforces it; "setup" means no keys.
+sb=$(bootctl status 2>/dev/null | sed -n 's/^ *Secure Boot: *//p' | head -1)
+# TPM 2.0, and whether its PIN lockout can be reset (tungsten-tpm-enroll sets it).
+tpm=null; lockout=false
+if [ -e /dev/tpmrm0 ]; then
+  tpm=$(cat /sys/class/tpm/tpm0/tpm_version_major 2>/dev/null || echo 2)
+  tpm2_getcap properties-variable 2>/dev/null | grep -q 'lockoutAuthSet: *1' && lockout=true
+fi
+# Disk unlock, as tungsten-audit sees it: bound with pcrlock (with or without PIN), a
+# passphrase only, or repart's TPM key without pcrlock (any TungstenOS boot unlocks it).
+disk=unknown
+if meta=$(cryptsetup luksDump --dump-json-metadata /dev/disk/by-partlabel/root 2>/dev/null); then
+  disk=$(jq -r '[.tokens[] | select(.type == "systemd-tpm2")] as $t
+    | if ($t | map(select(."tpm2_pcrlock" == true)) | length) > 0 then
+        (if ($t | map(select(."tpm2-pin" == true)) | length) > 0 then "tpm-pin" else "tpm" end)
+      elif ($t | length) == 0 then "passphrase" else "weak" end' <<<"$meta" 2>/dev/null || echo unknown)
+fi
+# The system image: /usr verified by dm-verity, IPE policy active, SELinux enforcing.
+verity=false; veritysetup status usr 2>/dev/null | grep -q 'status:.*verified' && verity=true
+ipe=false
+for a in /sys/kernel/security/ipe/policies/*/active; do [ "$(cat "$a" 2>/dev/null)" = 1 ] && ipe=true; done
+selinux=$(getenforce 2>/dev/null || echo Disabled)
+# fwupd's Host Security ID (HSI:0 to HSI:4) and the platform checks that failed.
+hsi=null; hsi_failed='[]'
+if j=$(fwupdmgr security --json --force 2>/dev/null); then
+  hsi=$(jq -c '(.HostSecurityId // empty) | split(" ")[0]' <<<"$j" 2>/dev/null) || hsi=null
+  [ -n "$hsi" ] || hsi=null
+  hsi_failed=$(jq -c '[.SecurityAttributes[]? | select((.HsiResult // "") as $r
+      | ["not-enabled","not-valid","not-locked","not-encrypted","not-tainted","not-supported","not-found"] | index($r))
+      | select((.HsiLevel // 0) > 0) | (.Name // .AppstreamId)] | unique' <<<"$j" 2>/dev/null) || hsi_failed='[]'
+fi
+hardware=$(jq -n --arg sb "$sb" --argjson tpm "$tpm" --argjson lockout "$lockout" --arg disk "$disk" \
+  --argjson verity "$verity" --argjson ipe "$ipe" --arg selinux "$selinux" \
+  --argjson hsi "$hsi" --argjson hsi_failed "$hsi_failed" \
+  '{secure_boot: $sb, tpm: $tpm, tpm_lockout: $lockout, disk: $disk, verity: $verity, ipe: $ipe,
+    selinux: $selinux, hsi: $hsi, hsi_failed: $hsi_failed}')
+
 tmp=$(mktemp "$DIR/.status.XXXXXX")
 jq -n --argjson os_new "$os_new" --arg os_cur "$os_cur" --argjson flatpaks "${flatpaks:-0}" \
-   --argjson firmware "$fw" --arg checked "$(date -Iseconds)" \
-   '{checked: $checked, os: {current: $os_cur, available: $os_new}, flatpaks: $flatpaks, firmware: $firmware}' > "$tmp"
+   --argjson firmware "$fw" --argjson hardware "$hardware" --arg checked "$(date -Iseconds)" \
+   '{checked: $checked, os: {current: $os_cur, available: $os_new}, flatpaks: $flatpaks,
+     firmware: $firmware, hardware: $hardware}' > "$tmp"
 chmod 0644 "$tmp"
 mv -f "$tmp" "$OUT"

@@ -24,11 +24,16 @@ PluginComponent {
     readonly property var firmware: status?.firmware ?? []
     readonly property bool dbxUpdate: firmware.some(f => f.dbx)
     readonly property int updateCount: (osAvailable ? 1 : 0) + (flatpakCount > 0 ? 1 : 0) + firmware.length
+    readonly property var hw: status?.hardware ?? null
+    readonly property bool secureBootOn: (hw?.secure_boot ?? "").startsWith("enabled")
+    readonly property bool imageVerified: (hw?.verity ?? false) && (hw?.selinux ?? "") === "Enforcing"
+    // Problems that weaken the system itself (not just pending updates).
+    readonly property bool hwProblem: hw !== null && (!secureBootOn || hw.disk === "weak" || !imageVerified)
     // Blocked programs within the last day keep the shield on alert.
     readonly property bool recentBlock: blocked.length > 0 && (Date.now() / 1000 - blocked[0].time) < 86400
 
     function stateIcon() {
-        if (dbxUpdate || recentBlock)
+        if (dbxUpdate || recentBlock || hwProblem)
             return "gpp_maybe";
         if (updateCount > 0)
             return "security_update_good";
@@ -36,7 +41,7 @@ PluginComponent {
     }
 
     function stateColor() {
-        if (dbxUpdate || recentBlock)
+        if (dbxUpdate || recentBlock || hwProblem)
             return Theme.warning;
         if (updateCount > 0)
             return Theme.primary;
@@ -210,6 +215,13 @@ PluginComponent {
                     }
                 }
 
+                StyledText {
+                    text: "Updates"
+                    color: Theme.primary
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.weight: Font.Medium
+                }
+
                 Line {
                     icon: root.osAvailable ? "system_update" : "check_circle"
                     tint: root.osAvailable ? Theme.primary : Theme.surfaceText
@@ -237,6 +249,68 @@ PluginComponent {
                     title: root.firmware.length > 0 ? root.firmware.length + " firmware updates" : "Firmware is up to date"
                     detail: root.firmware.map(f => f.name + " " + f.version + " → " + f.new).join("\n")
                             + (root.firmware.length > 0 ? "\nInstall with: fwupdmgr update" : "")
+                }
+
+                StyledText {
+                    visible: root.hw !== null
+                    text: "Hardware security"
+                    color: Theme.primary
+                    font.pixelSize: Theme.fontSizeSmall
+                    font.weight: Font.Medium
+                }
+
+                Line {
+                    visible: root.hw !== null
+                    icon: root.secureBootOn ? "verified" : "gpp_bad"
+                    tint: root.secureBootOn ? Theme.surfaceText : Theme.warning
+                    title: root.secureBootOn ? "Secure Boot is on" : "Secure Boot is off"
+                    detail: root.secureBootOn ? "The firmware starts only boot software signed for this computer."
+                                              : "Firmware state: " + (root.hw?.secure_boot || "unknown") + ". Turn it on in the firmware setup."
+                }
+
+                Line {
+                    visible: root.hw !== null
+                    readonly property string d: root.hw?.disk ?? "unknown"
+                    icon: d === "weak" ? "lock_open" : "lock"
+                    tint: d === "weak" ? Theme.warning : Theme.surfaceText
+                    title: d === "tpm-pin" ? "Disk bound to the TPM, with PIN"
+                         : d === "tpm" ? "Disk bound to the TPM"
+                         : d === "passphrase" ? "Disk unlocks with the passphrase"
+                         : d === "weak" ? "Disk unlocks with any TungstenOS boot"
+                         : "Disk encryption state unknown"
+                    detail: d === "weak" ? "Bind it to this computer: run0 tungsten-tpm-enroll"
+                          : d.startsWith("tpm") ? "Unlocks only if firmware, Secure Boot and boot loader are unchanged."
+                          : d === "passphrase" ? "Bind it to the TPM any time: run0 tungsten-tpm-enroll" : ""
+                }
+
+                Line {
+                    visible: root.hw !== null
+                    readonly property bool ok: root.hw?.tpm !== null && root.hw?.tpm !== undefined
+                    icon: ok ? "memory" : "help"
+                    tint: Theme.surfaceText
+                    title: ok ? "TPM " + root.hw.tpm + ".0" : "No TPM"
+                    detail: ok ? (root.hw.tpm_lockout ? "PIN guessing is rate-limited; the lockout cannot be reset."
+                                                      : "PIN lockout not set up yet (tungsten-tpm-enroll does it).") : ""
+                }
+
+                Line {
+                    visible: root.hw !== null
+                    icon: root.imageVerified ? "verified_user" : "gpp_bad"
+                    tint: root.imageVerified ? Theme.surfaceText : Theme.warning
+                    title: root.imageVerified ? "Verified system" : "System verification incomplete"
+                    detail: "/usr " + (root.hw?.verity ? "verified by dm-verity" : "NOT verified")
+                            + " · IPE " + (root.hw?.ipe ? "active" : "inactive")
+                            + " · SELinux " + (root.hw?.selinux || "unknown")
+                }
+
+                Line {
+                    visible: root.hw !== null && root.hw.hsi !== null
+                    icon: "developer_board"
+                    tint: Theme.surfaceText
+                    title: "Platform security " + (root.hw?.hsi ?? "")
+                    detail: (root.hw?.hsi_failed ?? []).length > 0
+                            ? "Not met: " + root.hw.hsi_failed.join(", ") + "\nDetails: fwupdmgr security"
+                            : "All firmware platform checks pass."
                 }
 
                 Line {
