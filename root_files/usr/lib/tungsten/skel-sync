@@ -1,0 +1,126 @@
+#!/bin/bash
+# Offers the changes an image update made to the desktop defaults in /etc/skel to an existing
+# account (a new account gets them when its home is created). Run as the user, by Tungsten
+# Guard, which shows each change for approval; nothing is changed without it.
+#
+# Three versions of each file: S the new default (/etc/skel), H the user's copy, B the default
+# the user last applied or skipped (the baseline, in ~/.local/state/tungsten/skel/base).
+#   S = B         the update did not change it: nothing to offer
+#   H missing     add it
+#   H = B         the user never edited it: take S
+#   else          both changed it: a three-way merge (git merge-file) that keeps the user's
+#                 edits, or, when they overlap, S (the user's file is backed up)
+#   no B yet      (first run, or a file new to the baseline) offer S as it differs
+#
+#   skel-sync status          JSON: [{path, kind, added, removed}]
+#   skel-sync diff <path>     unified diff of what applying would change in the home
+#   skel-sync apply <path>|--all
+#   skel-sync skip <path>|--all    keep the user's file; ask again only after the next change
+set -uo pipefail
+SKEL=${TUNGSTEN_SKEL:-/etc/skel}   # overridable for tests
+STATE=${XDG_STATE_HOME:-$HOME/.local/state}/tungsten/skel
+BASE=$STATE/base
+
+# Files the shell or the user manage themselves: they always differ from the default.
+EXCLUDE=(
+  .config/dms/settings.json .config/dms/plugin_settings.json .config/dms/clsettings.json
+  .config/dms/plugins.lock.json .config/dms/.firstlaunch '.config/dms/.changelog-*'
+  .config/hypr/dms/colors.lua .config/hypr/dms/outputs.lua .config/hypr/dms/binds-user.lua
+  .config/hypr/dms/cursor.lua '.config/gtk-*/dank-colors.css' '.config/gtk-*/gtk.css'
+  .config/gtk-3.0/bookmarks .config/alacritty/dank-theme.toml
+)
+excluded() {
+  local p
+  for p in "${EXCLUDE[@]}"; do
+    # shellcheck disable=SC2053  # glob match intended
+    [[ $1 == $p ]] && return 0
+  done
+  return 1
+}
+files() {
+  local f
+  while IFS= read -r -d '' f; do
+    excluded "$f" || printf '%s\n' "$f"
+  done < <(cd "$SKEL" && find . -type f -printf '%P\0' | sort -z)
+}
+same() { cmp -s -- "$1" "$2"; }
+
+# propose <path> <out>: prints the kind of change and writes the proposed new content of
+# ~/<path> to <out>; prints nothing when there is nothing to offer.
+propose() {
+  local S=$SKEL/$1 H=$HOME/$1 B=$BASE/$1 out=$2
+  if [ ! -e "$H" ]; then
+    [ -e "$B" ] && same "$B" "$S" && return   # removed by the user, default unchanged
+    cp -- "$S" "$out"; echo add; return
+  fi
+  same "$H" "$S" && return
+  if [ ! -e "$B" ]; then cp -- "$S" "$out"; echo differs; return; fi
+  same "$B" "$S" && return                    # the update did not touch it
+  if same "$H" "$B"; then cp -- "$S" "$out"; echo update; return; fi
+  if git merge-file -q -p -- "$H" "$B" "$S" > "$out" 2>/dev/null; then echo merge; return; fi
+  cp -- "$S" "$out"; echo replace
+}
+
+valid() {
+  local f
+  while IFS= read -r f; do [ "$f" = "$1" ] && return 0; done < <(files)
+  echo "skel-sync: not a default file: $1" >&2
+  return 1
+}
+
+udiff() {  # udiff <old or /dev/null> <new>: hunks only
+  git diff --no-index --no-color --no-ext-diff -U3 -- "$1" "$2" 2>/dev/null | sed -n '/^@@/,$p'
+}
+
+remember() { mkdir -p -- "$(dirname -- "$BASE/$1")" && cp -- "$SKEL/$1" "$BASE/$1"; }
+
+apply_one() {
+  local f=$1 tmp kind H=$HOME/$1
+  tmp=$(mktemp); kind=$(propose "$f" "$tmp")
+  if [ -n "$kind" ]; then
+    if [ -e "$H" ]; then
+      mkdir -p -- "$(dirname -- "$BACKUP/$f")" && cp -p -- "$H" "$BACKUP/$f"
+    fi
+    mkdir -p -- "$(dirname -- "$H")"
+    cat -- "$tmp" > "$H.skel-sync.new" && chmod --reference="$SKEL/$f" -- "$H.skel-sync.new" &&
+      mv -f -- "$H.skel-sync.new" "$H" && echo "applied $f ($kind)"
+  fi
+  rm -f -- "$tmp"
+  remember "$f"
+}
+
+case ${1:-} in
+  status)
+    out='[]'
+    while IFS= read -r f; do
+      tmp=$(mktemp); kind=$(propose "$f" "$tmp")
+      if [ -n "$kind" ]; then
+        old=$HOME/$f; [ -e "$old" ] || old=/dev/null
+        read -r added removed _ < <(git diff --no-index --numstat -- "$old" "$tmp" 2>/dev/null || :)
+        out=$(jq -c --arg p "$f" --arg k "$kind" --arg a "${added:-0}" --arg r "${removed:-0}" \
+          '. + [{path: $p, kind: $k, added: ($a | tonumber? // 0), removed: ($r | tonumber? // 0)}]' <<<"$out")
+      fi
+      rm -f -- "$tmp"
+    done < <(files)
+    printf '%s\n' "$out" ;;
+  diff)
+    valid "${2:-}" || exit 2
+    tmp=$(mktemp); kind=$(propose "$2" "$tmp")
+    if [ -n "$kind" ]; then
+      old=$HOME/$2; [ -e "$old" ] || old=/dev/null
+      udiff "$old" "$tmp"
+    fi
+    rm -f -- "$tmp" ;;
+  apply|skip)
+    BACKUP=$STATE/backup/$(date +%Y%m%d-%H%M%S)
+    if [ "${2:-}" = --all ]; then mapfile -t list < <(files)
+    else valid "${2:-}" || exit 2; list=("$2"); fi
+    for f in "${list[@]}"; do
+      if [ "$1" = apply ]; then apply_one "$f"
+      else
+        tmp=$(mktemp); kind=$(propose "$f" "$tmp"); rm -f -- "$tmp"
+        remember "$f" && [ -n "$kind" ] && echo "skipped $f"
+      fi
+    done ;;
+  *) echo "usage: skel-sync status | diff <path> | apply <path>|--all | skip <path>|--all" >&2; exit 2 ;;
+esac

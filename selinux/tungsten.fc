@@ -43,6 +43,7 @@ HOME_DIR/\.local/share/pki(/.*)?			gen_context(system_u:object_r:chromium_xdg_co
 /usr/lib/tungsten/firstboot-users		--	gen_context(system_u:object_r:bin_t)
 /usr/lib/tungsten/user-folders			--	gen_context(system_u:object_r:bin_t)
 /usr/lib/tungsten/keyring-lock			--	gen_context(system_u:object_r:bin_t)
+/usr/lib/tungsten/skel-sync			--	gen_context(system_u:object_r:bin_t)
 /usr/lib/tungsten/relabel			--	gen_context(system_u:object_r:bin_t)
 /usr/lib/glycin-loaders(/.*)?				gen_context(system_u:object_r:bin_t)
 # The global override is configuration written by tmpfiles, not a program.

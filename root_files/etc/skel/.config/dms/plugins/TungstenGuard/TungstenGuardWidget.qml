@@ -1,5 +1,6 @@
 // Tungsten Guard: a shield in the bar for updates (TungstenOS, Flatpaks, firmware and the
-// Secure Boot dbx) and for programs the system refused to run.
+// Secure Boot dbx), for programs the system refused to run, and for new desktop defaults
+// (/etc/skel) an update brought, which it shows for approval.
 // Reads what root services write to /run/tungsten-guard (tungsten-guard-check.timer,
 // tungsten-guard-execwatch.service); it runs nothing privileged itself.
 import QtQuick
@@ -32,6 +33,53 @@ PluginComponent {
         usbAutolock = on;
     }
 
+    // Desktop defaults an update changed (/usr/lib/tungsten/skel-sync, run as the user).
+    readonly property string skelSync: "/usr/lib/tungsten/skel-sync"
+    property var skelChanges: []      // [{path, kind, added, removed}]
+    property string skelOpen: ""      // the file whose diff is shown
+    property string skelDiff: ""
+
+    function refreshSkel() {
+        if (!skelStatusProc.running)
+            skelStatusProc.running = true;
+    }
+
+    function skelAction(verb, path) {
+        skelActionProc.command = [skelSync, verb, path];
+        skelActionProc.running = true;
+    }
+
+    function toggleSkelDiff(path) {
+        if (skelOpen === path) {
+            skelOpen = "";
+            return;
+        }
+        skelOpen = path;
+        skelDiff = "";
+        skelDiffProc.command = [skelSync, "diff", path];
+        skelDiffProc.running = true;
+    }
+
+    function skelKindText(kind) {
+        return {
+            "add": "New file",
+            "update": "Updated default (you had not changed it)",
+            "merge": "Updated default, merged with your changes",
+            "replace": "Replaces your version (yours is backed up)",
+            "differs": "Differs from the default (yours is backed up)"
+        }[kind] ?? kind;
+    }
+
+    // A unified diff as rich text: additions and removals in the theme's colors.
+    function diffHtml(text) {
+        const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/ /g, "&nbsp;");
+        return text.split("\n").filter(l => l.length > 0).map(l => {
+            const c = l.startsWith("+") ? Theme.success : l.startsWith("-") ? Theme.error
+                    : l.startsWith("@@") ? Theme.primary : Theme.onSurfaceVariant;
+            return "<span style='color:" + c + "'>" + esc(l) + "</span>";
+        }).join("<br>");
+    }
+
     readonly property string osAvailable: status?.os?.available ?? ""
     readonly property int flatpakCount: status?.flatpaks ?? 0
     readonly property var firmware: status?.firmware ?? []
@@ -44,6 +92,7 @@ PluginComponent {
     readonly property string dbxKey: dbxEntry ? "dbx:" + dbxEntry.new : ""
     readonly property bool dbxUpdate: dbxEntry !== null && !isDismissed(dbxKey)
     readonly property int updateCount: (osAvailable ? 1 : 0) + (flatpakCount > 0 ? 1 : 0) + firmware.length
+                                       + (skelChanges.length > 0 ? 1 : 0)
     readonly property var hw: status?.hardware ?? null
     readonly property bool secureBootOn: (hw?.secure_boot ?? "").startsWith("enabled")
     readonly property bool imageVerified: (hw?.verity ?? false) && (hw?.selinux ?? "") === "Enforcing"
@@ -133,6 +182,7 @@ PluginComponent {
             return;
         }
         root.status = s;
+        root.refreshSkel();
         // Notify once per new TungstenOS version and once per dbx update.
         const os = s?.os?.available ?? "";
         if (os && os !== loadState("notifiedOs", "")) {
@@ -189,6 +239,44 @@ PluginComponent {
         printErrors: false
         onLoaded: root.usbAutolock = true
         onLoadFailed: root.usbAutolock = false
+    }
+
+    Process {
+        id: skelStatusProc
+        command: [root.skelSync, "status"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.skelChanges = JSON.parse(text);
+                } catch (e) {
+                    root.skelChanges = [];
+                }
+                // Tell once per set of changes.
+                const key = root.skelChanges.map(c => c.path).join(",");
+                if (key && key !== root.loadState("notifiedSkel", "")) {
+                    root.saveState("notifiedSkel", key);
+                    root.notify("New desktop defaults", root.skelChanges.length
+                                + (root.skelChanges.length === 1 ? " file" : " files")
+                                + " changed by a TungstenOS update. Review them in Tungsten Guard.");
+                }
+            }
+        }
+    }
+
+    Process {
+        id: skelDiffProc
+        stdout: StdioCollector {
+            onStreamFinished: root.skelDiff = text
+        }
+    }
+
+    Process {
+        id: skelActionProc
+        onExited: {
+            root.skelOpen = "";
+            root.refreshSkel();
+        }
     }
 
     Process {
@@ -485,6 +573,89 @@ PluginComponent {
                             tint: modelData.dbx ? Theme.warning : Theme.primary
                             title: modelData.dbx ? "Secure Boot revocations (dbx)" : modelData.name
                             detail: modelData.version + " → " + modelData.new + " · fwupdmgr update"
+                        }
+                    }
+
+                    // Desktop defaults an update changed: each one shown before it is applied.
+                    Item {
+                        width: parent.width
+                        height: Theme.spacingM
+                        visible: root.skelChanges.length > 0
+                    }
+
+                    Tile {
+                        first: true
+                        visible: root.skelChanges.length > 0
+                        icon: "tune"
+                        tint: Theme.primary
+                        title: "New desktop defaults"
+                        detail: root.skelChanges.length + (root.skelChanges.length === 1 ? " file" : " files")
+                                + " changed by a TungstenOS update · your edits are kept where they do not overlap"
+
+                        DButton {
+                            text: "Apply all"
+                            iconName: "done_all"
+                            onClicked: root.skelAction("apply", "--all")
+                        }
+                    }
+
+                    Repeater {
+                        model: root.skelChanges
+                        delegate: Column {
+                            id: skelItem
+                            required property var modelData
+                            required property int index
+                            readonly property bool open: root.skelOpen === modelData.path
+                            readonly property bool lastItem: index === root.skelChanges.length - 1
+                            width: parent.width
+                            spacing: 2
+
+                            Tile {
+                                last: skelItem.lastItem && !skelItem.open
+                                icon: skelItem.modelData.kind === "add" ? "note_add" : "description"
+                                tint: skelItem.modelData.kind === "replace" || skelItem.modelData.kind === "differs"
+                                      ? Theme.warning : Theme.onSurfaceVariant
+                                title: "~/" + skelItem.modelData.path
+                                detail: root.skelKindText(skelItem.modelData.kind)
+                                        + " · +" + skelItem.modelData.added + " −" + skelItem.modelData.removed
+
+                                DIconButton {
+                                    iconName: skelItem.open ? "visibility_off" : "visibility"
+                                    tooltipText: skelItem.open ? "Hide the changes" : "Show the changes"
+                                    onClicked: root.toggleSkelDiff(skelItem.modelData.path)
+                                }
+                                DIconButton {
+                                    iconName: "check"
+                                    tooltipText: "Apply"
+                                    onClicked: root.skelAction("apply", skelItem.modelData.path)
+                                }
+                                DIconButton {
+                                    iconName: "close"
+                                    tooltipText: "Keep mine (asks again after the next change)"
+                                    onClicked: root.skelAction("skip", skelItem.modelData.path)
+                                }
+                            }
+
+                            DCard {
+                                visible: skelItem.open
+                                width: parent.width
+                                height: diffText.implicitHeight + pad * 2
+                                restRadius: Theme.groupedListInnerRadius
+                                topLeftRadius: Theme.groupedListInnerRadius
+                                topRightRadius: Theme.groupedListInnerRadius
+                                bottomLeftRadius: skelItem.lastItem ? Theme.cornerRadiusL : Theme.groupedListInnerRadius
+                                bottomRightRadius: skelItem.lastItem ? Theme.cornerRadiusL : Theme.groupedListInnerRadius
+
+                                StyledText {
+                                    id: diffText
+                                    width: parent.width
+                                    textFormat: Text.RichText
+                                    wrapMode: Text.WrapAnywhere
+                                    font.family: Theme.monoFontFamily
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    text: root.skelDiff ? root.diffHtml(root.skelDiff) : "Loading…"
+                                }
+                            }
                         }
                     }
                 }
