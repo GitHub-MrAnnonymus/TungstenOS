@@ -591,6 +591,10 @@ CMDLINE=(
   slab_nomerge slab_debug=FZ init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1
   randomize_kstack_offset=on hash_pointers=always vsyscall=none vdso32=0
   oops=panic debugfs=off zswap.enabled=0
+  # Plain kCFI everywhere, as on AMD (no IBT there). On Intel with IBT the default is
+  # paranoid FineIBT, whose ITS thunks break plain retpoline calls such as __efi_call:
+  # Tiger Lake panicked in the first EFI runtime call (upstream bug, not patched here).
+  cfi=kcfi
   # Entropy
   random.trust_cpu=off random.trust_bootloader=off extra_latent_entropy
   # DMA
