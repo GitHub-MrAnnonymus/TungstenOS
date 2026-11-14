@@ -52,6 +52,8 @@ for u in firewalld usbguard dnscrypt-proxy ntpd-rs auditd; do
   check "$u running" systemctl is-active "$u"
 done
 check "Suspend and hibernation disabled" sh -c '[ "$(systemctl is-enabled sleep.target)" = masked ]'
+check "Swap only in compressed memory (zram), none on disk" sh -c 'awk "NR > 1" /proc/swaps | grep -q . && ! awk "NR > 1 && \$1 !~ /^\/dev\/zram/" /proc/swaps | grep -q .'
+check "systemd-oomd running" systemctl is-active systemd-oomd
 check "No user in the libvirt group (equivalent to root)" sh -c '[ -z "$(getent group libvirt | cut -d: -f4)" ]'
 
 section "Integrity, disk encryption and TPM (root-only)"

@@ -52,6 +52,7 @@ PACKAGES=(
   mesa vulkan-radeon vulkan-intel intel-media-driver fwupd
 
   tpm2-tss tpm2-tools hardened_malloc no_rlimit_as usbguard usbguard-notifier
+  zram-generator  # compressed swap in RAM (/etc/systemd/zram-generator.conf); no disk swap
   sbsigntools  # sbverify: tungsten-secureboot-update checks the ESP before a revocation
 
   # Network
@@ -174,7 +175,7 @@ locale-gen
 
 systemctl enable \
   greetd NetworkManager firewalld usbguard tungsten-usbguard-init dnscrypt-proxy ntpd-rs \
-  systemd-homed systemd-homed-firstboot auditd power-profiles-daemon \
+  systemd-homed systemd-homed-firstboot auditd power-profiles-daemon systemd-oomd \
   tungsten-relabel tungsten-clear-console tungsten-sysext-sysusers \
   tungsten-guard-check.timer tungsten-guard-execwatch fwupd-refresh.timer tungsten-secureboot-update tungsten-wifi-recover tungsten-usb-lock-status tungsten-usb-lock-boot \
   systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-flatpak-update.timer \
