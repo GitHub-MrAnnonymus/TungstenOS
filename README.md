@@ -69,7 +69,7 @@ The change takes effect at the next boot.
 
 Home directories are additionally systemd-homed LUKS images unlocked with each user's password, so they stay locked while their user is logged out. `/tmp` is memory-backed.
 
-There is no swap on disk. Swap is zram, compressed memory (zstd, half the RAM, at most 8 GiB, `/etc/systemd/zram-generator.conf`), so swapped-out memory never reaches storage. systemd-oomd stops a user's services when memory pressure stays high, before the system stalls. Hibernation is not supported.
+There is no swap on disk. Swap is zram, compressed memory (zstd, capacity equal to the RAM, at most 16 GiB, taking about a quarter to a third of the RAM when full; `/etc/systemd/zram-generator.conf`), so swapped-out memory never reaches storage. systemd-oomd stops a user's services when memory pressure stays high, before the system stalls. Hibernation is not supported.
 
 The root partition is defined in `/usr/lib/repart.d`. If it is missing, for example after a factory reset (`run0 /usr/lib/systemd/systemd-factory-reset request`, then reboot), the initramfs recreates it with new keys and the system sets itself up again from `/usr`.
 
