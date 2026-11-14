@@ -10,6 +10,8 @@ on:
       - components/**
       - selinux/**
       - scripts/remove-suid.sh
+      - scripts/pin-system-ids.sh
+      - system-ids.conf
       - keys/**
       - build.sh
       - .github/workflows/build.yml

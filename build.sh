@@ -411,6 +411,11 @@ rm -rf /root/tungsten-build
 printf 'uninitialized\n' > /etc/machine-id
 CHROOT
 
+# System users and groups get the IDs in system-ids.conf, so files that installed systems
+# keep in /var stay with their account across images.
+phase "System IDs"
+bash "$SRC"/scripts/pin-system-ids.sh "$WORKDIR" "$SRC"/system-ids.conf
+
 # Programs that will not start because a library is missing or too old (repository skew).
 arch-chroot "$WORKDIR" /bin/bash -c '
   for f in /usr/bin/*; do
