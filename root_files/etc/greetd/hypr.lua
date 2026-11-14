@@ -6,5 +6,13 @@ hl.env("QV4_FORCE_INTERPRETER", "1")
 hl.config({
     misc = {
         disable_hyprland_logo = true
+    },
+    -- The login screen needs no screen capture, cursor tracking or plugins: deny them.
+    ecosystem = {
+        enforce_permissions = true
     }
 })
+hl.permission({ binary = ".*", type = "screencopy", mode = "deny" })
+hl.permission({ binary = ".*", type = "cursorpos", mode = "deny" })
+hl.permission({ binary = ".*", type = "input-capture", mode = "deny" })
+hl.permission({ binary = ".*", type = "plugin", mode = "deny" })
