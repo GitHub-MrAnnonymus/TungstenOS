@@ -1250,9 +1250,11 @@ optional_policy(`
 	# Gaps in the rootless domain (seen under --audit-all): the machine ID, the random
 	# device, and checking whether systemd runs (/run/systemd/system).
 	gen_require(`
-		type podman_user_t, systemd_unit_t;
+		type podman_user_t, systemd_unit_t, flatpak_content_t;
 	')
 	files_read_etc_runtime_files(podman_user_t)
+	# Podman walks PATH and XDG_DATA_DIRS, which include the Flatpak exports; it needs nothing there.
+	dontaudit podman_user_t flatpak_content_t:dir search;
 	dev_read_urand(podman_user_t)
 	allow podman_user_t systemd_unit_t:dir getattr;
 	# Cleaning up (rm of ~/.local/share/containers, podman system reset).

@@ -255,8 +255,9 @@ fi
 # - gVisor: runsc, its sidecars and the wrapper Podman calls are OCI runtimes. conmon
 #   starts them back in the Podman domain (podman_user_t for rootless), as refpolicy does
 #   for crun. Files only: a directory of an executable type cannot even be searched.
-# - Podman's quadlet is the user manager's generator for ~/.config/containers/systemd;
-#   as lib_t the user manager may not run it.
+# - Podman's helpers in /usr/lib/podman run as programs: quadlet is the user manager's
+#   generator for ~/.config/containers/systemd, netavark and aardvark-dns set up container
+#   networks for Podman itself; as lib_t neither may run them.
 # boolean:
 # - systemd_logind_get_bootloader: logind reads boot loader entries on the ESP (reboot
 #   into a chosen entry).
@@ -282,7 +283,7 @@ fcontext -a -e /media /run/media
 fcontext -a -f f -t container_engine_exec_t /usr/lib/gvisor/runsc
 fcontext -a -f f -t container_engine_exec_t /usr/lib/gvisor/runsc-podman
 fcontext -a -f f -t container_engine_exec_t '/usr/lib/gvisor/gvisor-bin/.*'
-fcontext -a -t bin_t /usr/lib/podman/quadlet
+fcontext -a -f f -t bin_t '/usr/lib/podman/[^/]+'
 boolean -m --on systemd_logind_get_bootloader
 boolean -m --on xserver_allow_dri
 boolean -m --on user_rw_noexattrfile

@@ -10,6 +10,11 @@ export HYPRCURSOR_THEME="default"
 export XCURSOR_THEME="default"
 export HYPRCURSOR_SIZE=30
 export XCURSOR_SIZE=30
+# Apps from the Dux Shell launcher start as their own systemd units, like the keybinds
+# (uwsm-app): each gets its own cgroup, which systemd-oomd can stop on its own under memory
+# pressure instead of the shell with everything it started, and none inherits the
+# compositor's service variables (NOTIFY_SOCKET: podman reported to the user manager).
+export DMS_DEFAULT_LAUNCH_PREFIX="uwsm-app --"
 
 # Mesa drivers for the integrated GPU (the NVIDIA extension provides the device links).
 if [ -e /dev/dri/amd-igpu ]; then
