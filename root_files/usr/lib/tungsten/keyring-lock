@@ -40,6 +40,10 @@ unlock_usb() {
   systemctl stop tungsten-usb-lock.service && echo "unlocked USB ports"
 }
 
+# Locked since boot (usb-lock boot): the first login ends it, unless auto-lock wants the
+# ports locked anyway while the screen is locked (handled below).
+[ -e /run/tungsten-usb-lock/boot ] && systemctl stop tungsten-usb-lock.service && echo "unlocked USB ports locked since boot"
+
 gdbus monitor --system --dest org.freedesktop.login1 --object-path "$session" | while read -r line; do
   case $line in
     *"'LockedHint': <true>"*|*".Session.Lock ()"*) lock_keyrings; lock_usb ;;

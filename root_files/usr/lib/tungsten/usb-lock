@@ -10,6 +10,10 @@
 #   usb-lock lock      lock the empty external ports (tungsten-usb-lock.service start)
 #   usb-lock unlock    unlock them (service stop)
 #   usb-lock relock    after a device was unplugged, lock its port if locked (udev)
+#   usb-lock boot      lock from boot until the first login (tungsten-usb-lock-boot.service),
+#                      on laptops by default; /etc/tungsten/usb-lock-at-boot (yes/no) decides
+#                      otherwise. On a desktop, a USB keyboard plugged in only after booting
+#                      could not type at the login screen.
 #   usb-lock status    write the state for Tungsten Guard
 set -uo pipefail
 RUN=/run/tungsten-usb-lock
@@ -28,7 +32,8 @@ status() {
   done
   [ -e "$RUN/locked" ] && locked=true
   mkdir -p "$(dirname "$STATUS")"
-  printf '{"locked": %s, "external": %d, "disabled": %d}\n' "$locked" "$n_ext" "$n_locked" > "$STATUS.new"
+  local atboot=false; [ -e "$RUN/boot" ] && atboot=true
+  printf '{"locked": %s, "boot": %s, "external": %d, "disabled": %d}\n' "$locked" "$atboot" "$n_ext" "$n_locked" > "$STATUS.new"
   chmod 0644 "$STATUS.new" && mv -f "$STATUS.new" "$STATUS"
 }
 
@@ -45,12 +50,24 @@ case "${1:-}" in
     mkdir -p "$RUN" && touch "$RUN/locked"
     lock_empty ;;
   unlock)
-    rm -f "$RUN/locked"
+    rm -f "$RUN/locked" "$RUN/boot"
     for p in $(ports); do
       external "$p" && [ "$(cat "$p/disable" 2>/dev/null)" = 1 ] && echo 0 > "$p/disable" && echo "unlocked ${p##*/}"
     done ;;
   relock)
     [ -e "$RUN/locked" ] && lock_empty ;;
+  boot)
+    want=$(cat /etc/tungsten/usb-lock-at-boot 2>/dev/null)
+    if [ -z "$want" ]; then
+      # Notebook, laptop, sub-notebook, convertible, detachable (SMBIOS chassis types).
+      case $(cat /sys/class/dmi/id/chassis_type 2>/dev/null) in
+        8|9|10|14|31|32) want=yes ;; *) want=no ;;
+      esac
+    fi
+    if [ "$want" = yes ]; then
+      mkdir -p "$RUN" && touch "$RUN/boot"
+      systemctl start --no-block tungsten-usb-lock.service
+    fi ;;
   status) ;;
   *) echo "usage: usb-lock lock|unlock|relock|status" >&2; exit 2 ;;
 esac
