@@ -102,7 +102,11 @@ jobs:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
           CCACHE_MAXSIZE: 6G
           CCACHE_BASEDIR: ${{ github.workspace }}/kernel/src
-          CCACHE_COMPILERCHECK: content
+          # The compiler's full version, not the driver binary's content: Arch's clang is a
+          # small driver over libclang-cpp/libLLVM, unchanged across point releases, so
+          # "content" reused 23.1.4 objects in a 23.1.5 build. CFI type tags differ between
+          # them: a 7.2.15 kernel stopped on a CFI failure at the first EFI call (cerberus).
+          CCACHE_COMPILERCHECK: "%compiler% -v"
           CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
         run: |
           useradd -m builder
