@@ -367,6 +367,9 @@ optional_policy(`
 	# ID) and hides the refusal: without it Mesa loads no driver, the GPU process exits
 	# and Trivalent renders in software.
 	dev_read_sysfs(chromium_t)
+	# statfs on the home file system (ext4 in the homed image, fs_t): denied, the browser
+	# retried about 70 times a second from its thread pool, a whole core at idle.
+	fs_getattr_xattr_fs(chromium_t)
 ')
 
 optional_policy(`
