@@ -85,6 +85,8 @@ Settings made with graphical tools, such as firewall-config, NetworkManager conn
 
 USBGuard allows the devices present at first boot and blocks any new device until it is allowed (`run0 usbguard allow-device <id>`). Members of the `usbguard` group receive notifications. The stricter linux-hardened mode, which blocks all new USB devices at the kernel level, remains available through `mydenyusb.service` and `usb-allow.service`.
 
+Tailscale is installed but off (`run0 systemctl enable --now tailscaled`, then `run0 tailscale up`). tailscaled runs in its own SELinux domain and a systemd sandbox, without client logs to Tailscale; Tailscale SSH (remote root shells, bypassing the administrator password) and MagicDNS rewriting `/etc/resolv.conf` are not possible, so DNS stays with dnscrypt-proxy.
+
 Steam (Flatpak) keeps its client and games in `/var/lib/tungsten-steam/<uid>`, the only place besides Flatpak's own where Flatpak apps may run code. Further drives for games are mounted below `/var/lib/tungsten-games`, executable and labeled for game code, at every boot:
 
 ```sh

@@ -50,3 +50,6 @@ HOME_DIR/\.local/share/pki(/.*)?			gen_context(system_u:object_r:chromium_xdg_co
 /usr/lib/nm-daemon-helper			--	gen_context(system_u:object_r:bin_t)
 /run/tailscale(/.*)?					gen_context(system_u:object_r:tailscale_runtime_t)
 /run/tungsten-guard(/.*)?				gen_context(system_u:object_r:tungsten_guard_runtime_t)
+/usr/bin/tailscaled			--	gen_context(system_u:object_r:tailscaled_exec_t)
+/var/lib/tailscale(/.*)?				gen_context(system_u:object_r:tailscaled_var_lib_t)
+/var/cache/tailscale(/.*)?				gen_context(system_u:object_r:tailscaled_cache_t)

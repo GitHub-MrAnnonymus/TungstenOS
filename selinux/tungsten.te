@@ -1163,19 +1163,79 @@ allow user_systemd_tmpfiles_t user_tmp_t:dir { manage_dir_perms relabelfrom rela
 userdom_user_runtime_filetrans(user_systemd_tmpfiles_t, user_tmp_t, dir, "dconf")
 allow user_systemd_tmpfiles_t user_tmp_t:file { manage_file_perms relabelfrom relabelto };
 
-# tailscaled has no domain in refpolicy and runs as initrc_t; its socket
-# (/run/tailscale/tailscaled.sock) got initrc_runtime_t, which no client may write to.
-# The runtime directory systemd creates for it (RuntimeDirectory=) gets a type of its own,
-# so clients reach this socket and no other initrc_t one: the root shell (tailscale up,
-# set --ssh) and the session (status, the Dux Shell widget). tailscaled itself decides
-# what each caller may do (operator, root). A confined domain for tailscaled is planned.
+# tailscaled: refpolicy has no domain for it (it ran as initrc_t). A VPN daemon that handles
+# traffic from the internet, so its own domain with what it needs: the tun device, routes
+# and firewall rules (netlink, iptables/nft), its state, cache and socket. Tailscale SSH
+# (root shells for remote users) is deliberately not possible (the unit sandbox prevents it too).
+# Clients (the root shell: tailscale up; the session: status, the Dux Shell widget) reach
+# its socket; tailscaled itself decides what each caller may do (operator, root).
+type tailscaled_t;
+type tailscaled_exec_t;
+init_daemon_domain(tailscaled_t, tailscaled_exec_t)
 type tailscale_runtime_t;
 files_runtime_file(tailscale_runtime_t)
-manage_dirs_pattern(initrc_t, tailscale_runtime_t, tailscale_runtime_t)
-manage_sock_files_pattern(initrc_t, tailscale_runtime_t, tailscale_runtime_t)
+type tailscaled_var_lib_t;
+files_type(tailscaled_var_lib_t)
+type tailscaled_cache_t;
+files_type(tailscaled_cache_t)
+
+allow tailscaled_t self:capability { net_admin net_raw net_bind_service };
+allow tailscaled_t self:process { getsched setsched signal sigkill };
+allow tailscaled_t self:fifo_file rw_fifo_file_perms;
+allow tailscaled_t self:unix_stream_socket { create_stream_socket_perms connectto };
+allow tailscaled_t self:unix_dgram_socket create_socket_perms;
+allow tailscaled_t self:tcp_socket { create_stream_socket_perms };
+allow tailscaled_t self:udp_socket create_socket_perms;
+allow tailscaled_t self:rawip_socket create_socket_perms;
+allow tailscaled_t self:tun_socket { create_socket_perms attach_queue relabelfrom relabelto };
+allow tailscaled_t self:netlink_route_socket { create_netlink_socket_perms nlmsg_read nlmsg_write };
+allow tailscaled_t self:netlink_generic_socket create_socket_perms;
+allow tailscaled_t self:netlink_netfilter_socket create_socket_perms;
+corenet_rw_tun_tap_dev(tailscaled_t)
+corenet_tcp_bind_generic_node(tailscaled_t)
+corenet_udp_bind_generic_node(tailscaled_t)
+corenet_tcp_bind_all_unreserved_ports(tailscaled_t)
+corenet_udp_bind_all_unreserved_ports(tailscaled_t)
+corenet_tcp_connect_all_ports(tailscaled_t)
+corenet_sendrecv_all_packets(tailscaled_t)
+kernel_read_network_state(tailscaled_t)
+kernel_read_system_state(tailscaled_t)
+kernel_rw_net_sysctls(tailscaled_t)
+kernel_read_kernel_sysctls(tailscaled_t)
+dev_read_urand(tailscaled_t)
+dev_read_sysfs(tailscaled_t)
+fs_getattr_all_fs(tailscaled_t)
+files_read_etc_files(tailscaled_t)
+files_read_usr_files(tailscaled_t)
+miscfiles_read_localization(tailscaled_t)
+miscfiles_read_generic_certs(tailscaled_t)
+sysnet_dns_name_resolve(tailscaled_t)
+sysnet_read_config(tailscaled_t)
+logging_send_syslog_msg(tailscaled_t)
+init_read_state(tailscaled_t)
+corecmd_search_bin(tailscaled_t)
+iptables_domtrans(tailscaled_t)
+
+manage_dirs_pattern(tailscaled_t, tailscaled_var_lib_t, tailscaled_var_lib_t)
+manage_files_pattern(tailscaled_t, tailscaled_var_lib_t, tailscaled_var_lib_t)
+files_var_lib_filetrans(tailscaled_t, tailscaled_var_lib_t, dir)
+manage_dirs_pattern(tailscaled_t, tailscaled_cache_t, tailscaled_cache_t)
+manage_files_pattern(tailscaled_t, tailscaled_cache_t, tailscaled_cache_t)
+manage_dirs_pattern(tailscaled_t, tailscale_runtime_t, tailscale_runtime_t)
+manage_sock_files_pattern(tailscaled_t, tailscale_runtime_t, tailscale_runtime_t)
+manage_files_pattern(tailscaled_t, tailscale_runtime_t, tailscale_runtime_t)
+
+# systemd creates the State/Cache/RuntimeDirectory with these labels.
+allow init_t { tailscaled_var_lib_t tailscaled_cache_t tailscale_runtime_t }:dir { create_dir_perms relabelto relabelfrom setattr };
+
+optional_policy(`
+	networkmanager_dbus_chat(tailscaled_t)
+	dbus_system_bus_client(tailscaled_t)
+')
+
 allow { sysadm_t user_t } tailscale_runtime_t:dir search_dir_perms;
 allow { sysadm_t user_t } tailscale_runtime_t:sock_file write;
-allow { sysadm_t user_t } initrc_t:unix_stream_socket connectto;
+allow { sysadm_t user_t } tailscaled_t:unix_stream_socket connectto;
 
 # Dev containers: rootless Podman with gVisor (visorbox). podman runs in podman_user_t,
 # conmon in podman_user_conmon_t, and the runtime (runsc, container_engine_exec_t) back in
