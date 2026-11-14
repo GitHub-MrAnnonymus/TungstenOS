@@ -20,14 +20,17 @@
 # --release DIR uses a local build instead of the latest GitHub release (install/dev/vm.sh),
 # checked against the SHA256SUMS in DIR, which carries no signature.
 #
-# Usage: install/run-vm.sh [--no-update] [--release DIR] <image-file>
+# Usage: install/run-vm.sh [--no-update] [--release DIR] [--disk FILE[:SIZE]]... <image-file>
 # Needs: qemu-desktop edk2-ovmf swtpm, and for updates curl gpg jq util-linux
 set -euo pipefail
-UPDATE=1 LOCAL=
+UPDATE=1 LOCAL= DISKS=()
 while [[ ${1:-} == --* ]]; do
   case $1 in
     --no-update) UPDATE=0 ;;
     --release) LOCAL=$(realpath "${2:?directory with a local build}"); shift ;;
+    # An extra virtual disk (/dev/vdb, /dev/vdc, ... in the VM), created sparse if missing:
+    # FILE or FILE:SIZE (default 8G). For testing drives, e.g. tungsten-game-drive.
+    --disk) DISKS+=("${2:?disk image file[:size]}"); shift ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
   shift
@@ -143,6 +146,14 @@ swtpm socket --tpm2 --tpmstate dir="$STATE/tpm" \
   --ctrl type=unixio,path="$STATE/tpm.sock" --daemon --terminate
 for _ in $(seq 50); do [ -S "$STATE/tpm.sock" ] && break; sleep 0.1; done
 
+extra=()
+for d in "${DISKS[@]}"; do
+  f=${d%%:*} size=8G
+  [[ $d == *:* ]] && size=${d#*:}
+  [ -e "$f" ] || { truncate -s "$size" "$f" && echo "Created $f ($size)"; }
+  extra+=(-drive "file=$(realpath "$f"),format=raw,if=virtio,cache=none")
+done
+
 exec qemu-system-x86_64 \
   -machine q35,smm=on -accel kvm -cpu host -smp 4 -m 6G \
   -global driver=cfi.pflash01,property=secure,value=on \
@@ -150,7 +161,7 @@ exec qemu-system-x86_64 \
   -drive if=pflash,format=raw,unit=1,file="$STATE/OVMF_VARS.fd" \
   -chardev socket,id=chrtpm,path="$STATE/tpm.sock" \
   -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
-  -drive file="$IMG",format=raw,if=virtio,cache=none \
+  -drive file="$IMG",format=raw,if=virtio,cache=none "${extra[@]}" \
   -device virtio-vga-gl -display gtk,gl=on \
   -device virtio-keyboard-pci -device virtio-tablet-pci \
   -nic user,model=virtio-net-pci \

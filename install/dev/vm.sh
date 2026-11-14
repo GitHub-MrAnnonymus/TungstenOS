@@ -18,15 +18,21 @@
 # there too (no splash, kernel log level 7, the serial port as /dev/console: the last
 # console= wins, so the add-on's name sorts after vm-serial-console). Then it starts the VM.
 #
-# Usage: install/dev/vm.sh [--debug-shell on|off] [image-file]
+# Usage: install/dev/vm.sh [--debug-shell on|off] [--disk FILE[:SIZE]]... [image-file]
 #        (default image: $TUNGSTEN_DEV/vm/tungsten-dev.img)
 # Needs: the run-vm.sh tools, mtools, systemd-ukify
 set -euo pipefail
-DEBUG=
-if [ "${1:-}" = --debug-shell ]; then
-  DEBUG=${2:?on or off}; shift 2
-  case $DEBUG in on|off) ;; *) echo "--debug-shell takes on or off" >&2; exit 2 ;; esac
-fi
+DEBUG= DISKS=()
+while [[ ${1:-} == --* ]]; do
+  case $1 in
+    --debug-shell)
+      DEBUG=${2:?on or off}
+      case $DEBUG in on|off) ;; *) echo "--debug-shell takes on or off" >&2; exit 2 ;; esac ;;
+    --disk) DISKS+=(--disk "${2:?disk image file[:size]}") ;;   # passed to run-vm.sh
+    *) echo "unknown option $1" >&2; exit 2 ;;
+  esac
+  shift 2
+done
 HERE=$(dirname -- "$(realpath "$0")")
 DEV=$(realpath -m "${TUNGSTEN_DEV:-$HOME/.local/share/tungstenos-dev}")
 K=$DEV/keys
@@ -98,4 +104,4 @@ if ! pgrep -f "file=$IMG," >/dev/null &&
   mcopy -o -i "$E" "$T/vm-serial-agent.addon.efi" ::/loader/addons/vm-serial-agent.addon.efi
 fi
 rm -rf "$T"   # exec replaces this shell, so the EXIT trap would not run
-exec "$HERE/../run-vm.sh" --release "$B" "$IMG"
+exec "$HERE/../run-vm.sh" --release "$B" "${DISKS[@]}" "$IMG"
