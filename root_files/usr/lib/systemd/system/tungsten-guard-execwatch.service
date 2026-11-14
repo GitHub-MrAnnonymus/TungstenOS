@@ -1,0 +1,13 @@
+[Unit]
+Description=Notify users of programs the system refused to run (Dux Shell widget)
+After=auditd.service
+Requires=auditd.service
+
+[Service]
+ExecStart=/usr/lib/tungsten/guard-execwatch
+Restart=on-failure
+RestartSec=10
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

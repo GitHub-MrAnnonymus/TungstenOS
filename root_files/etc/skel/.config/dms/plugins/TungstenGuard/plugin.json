@@ -1,0 +1,16 @@
+{
+    "id": "tungstenGuard",
+    "name": "Tungsten Guard",
+    "description": "TungstenOS, Flatpak and firmware updates (including the Secure Boot dbx), and programs the system refused to run",
+    "version": "1.0.0",
+    "license": "MIT",
+    "author": "TungstenOS",
+    "icon": "shield",
+    "component": "./TungstenGuardWidget.qml",
+    "requires_dms": ">=2.0.0",
+    "permissions": [
+        "settings_read",
+        "settings_write",
+        "process"
+    ]
+}

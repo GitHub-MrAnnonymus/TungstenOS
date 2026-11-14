@@ -1429,3 +1429,18 @@ dontaudit wireplumber_t flatpak_content_t:dir search;
 # tungsten-steam.conf links Steam's data paths under ~/.var/app; before any Flatpak app ran,
 # ~/.var does not exist and is not created here. The links follow at the next login.
 dontaudit user_systemd_tmpfiles_t user_home_dir_t:dir write;
+
+########################################
+# Security widget (tungsten-guard-*): root services in init_t write update status and
+# per-user refused-program events to /run/tungsten-guard; each session reads its own
+# (DAC: exec-<uid>.jsonl is 0600, owned by that user).
+type tungsten_guard_runtime_t;
+files_runtime_file(tungsten_guard_runtime_t)
+manage_dirs_pattern(init_t, tungsten_guard_runtime_t, tungsten_guard_runtime_t)
+manage_files_pattern(init_t, tungsten_guard_runtime_t, tungsten_guard_runtime_t)
+allow init_t tungsten_guard_runtime_t:file { setattr };
+read_files_pattern(user_t, tungsten_guard_runtime_t, tungsten_guard_runtime_t)
+allow user_t tungsten_guard_runtime_t:dir { list_dir_perms watch };
+allow user_t tungsten_guard_runtime_t:file watch;
+# guard-execwatch reads the audit log with ausearch.
+logging_read_audit_log(init_t)

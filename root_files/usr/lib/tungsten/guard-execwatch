@@ -1,0 +1,47 @@
+#!/bin/bash
+# Turns refused program starts (audit key tungsten-exec, /etc/audit/rules.d/
+# 50-tungsten-guard.rules) into one event file per user, /run/tungsten-guard/exec-<uid>.jsonl,
+# readable only by that user; the Dux Shell widget notifies from it.
+set -uo pipefail
+DIR=/run/tungsten-guard
+CK=$DIR/.exec.checkpoint
+declare -A last
+
+emit() {   # uid path comm
+  local uid=$1 path=$2 comm=$3 f now key
+  now=$(date +%s); key="$uid:$path"
+  # The same path at most once a minute (shells retry, launchers loop).
+  [ $((now - ${last[$key]:-0})) -ge 60 ] || return 0
+  last[$key]=$now
+  f=$DIR/exec-$uid.jsonl
+  [ -e "$f" ] || { install -m 0600 -o "$uid" /dev/null "$f" || return 0; }
+  jq -cn --arg path "$path" --arg comm "$comm" --argjson time "$now" \
+     '{time: $time, path: $path, by: $comm}' >> "$f"
+  # Keep the last 200 events.
+  if [ "$(wc -l < "$f")" -gt 400 ]; then tail -n 200 "$f" > "$f.new" && cat "$f.new" > "$f"; rm -f "$f.new"; fi
+}
+
+# ausearch prints hex for unusual names (name=2F746D70...); quoted names otherwise.
+unhex() {
+  case $1 in
+    \"*\") local v=${1#\"}; printf '%s' "${v%\"}" ;;
+    *[!0-9A-Fa-f]*|"") printf '%s' "$1" ;;
+    *) printf '%b' "$(sed 's/../\\x&/g' <<<"$1")" ;;
+  esac
+}
+
+# Start after the events that are already in the log.
+ausearch -k tungsten-exec --checkpoint "$CK" >/dev/null 2>&1 || :
+# Process substitution, not a pipe: emit must run in this shell to keep its rate limit.
+events() {
+  ausearch -k tungsten-exec --checkpoint "$CK" 2>/dev/null | awk '
+    /^----/ { if (uid != "" && path != "") print uid "\t" path "\t" comm; uid = path = comm = ""; next }
+    /type=SYSCALL/ { for (i = 1; i <= NF; i++) { split($i, kv, "="); if (kv[1] == "auid") uid = kv[2]; if (kv[1] == "comm") comm = substr($i, 6) } }
+    /type=PATH/ && /item=0/ && path == "" { for (i = 1; i <= NF; i++) if ($i ~ /^name=/) path = substr($i, 6) }
+    END { if (uid != "" && path != "") print uid "\t" path "\t" comm }'
+}
+while sleep 5; do
+  while IFS=$'\t' read -r uid path comm; do
+    emit "$uid" "$(unhex "$path")" "$(unhex "$comm")"
+  done < <(events)
+done

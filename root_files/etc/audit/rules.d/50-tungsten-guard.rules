@@ -1,0 +1,7 @@
+# Programs a logged-in user tried to run and the kernel refused: noexec mounts (homes,
+# /tmp), SELinux and IPE. tungsten-guard-execwatch turns them into notifications for that
+# user. Not for services (auid unset) or system accounts (auid < 1000).
+-a always,exit -F arch=b64 -S execve,execveat -F exit=-EACCES -F auid>=1000 -F auid!=-1 -k tungsten-exec
+-a always,exit -F arch=b64 -S execve,execveat -F exit=-EPERM -F auid>=1000 -F auid!=-1 -k tungsten-exec
+-a always,exit -F arch=b32 -S execve,execveat -F exit=-EACCES -F auid>=1000 -F auid!=-1 -k tungsten-exec
+-a always,exit -F arch=b32 -S execve,execveat -F exit=-EPERM -F auid>=1000 -F auid!=-1 -k tungsten-exec

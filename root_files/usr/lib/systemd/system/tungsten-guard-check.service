@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for TungstenOS, Flatpak and firmware updates (Dux Shell widget)
+Wants=network-online.target
+After=network-online.target fwupd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/tungsten/guard-check
+Nice=10
+IOSchedulingClass=idle

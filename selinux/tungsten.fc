@@ -49,3 +49,4 @@ HOME_DIR/\.local/share/pki(/.*)?			gen_context(system_u:object_r:chromium_xdg_co
 /var/lib/flatpak/overrides(/.*)?			gen_context(system_u:object_r:var_lib_t)
 /usr/lib/nm-daemon-helper			--	gen_context(system_u:object_r:bin_t)
 /run/tailscale(/.*)?					gen_context(system_u:object_r:tailscale_runtime_t)
+/run/tungsten-guard(/.*)?				gen_context(system_u:object_r:tungsten_guard_runtime_t)

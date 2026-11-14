@@ -140,6 +140,10 @@
         "clipboard",
         "cpuUsage",
         "memUsage",
+        {
+          "id": "tungstenGuard",
+          "enabled": true
+        },
         "notificationButton",
         "battery",
         "controlCenterButton"

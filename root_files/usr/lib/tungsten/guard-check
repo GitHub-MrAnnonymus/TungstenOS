@@ -1,0 +1,35 @@
+#!/bin/bash
+# Checks for updates (TungstenOS, Flatpaks, firmware including the Secure Boot dbx) and
+# writes the result to /run/tungsten-guard/status.json, which the Dux Shell widget reads.
+# tungsten-guard-check.service runs it at boot and hourly (tungsten-guard-check.timer).
+set -uo pipefail
+DIR=/run/tungsten-guard
+OUT=$DIR/status.json
+
+# TungstenOS: a newer release on the update server (systemd-sysupdate checks the signed
+# SHA256SUMS; it downloads nothing else). Prints the new version, exits 0 if there is one.
+os_new=null
+if v=$(/usr/lib/systemd/systemd-sysupdate check-new 2>/dev/null); then
+  v=$(printf '%s\n' "$v" | grep -oE '[0-9]{12}' | tail -1)
+  [ -n "$v" ] && os_new=$(jq -Rn --arg v "$v" '$v')
+fi
+os_cur=$(. /usr/lib/os-release; echo "${IMAGE_VERSION:-${VERSION_ID:-}}")
+
+# Flatpak apps and runtimes with updates (tungsten-flatpak-update.timer installs them).
+flatpaks=$(flatpak remote-ls --system --updates --columns=application 2>/dev/null | grep -c . || :)
+
+# Firmware from the LVFS, through fwupd: device firmware and the UEFI revocation list (dbx),
+# which only applies where Microsoft's KEK is enrolled (enroll-secureboot.sh --trust=microsoft).
+fw='[]'
+if j=$(fwupdmgr get-updates --json --no-unreported-check --no-metadata-check 2>/dev/null); then
+  fw=$(jq -c '[.Devices[]? | select((.Releases // []) | length > 0)
+      | {name: .Name, version: .Version, new: .Releases[0].Version,
+         dbx: ((.Plugin // "") == "uefi_dbx" or ((.Name // "") | test("dbx"; "i")))}]' <<<"$j" 2>/dev/null) || fw='[]'
+fi
+
+tmp=$(mktemp "$DIR/.status.XXXXXX")
+jq -n --argjson os_new "$os_new" --arg os_cur "$os_cur" --argjson flatpaks "${flatpaks:-0}" \
+   --argjson firmware "$fw" --arg checked "$(date -Iseconds)" \
+   '{checked: $checked, os: {current: $os_cur, available: $os_new}, flatpaks: $flatpaks, firmware: $firmware}' > "$tmp"
+chmod 0644 "$tmp"
+mv -f "$tmp" "$OUT"

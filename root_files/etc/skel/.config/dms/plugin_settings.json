@@ -8,5 +8,8 @@
   "calculator": {
     "enabled": true,
     "trigger": "="
+  },
+  "tungstenGuard": {
+    "enabled": true
   }
 }
