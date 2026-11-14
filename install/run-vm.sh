@@ -3,7 +3,8 @@
 # Firmware variables and TPM state persist next to the image in <image>.vm/.
 # The terminal becomes the VM's serial port (ttyS0) with a login prompt (images from
 # tungsten-install.sh): log in there to copy and paste. Ctrl+A C toggles the QEMU monitor,
-# Ctrl+A X quits.
+# Ctrl+A X quits. A second serial port (ttyS1) is a socket, <image>.vm/serial1.sock, for
+# tools that drive the VM (development images get a login prompt on it: install/dev/vm.sh).
 #
 # Before booting, the latest GitHub release is installed into the image's inactive A/B
 # slot, as systemd-sysupdate would do it: the signed SHA256SUMS is checked against
@@ -153,4 +154,5 @@ exec qemu-system-x86_64 \
   -device virtio-vga-gl -display gtk,gl=on \
   -device virtio-keyboard-pci -device virtio-tablet-pci \
   -nic user,model=virtio-net-pci \
-  -serial mon:stdio
+  -serial mon:stdio \
+  -serial unix:"$STATE/serial1.sock",server=on,wait=off

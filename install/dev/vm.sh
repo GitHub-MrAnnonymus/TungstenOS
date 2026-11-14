@@ -87,5 +87,15 @@ if [ -n "$DEBUG" ]; then
     echo "Debug off."
   fi
 fi
+# A login prompt on the second serial port as well (run-vm.sh: <image>.vm/serial1.sock),
+# for tools that drive the VM. Added to images created before it, too.
+# A new add-on changes PCR 4: the first boot with it asks for the recovery passphrase
+# (then run0 tungsten-tpm-enroll in the VM).
+E=$(esp)
+if ! pgrep -f "file=$IMG," >/dev/null &&
+   ! mdir -i "$E" ::/loader/addons/vm-serial-agent.addon.efi >/dev/null 2>&1; then
+  signed_addon 'systemd.wants=serial-getty@ttyS1.service' "$T/vm-serial-agent.addon.efi"
+  mcopy -o -i "$E" "$T/vm-serial-agent.addon.efi" ::/loader/addons/vm-serial-agent.addon.efi
+fi
 rm -rf "$T"   # exec replaces this shell, so the EXIT trap would not run
 exec "$HERE/../run-vm.sh" --release "$B" "$IMG"
