@@ -1,7 +1,7 @@
 pkgname=hardened_malloc
 _commit=bf37d54560a62b50da72e8fda56abf04f23b5fd2
 pkgver=r0.${_commit:0:7}
-pkgrel=1
+pkgrel=2
 pkgdesc='Hardened memory allocator from GrapheneOS'
 arch=(x86_64)
 url='https://github.com/GrapheneOS/hardened_malloc'
@@ -13,7 +13,10 @@ sha256sums=('SKIP')
 
 build() {
   cd hardened_malloc
-  make
+  # Upstream defaults to CONFIG_NATIVE=true (-march=native): optimized for the CI runner's
+  # CPU. Preloaded into every process, it made everything die with "Illegal instruction" on
+  # an older CPU (an image build on another runner; on users' machines just the same).
+  make CONFIG_NATIVE=false
 }
 
 package() {
