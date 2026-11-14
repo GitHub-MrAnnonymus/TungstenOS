@@ -71,7 +71,13 @@ fi
 
 # Signed PCR 11 policy (any UKI signed by the build, initrd phase only) plus pcrlock
 # (firmware, Secure Boot, bootloader).
-systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto \
+# TUNGSTEN_ENROLL_UNLOCK_TPM=1 (the first-boot wizard): the partition still has only
+# repart's TPM key, which unlocks in every boot phase, so it authorizes the change and no
+# passphrase is asked. A key this script enrolled unlocks only in the initrd. $NEWPIN, if
+# set, is the new PIN (systemd-cryptenroll reads it instead of asking).
+unlock=()
+[ "${TUNGSTEN_ENROLL_UNLOCK_TPM:-}" = 1 ] && unlock=(--unlock-tpm2-device=auto)
+systemd-cryptenroll "${unlock[@]}" --wipe-slot=tpm2 --tpm2-device=auto \
   --tpm2-public-key=/etc/systemd/tpm2-pcr-public-key.pem --tpm2-public-key-policyref=initrd \
   --tpm2-pcrlock="$POLICY" --tpm2-with-pin="$pin" "$DEV"
 echo "Enrolled."

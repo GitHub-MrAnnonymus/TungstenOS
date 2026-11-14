@@ -56,7 +56,7 @@ export GUM_CHOOSE_CURSOR_FOREGROUND=$ACCENT GUM_INPUT_CURSOR_FOREGROUND=$ACCENT 
   GUM_FILTER_INDICATOR_FOREGROUND=$ACCENT GUM_FILTER_MATCH_FOREGROUND=$ACCENT \
   GUM_CONFIRM_SELECTED_BACKGROUND=$ACCENT
 LOG=/run/tungsten-firstboot.log
-STEPS=4
+STEPS=5
 # After a factory reset the new root partition has only its TPM key (systemd-repart): ask for
 # a recovery passphrase, as the installer does. A slot no systemd-tpm2 token uses is a
 # passphrase or recovery key.
@@ -66,7 +66,7 @@ if meta=$(cryptsetup luksDump --dump-json-metadata "$ROOTDEV" 2>/dev/null) &&
    [ "$(jq '[.tokens[] | select(.type == "systemd-tpm2") | .keyslots[]] as $tpm
         | [.keyslots | keys[] | select(. as $k | $tpm | index($k) | not)] | length' <<<"$meta")" -eq 0 ]; then
   need_recovery=1
-  STEPS=5
+  STEPS=6
 fi
 step=1
 
@@ -199,13 +199,54 @@ while :; do
 done
 unset admin_pw user_pw
 
-# 5. Done
+# 5. TPM binding, optional. Until then the disk unlocks with repart's key: the TPM releases
+# it to any boot of a UKI signed for TungstenOS, without checking firmware or Secure Boot.
+step=$((step + 1))
+header "Step $step of $STEPS · Disk unlock"
+say "The disk now unlocks by itself whenever a TungstenOS system boots. Binding it to this" \
+    "computer's TPM also checks the firmware, its Secure Boot settings and the boot loader:" \
+    "if any of them change, the disk asks for the recovery passphrase instead." "" \
+    "With a PIN, the TPM releases the key only after you type it at boot, and it locks" \
+    "itself after repeated wrong PINs."
+echo
+tpm_bound=0
+choice=$(gum choose --header "Bind the disk to the TPM?" "Bind now (recommended)" "Later") || choice=Later
+if [ "$choice" != Later ]; then
+  pin_arg=--no-pin; pin=
+  if gum confirm --default=false "Require a PIN at every boot?"; then
+    pin_arg=--pin
+    while :; do
+      pin=$(gum input --password --prompt "PIN › " --placeholder "boot PIN" --width 60) || continue
+      p2=$(gum input --password --prompt "Repeat › " --placeholder "the same PIN again" --width 60) || continue
+      if [ -z "$pin" ]; then warn "The PIN must not be empty." >&2
+      elif [ "$pin" != "$p2" ]; then warn "The PINs do not match." >&2
+      else break; fi
+    done
+    unset p2
+  fi
+  clear
+  # Runs in the open, not under gum spin: it shows the pcrlock recovery PIN, once.
+  if TUNGSTEN_ENROLL_UNLOCK_TPM=1 NEWPIN=$pin tungsten-tpm-enroll "$pin_arg"; then
+    tpm_bound=1
+    echo
+    gum style --margin "0 2" --bold "Store the recovery PIN shown above with the recovery passphrase."
+    read -r -p "  Press Enter once it is written down. " _ || :
+  else
+    warn "Binding to the TPM failed; the disk still unlocks as before." \
+         "Try again later with: run0 tungsten-tpm-enroll" >&2
+    read -r -t 300 -p "  Press Enter to continue. " _ || :
+  fi
+  unset pin
+fi
+
+# 6. Done
 step=$((step + 1))
 header "Step $step of $STEPS · Ready"
 gum style --margin "0 2" --foreground "$OK" --bold "All set. Log in as $user at the login screen."
 echo
-say "Next, bind the disk to this computer's TPM so it unlocks without the recovery" \
-    "passphrase (it asks for the administrator's password):" "" \
-    "$(gum style --foreground "$ACCENT" '    run0 tungsten-tpm-enroll')"
-echo
+if [ "$tpm_bound" != 1 ]; then
+  say "To bind the disk to this computer's TPM later (it asks for the administrator's" \
+      "password):" "" "$(gum style --foreground "$ACCENT" '    run0 tungsten-tpm-enroll')"
+  echo
+fi
 gum spin --spinner dot --title "Starting the login screen…" -- sleep 3

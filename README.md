@@ -189,7 +189,7 @@ Before writing, the script checks the TPM event log and warns if the selection w
 
 1. Unlock the root partition with the recovery passphrase.
 2. Create two accounts when prompted: an administrator and your everyday account, with different passwords. The administrator is in `wheel`; its password authorizes `run0` and polkit prompts, and it cannot log in at the login screen (only on a console). Someone who learns the everyday password still cannot become root.
-3. Log in with the everyday account and bind the root partition to the TPM (`run0` asks for the administrator's password). This shows a pcrlock recovery PIN once; store it with the passphrase. After a factory reset the disk has a new key held only by the TPM: the first-boot wizard then also asks for a new recovery passphrase.
+3. Bind the root partition to the TPM. The first-boot wizard offers this as its last step (optionally with a boot PIN); if you skip it, log in with the everyday account and run the command below (`run0` asks for the administrator's password). Either way it shows a pcrlock recovery PIN once; store it with the passphrase. After a factory reset the disk has a new key held only by the TPM: the first-boot wizard then also asks for a new recovery passphrase.
    ```sh
    run0 tungsten-tpm-enroll
    ```
