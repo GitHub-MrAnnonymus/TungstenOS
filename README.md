@@ -225,6 +225,8 @@ Per-user (`--user`) Flatpak installations cannot run, because the root partition
 
 A factory reset also removes installed extensions; enable them again with `updatectl enable --now`.
 
+An update can also change the desktop defaults in `/etc/skel` (the Hyprland configuration, Dux Shell plugins), which new accounts get. For existing accounts, Tungsten Guard lists the changed files with their diffs and applies each one only after approval (`/usr/lib/tungsten/skel-sync`): files the user never edited are replaced, edits are merged where they do not overlap with the update's, and a replaced file is backed up to `~/.local/state/tungsten/skel/backup`. Settings the shell manages itself (`settings.json`, generated colors, monitor layout) are left alone.
+
 ## Automation
 
 The *Update* workflow runs daily. Each component's updater verifies the new upstream release before changing the pinned version; if verification fails, nothing changes.
