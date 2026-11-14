@@ -85,6 +85,16 @@ Settings made with graphical tools, such as firewall-config, NetworkManager conn
 
 USBGuard allows the devices present at first boot and blocks any new device until it is allowed (`run0 usbguard allow-device <id>`). Members of the `usbguard` group receive notifications. The stricter linux-hardened mode, which blocks all new USB devices at the kernel level, remains available through `mydenyusb.service` and `usb-allow.service`.
 
+Steam (Flatpak) keeps its client and games in `/var/lib/tungsten-steam/<uid>`, the only place besides Flatpak's own where Flatpak apps may run code. Further drives for games are mounted below `/var/lib/tungsten-games`, executable and labeled for game code, at every boot:
+
+```sh
+run0 tungsten-game-drive add /dev/sdb1 bulk   # prints the folder to add in Steam > Settings > Storage
+tungsten-game-drive list
+run0 tungsten-game-drive remove bulk          # files on the drive stay
+```
+
+ext4, btrfs, xfs and f2fs drives get a `SteamLibrary` folder owned by the user; NTFS, exFAT and FAT drives belong to the user as a whole.
+
 ## Troubleshooting
 
 `tungsten-debug` writes a report to your home directory: failed units, errors from this boot, crashes, SELinux denials, local `/etc` changes, USBGuard, boot entries, updates and TPM keyslots. It asks for authentication once for the root-only parts.

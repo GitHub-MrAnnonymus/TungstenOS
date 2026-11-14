@@ -1,0 +1,119 @@
+#!/bin/bash
+# Game drives for Steam (Flatpak): mounts a drive at /var/lib/tungsten-games/<name> at every
+# boot, executable and labeled for game code, where Steam sees it (its Flatpak override
+# grants /var/lib/tungsten-games). In Steam, add the folder this prints as a library.
+#
+#   run0 tungsten-game-drive add <device> [name] [--user <user>]
+#   run0 tungsten-game-drive remove <name>
+#        tungsten-game-drive list
+#
+# The drive's whole file system gets the label steam_data_t from the mount (context=):
+# nothing is relabeled on the drive, and the same works for ext4, btrfs, NTFS and exFAT.
+# Only Flatpak apps may execute there (SELinux), as in /var/lib/tungsten-steam.
+set -euo pipefail
+BASE=/var/lib/tungsten-games
+MARK=x-tungsten.game-drive
+CONTEXT=system_u:object_r:steam_data_t
+usage() { sed -n '6,8p' "$0" | sed 's/^# *//' >&2; exit 2; }
+need_root() { [ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }; }
+
+list() {
+  local found=0
+  while read -r src dir fstype opts _; do
+    [[ $opts == *"$MARK"* ]] || continue
+    found=1
+    if mountpoint -q "$dir"; then state=mounted; else state="not mounted"; fi
+    printf '%-20s %-8s %-12s %s (%s)\n' "${dir#"$BASE"/}" "$fstype" "$state" "$dir" "$src"
+  done < /etc/fstab
+  [ "$found" = 1 ] || echo "No game drives. Add one with: run0 tungsten-game-drive add <device>"
+}
+
+add() {
+  need_root
+  local dev="" name="" user="${SUDO_USER:-}" owned
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --user) user=${2:?--user needs a name}; shift 2 ;;
+      -*) usage ;;
+      *) if [ -z "$dev" ]; then dev=$1; elif [ -z "$name" ]; then name=$1; else usage; fi; shift ;;
+    esac
+  done
+  [ -n "$dev" ] || usage
+  [ -b "$dev" ] || { echo "$dev is not a block device" >&2; exit 1; }
+  [ -n "$user" ] || { echo "Whose games? Pass --user <name>." >&2; exit 1; }
+  local uid gid
+  uid=$(id -u "$user" 2>/dev/null) || { echo "no user $user" >&2; exit 1; }
+  gid=$(id -g "$user")
+
+  local uuid type label
+  uuid=$(blkid -s UUID -o value "$dev") || :
+  type=$(blkid -s TYPE -o value "$dev") || :
+  label=$(blkid -s LABEL -o value "$dev") || :
+  [ -n "$uuid" ] && [ -n "$type" ] || { echo "$dev has no file system (format it first)" >&2; exit 1; }
+  if grep -q "^UUID=$uuid " /etc/fstab; then
+    echo "$dev (UUID=$uuid) is already in /etc/fstab" >&2; exit 1
+  fi
+  if findmnt -rno TARGET -S "UUID=$uuid" >/dev/null; then
+    echo "$dev is mounted at $(findmnt -rno TARGET -S "UUID=$uuid" | head -1); unmount it first" >&2; exit 1
+  fi
+
+  [ -n "$name" ] || name=${label:-games-${uuid:0:8}}
+  name=$(printf '%s' "$name" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9_-')
+  [ -n "$name" ] || { echo "Give the drive a name: tungsten-game-drive add $dev <name>" >&2; exit 1; }
+  local dir=$BASE/$name
+  [ ! -e "$dir" ] || { echo "$dir exists already; choose another name" >&2; exit 1; }
+
+  # exec: games run from here. nosuid, nodev: nothing else. nofail: a missing drive does
+  # not stop the boot.
+  local fstype=$type opts="exec,nosuid,nodev,nofail,x-systemd.device-timeout=10s,context=\"$CONTEXT\",$MARK"
+  case $type in
+    ext2|ext3|ext4|btrfs|xfs|f2fs) owned=1 ;;
+    ntfs|ntfs3) fstype=ntfs3; owned=0; opts+=",uid=$uid,gid=$gid,umask=077,windows_names" ;;
+    exfat|vfat) owned=0; opts+=",uid=$uid,gid=$gid,umask=077" ;;
+    *) echo "Unsupported file system: $type" >&2; exit 1 ;;
+  esac
+
+  mkdir -p "$BASE"
+  mkdir -m 0755 "$dir"
+  restorecon "$BASE" "$dir" 2>/dev/null || :
+  printf 'UUID=%s %s %s %s 0 0\n' "$uuid" "$dir" "$fstype" "$opts" >> /etc/fstab
+  systemctl daemon-reload
+  if ! mount "$dir"; then
+    sed -i "\\|^UUID=$uuid $dir |d" /etc/fstab
+    rmdir "$dir"
+    systemctl daemon-reload
+    echo "Mounting failed; nothing was changed." >&2
+    exit 1
+  fi
+  # Linux file systems keep owners: the library is a folder of the user's own, so the rest
+  # of the drive stays as it is. FAT and NTFS have no owners: the mount gives the whole
+  # drive to the user (uid=, umask=077).
+  local lib=$dir
+  if [ "$owned" = 1 ]; then
+    lib=$dir/SteamLibrary
+    mkdir -p "$lib"
+    chown "$uid:$gid" "$lib"
+    chmod 0700 "$lib"
+  fi
+  echo "Mounted $dev at $dir (at every boot)."
+  echo "In Steam: Settings > Storage > Add drive, and choose: $lib"
+}
+
+remove() {
+  need_root
+  local name=${1:?usage: tungsten-game-drive remove <name>} dir
+  dir=$BASE/$name
+  grep -q " $dir .*$MARK" /etc/fstab || { echo "$name is not a game drive (see: tungsten-game-drive list)" >&2; exit 1; }
+  if mountpoint -q "$dir"; then umount "$dir"; fi
+  sed -i "\\| $dir .*$MARK|d" /etc/fstab
+  rmdir "$dir" 2>/dev/null || :
+  systemctl daemon-reload
+  echo "Removed $name. The drive's files are untouched; remove the library in Steam too."
+}
+
+case "${1:-}" in
+  add) shift; add "$@" ;;
+  remove) shift; remove "$@" ;;
+  list) list ;;
+  *) usage ;;
+esac

@@ -1226,6 +1226,16 @@ allow user_bubblewrap_t steam_data_t:dir { getattr mounton open read search };
 allow user_bubblewrap_t steam_data_t:lnk_file { getattr read };
 # Administrators clean up (accounts removed), boot creates the base directory.
 allow { init_t sysadm_t } steam_data_t:dir manage_dir_perms;
+# Game drives (tungsten-game-drive): whole file systems mounted with context=steam_data_t,
+# by mount (mount_t, from fstab or the root shell). The superblock takes the type too.
+gen_require(`
+	type mount_t;
+	attribute xattrfs, noxattrfs;
+')
+allow { mount_t sysadm_t } { xattrfs noxattrfs }:filesystem relabelfrom;
+allow { mount_t sysadm_t } steam_data_t:filesystem { relabelfrom relabelto mount unmount remount getattr };
+allow steam_data_t self:filesystem associate;
+allow { tungsten_flatpak_t user_t } steam_data_t:filesystem getattr;
 allow { init_t sysadm_t } steam_data_t:{ file lnk_file fifo_file sock_file } manage_file_perms;
 allow { init_t sysadm_t } steam_data_t:{ dir file lnk_file } { relabelfrom relabelto };
 # cp -a and mv keep the SELinux label (Steam moves its data around in ~/.var/app): a
