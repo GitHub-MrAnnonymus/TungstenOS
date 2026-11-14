@@ -52,6 +52,7 @@ PACKAGES=(
   mesa vulkan-radeon vulkan-intel intel-media-driver fwupd
 
   tpm2-tss tpm2-tools hardened_malloc no_rlimit_as usbguard usbguard-notifier
+  sbsigntools  # sbverify: tungsten-secureboot-update checks the ESP before a revocation
 
   # Network
   networkmanager iptables firewalld firewall-config dnscrypt-proxy ntpd-rs bluez bluez-utils
@@ -145,6 +146,12 @@ set_toml netprobe_timeout -1
 
 # The only keyring systemd-sysupdate trusts.
 install -Dm644 "$SRC"/keys/tungsten.pgp "$WORKDIR"/usr/lib/systemd/import-pubring.pgp
+# Secure Boot database updates signed with the KEK (keys/sign-efi-update.sh), applied at
+# boot by tungsten-secureboot-update.service.
+if [ -d "$SRC"/keys/secureboot/updates ]; then
+  mkdir -p "$WORKDIR"/usr/share/tungsten/secureboot-updates
+  cp -r "$SRC"/keys/secureboot/updates/. "$WORKDIR"/usr/share/tungsten/secureboot-updates/
+fi
 # Verifies the dm-verity signatures of system extensions.
 install -Dm644 "$SB_DIR"/db.pem "$WORKDIR"/usr/lib/verity.d/tungsten.crt
 # Verifies the signed PCR 11 policy in each UKI (default path for systemd-cryptenroll).
@@ -167,7 +174,7 @@ systemctl enable \
   greetd NetworkManager firewalld usbguard tungsten-usbguard-init dnscrypt-proxy ntpd-rs \
   systemd-homed systemd-homed-firstboot auditd power-profiles-daemon \
   tungsten-relabel tungsten-clear-console tungsten-sysext-sysusers \
-  tungsten-guard-check.timer tungsten-guard-execwatch fwupd-refresh.timer \
+  tungsten-guard-check.timer tungsten-guard-execwatch fwupd-refresh.timer tungsten-secureboot-update \
   systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-flatpak-update.timer \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \

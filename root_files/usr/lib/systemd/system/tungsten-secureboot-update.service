@@ -1,0 +1,15 @@
+# Applies the image's Secure Boot database updates (revocations, new db certificates).
+# After systemd-boot-update, which may have replaced a revoked boot loader on the ESP, and
+# after the pcrlock policy for this boot is made, which the policy refresh builds on.
+[Unit]
+Description=Apply TungstenOS Secure Boot database updates
+After=systemd-boot-update.service systemd-pcrlock-make-policy.service tungsten-pcrlock-predict.service local-fs.target
+ConditionSecurity=uefi-secureboot
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/tungsten/secureboot-update
+
+[Install]
+WantedBy=multi-user.target

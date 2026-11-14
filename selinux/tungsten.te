@@ -1444,3 +1444,7 @@ allow user_t tungsten_guard_runtime_t:dir { list_dir_perms watch };
 allow user_t tungsten_guard_runtime_t:file watch;
 # guard-execwatch reads the audit log with ausearch.
 logging_read_audit_log(init_t)
+
+# tungsten-secureboot-update (init_t): appends signed updates to db/dbx in efivarfs and
+# toggles the immutable flag around the write (FS_IOC_SETFLAGS).
+fs_manage_efivarfs_files(init_t)

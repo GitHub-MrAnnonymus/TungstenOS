@@ -1,0 +1,93 @@
+#!/bin/bash
+# Applies the Secure Boot database updates shipped with the image (keys/secureboot/updates,
+# signed with the TungstenOS KEK by keys/sign-efi-update.sh): revocations (dbx) and new
+# db certificates. tungsten-secureboot-update.service runs it at boot.
+#
+# An update is held back while it would revoke something on the ESP that this machine
+# boots from: systemd-boot, a UKI (either A/B slot) or an add-on. It applies on a later
+# boot, once those are gone. The firmware checks the KEK signature itself and refuses
+# updates for another key hierarchy (e.g. development keys).
+# State for Tungsten Guard: /var/lib/tungsten/secureboot-updates.json
+set -uo pipefail
+UPD=/usr/share/tungsten/secureboot-updates
+STATE=/var/lib/tungsten/secureboot-updates.json
+EFIVARS=/sys/firmware/efi/efivars
+SECDB=d719b2cb-3d3a-4596-a3bc-dad00e67656f   # EFI_IMAGE_SECURITY_DATABASE_GUID
+PCRLOCK=/usr/lib/systemd/systemd-pcrlock
+mkdir -p "$(dirname "$STATE")"
+[ -f "$STATE" ] || echo '{"applied":{}}' > "$STATE"
+
+applied=$(jq -c '.applied // {}' "$STATE" 2>/dev/null || echo '{}')
+pending='[]' refused='[]'
+save() {
+  jq -n --argjson applied "$applied" --argjson pending "$pending" --argjson refused "$refused" \
+     --arg checked "$(date -Iseconds)" --arg secure_boot "${sb:-}" \
+     '{checked: $checked, secure_boot: $secure_boot, applied: $applied, pending: $pending, refused: $refused}' \
+     > "$STATE.new" && mv -f "$STATE.new" "$STATE"
+}
+
+sb=$(bootctl status 2>/dev/null | sed -n 's/^ *Secure Boot: *//p' | head -1)
+if [[ $sb != enabled* ]] || [ ! -d "$UPD" ]; then
+  save; exit 0
+fi
+
+# What the firmware and systemd-boot load from the ESP.
+ESP=$(bootctl --print-esp-path 2>/dev/null) || { save; exit 0; }
+mapfile -t BINS < <(find "$ESP/EFI" "$ESP/loader/addons" -type f -iname '*.efi' 2>/dev/null)
+declare -A HASH_OF=()
+for f in "${BINS[@]}"; do
+  h=$("$PCRLOCK" lock-pe "$f" 2>/dev/null |
+      jq -r '[.records[]?.digests[]? | select(.hashAlg == "sha256") | .digest][0] // empty')
+  [ -n "$h" ] && HASH_OF[$f]=$h
+done
+
+changed=0
+for dir in "$UPD"/*/; do
+  name=$(basename "$dir")
+  [ -f "$dir/update.auth" ] && [ -f "$dir/update.json" ] || continue
+  [ "$(jq -r --arg n "$name" 'has($n)' <<<"$applied")" = true ] && continue
+  var=$(jq -r .var "$dir/update.json"); kind=$(jq -r .kind "$dir/update.json")
+  [[ $var == db || $var == dbx ]] || continue
+
+  # Would it revoke something this machine boots from?
+  hit=()
+  if [ "$kind" = dbx-hash ]; then
+    for f in "${!HASH_OF[@]}"; do
+      jq -e --arg h "${HASH_OF[$f]}" '.entries[] | select(.type == "sha256" and .hash == $h)' \
+        "$dir/update.json" >/dev/null && hit+=("${f#"$ESP"/}")
+    done
+  elif [ "$kind" = dbx-cert ]; then
+    for f in "${BINS[@]}"; do
+      sbverify --cert "$dir/cert.pem" "$f" >/dev/null 2>&1 && hit+=("${f#"$ESP"/}")
+    done
+  fi
+  if [ ${#hit[@]} -gt 0 ]; then
+    pending=$(jq -c --arg n "$name" --arg r "would revoke ${hit[*]}" '. + [{name: $n, reason: $r}]' <<<"$pending")
+    continue
+  fi
+
+  # Authenticated append: 4 bytes of attributes (NV, BS, RT, time-based authenticated
+  # write, append) and the signed update, in one write.
+  target=$EFIVARS/$var-$SECDB
+  tmp=$(mktemp)
+  { printf '\x67\x00\x00\x00'; cat "$dir/update.auth"; } > "$tmp"
+  [ -e "$target" ] && chattr -i "$target" 2>/dev/null
+  if dd if="$tmp" of="$target" bs=1M iflag=fullblock status=none 2>/dev/null; then
+    applied=$(jq -c --arg n "$name" --arg t "$(date -Iseconds)" '. + {($n): $t}' <<<"$applied")
+    changed=1
+    echo "Applied $name ($kind)"
+  else
+    refused=$(jq -c --arg n "$name" '. + [{name: $n, reason: "refused by the firmware (not signed by an enrolled KEK)"}]' <<<"$refused")
+    echo "Firmware refused $name" >&2
+  fi
+  [ -e "$target" ] && chattr +i "$target" 2>/dev/null
+  rm -f "$tmp"
+done
+save
+
+# The next boot measures the new database into PCR 7: predict it, so the disk keeps
+# unlocking from the TPM (only where a pcrlock policy exists).
+if [ "$changed" = 1 ] && [ -e /var/lib/systemd/pcrlock.json ]; then
+  systemctl restart systemd-pcrlock-secureboot-policy.service
+  /usr/local/lib/tungsten/pcrlock-predict --make-policy
+fi

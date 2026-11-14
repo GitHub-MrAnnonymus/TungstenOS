@@ -60,11 +60,15 @@ if j=$(fwupdmgr security --json --force 2>/dev/null); then
       | ["not-enabled","not-valid","not-locked","not-encrypted","not-tainted","not-supported","not-found"] | index($r))
       | select((.HsiLevel // 0) > 0) | (.Name // .AppstreamId)] | unique' <<<"$j" 2>/dev/null) || hsi_failed='[]'
 fi
-hardware=$(jq -n --arg sb "$sb" --argjson tpm "$tpm" --argjson lockout "$lockout" --arg disk "$disk" \
+# TungstenOS Secure Boot database updates (tungsten-secureboot-update.service).
+sbdb=$(jq -c '{applied: (.applied // {} | length), pending: (.pending // []), refused: (.refused // [])}' \
+  /var/lib/tungsten/secureboot-updates.json 2>/dev/null) || sbdb=null
+[ -n "$sbdb" ] || sbdb=null
+hardware=$(jq -n --argjson sbdb "$sbdb" --arg sb "$sb" --argjson tpm "$tpm" --argjson lockout "$lockout" --arg disk "$disk" \
   --argjson verity "$verity" --argjson ipe "$ipe" --arg selinux "$selinux" \
   --argjson hsi "$hsi" --argjson hsi_failed "$hsi_failed" \
   '{secure_boot: $sb, tpm: $tpm, tpm_lockout: $lockout, disk: $disk, verity: $verity, ipe: $ipe,
-    selinux: $selinux, hsi: $hsi, hsi_failed: $hsi_failed}')
+    selinux: $selinux, hsi: $hsi, hsi_failed: $hsi_failed, secureboot_updates: $sbdb}')
 
 tmp=$(mktemp "$DIR/.status.XXXXXX")
 jq -n --argjson os_new "$os_new" --arg os_cur "$os_cur" --argjson flatpaks "${flatpaks:-0}" \

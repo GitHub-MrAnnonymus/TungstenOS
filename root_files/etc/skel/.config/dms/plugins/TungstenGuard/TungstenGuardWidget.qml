@@ -40,8 +40,13 @@ PluginComponent {
     readonly property bool sbWarn: hw !== null && !secureBootOn && !isDismissed(sbKey)
     readonly property bool diskWarn: hw !== null && hw.disk === "weak" && !isDismissed(diskKey)
     readonly property bool verifyWarn: hw !== null && !imageVerified && !isDismissed(verifyKey)
+    // TungstenOS Secure Boot database updates held back (they would revoke something on the ESP).
+    readonly property var sbdb: hw?.secureboot_updates ?? null
+    readonly property var sbdbPending: sbdb?.pending ?? []
+    readonly property string sbdbKey: "sbdb:" + sbdbPending.map(p => p.name).join(",")
+    readonly property bool sbdbWarn: sbdbPending.length > 0 && !isDismissed(sbdbKey)
     // Problems that weaken the system itself (not just pending updates), unless dismissed.
-    readonly property bool hwProblem: sbWarn || diskWarn || verifyWarn
+    readonly property bool hwProblem: sbWarn || diskWarn || verifyWarn || sbdbWarn
     readonly property var history: blocked.filter(e => e.time > clearedTime)
     // Blocked programs within the last day keep the shield on alert, until cleared.
     readonly property bool recentBlock: history.length > 0 && (Date.now() / 1000 - history[0].time) < 86400
@@ -473,6 +478,25 @@ PluginComponent {
                         detail: d === "weak" ? "Bind it to this computer: run0 tungsten-tpm-enroll"
                               : d.startsWith("tpm") ? "Unlocks only if firmware, Secure Boot and boot loader are unchanged"
                               : d === "passphrase" ? "Bind it to the TPM: run0 tungsten-tpm-enroll" : ""
+                    }
+
+                    Tile {
+                        visible: root.hw !== null && root.secureBootOn
+                        readonly property int applied: root.sbdb?.applied ?? 0
+                        readonly property var refused: root.sbdb?.refused ?? []
+                        warnKey: root.sbdbPending.length > 0 ? root.sbdbKey : ""
+                        warning: root.sbdbPending.length > 0
+                        icon: root.sbdbPending.length > 0 ? "gpp_maybe" : "policy"
+                        tint: root.sbdbPending.length > 0 ? Theme.warning : Theme.primary
+                        title: root.sbdbPending.length > 0
+                               ? root.sbdbPending.length + " Secure Boot update" + (root.sbdbPending.length > 1 ? "s" : "") + " held back"
+                               : "Secure Boot database up to date"
+                        detail: root.sbdbPending.length > 0
+                                ? root.sbdbPending.map(p => p.name + ": " + p.reason).join("\n")
+                                  + "\nApplies at a boot once the affected files are replaced"
+                                : (applied > 0 ? applied + " TungstenOS revocation update" + (applied > 1 ? "s" : "") + " applied"
+                                               : "No TungstenOS revocations needed so far")
+                                  + (refused.length > 0 ? " · " + refused.length + " not for this machine's keys" : "")
                     }
 
                     Tile {
