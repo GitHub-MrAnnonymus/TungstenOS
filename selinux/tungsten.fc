@@ -47,3 +47,4 @@ HOME_DIR/\.local/share/pki(/.*)?			gen_context(system_u:object_r:chromium_xdg_co
 # The global override is configuration written by tmpfiles, not a program.
 /var/lib/flatpak/overrides(/.*)?			gen_context(system_u:object_r:var_lib_t)
 /usr/lib/nm-daemon-helper			--	gen_context(system_u:object_r:bin_t)
+/run/tailscale(/.*)?					gen_context(system_u:object_r:tailscale_runtime_t)

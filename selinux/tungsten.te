@@ -1157,6 +1157,20 @@ allow user_systemd_tmpfiles_t user_tmp_t:dir { manage_dir_perms relabelfrom rela
 userdom_user_runtime_filetrans(user_systemd_tmpfiles_t, user_tmp_t, dir, "dconf")
 allow user_systemd_tmpfiles_t user_tmp_t:file { manage_file_perms relabelfrom relabelto };
 
+# tailscaled has no domain in refpolicy and runs as initrc_t; its socket
+# (/run/tailscale/tailscaled.sock) got initrc_runtime_t, which no client may write to.
+# The runtime directory systemd creates for it (RuntimeDirectory=) gets a type of its own,
+# so clients reach this socket and no other initrc_t one: the root shell (tailscale up,
+# set --ssh) and the session (status, the Dux Shell widget). tailscaled itself decides
+# what each caller may do (operator, root). A confined domain for tailscaled is planned.
+type tailscale_runtime_t;
+files_runtime_file(tailscale_runtime_t)
+manage_dirs_pattern(initrc_t, tailscale_runtime_t, tailscale_runtime_t)
+manage_sock_files_pattern(initrc_t, tailscale_runtime_t, tailscale_runtime_t)
+allow { sysadm_t user_t } tailscale_runtime_t:dir search_dir_perms;
+allow { sysadm_t user_t } tailscale_runtime_t:sock_file write;
+allow { sysadm_t user_t } initrc_t:unix_stream_socket connectto;
+
 # Dev containers: rootless Podman with gVisor (visorbox). podman runs in podman_user_t,
 # conmon in podman_user_conmon_t, and the runtime (runsc, container_engine_exec_t) back in
 # podman_user_t, where gVisor runs the container: containers.conf.d disables labeling,
