@@ -18,17 +18,20 @@
 # there too (no splash, kernel log level 7, the serial port as /dev/console: the last
 # console= wins, so the add-on's name sorts after vm-serial-console). Then it starts the VM.
 #
-# Usage: install/dev/vm.sh [--debug-shell on|off] [--disk FILE[:SIZE]]... [image-file]
+# Usage: install/dev/vm.sh [--debug-shell on|off] [--usb-lock on|off] [--disk FILE[:SIZE]]... [image-file]
 #        (default image: $TUNGSTEN_DEV/vm/tungsten-dev.img)
 # Needs: the run-vm.sh tools, mtools, systemd-ukify
 set -euo pipefail
-DEBUG= DISKS=()
+DEBUG= USBLOCK= DISKS=()
 while [[ ${1:-} == --* ]]; do
   case $1 in
     --debug-shell)
       DEBUG=${2:?on or off}
       case $DEBUG in on|off) ;; *) echo "--debug-shell takes on or off" >&2; exit 2 ;; esac ;;
     --disk) DISKS+=(--disk "${2:?disk image file[:size]}") ;;   # passed to run-vm.sh
+    --usb-lock)
+      USBLOCK=${2:?on or off}
+      case $USBLOCK in on|off) ;; *) echo "--usb-lock takes on or off" >&2; exit 2 ;; esac ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
   shift 2
@@ -91,6 +94,20 @@ if [ -n "$DEBUG" ]; then
   else
     mdel -i "$E" ::/loader/addons/zz-debug.addon.efi ::/loader/addons/debug-shell.addon.efi 2>/dev/null || :
     echo "Debug off."
+  fi
+fi
+# --usb-lock on|off: an add-on with tungsten.usblock=yes, so the VM (no laptop) locks its
+# USB ports from the initrd on (usb-lock). Test by adding a stick in the QEMU monitor
+# (Ctrl+A C): drive_add 0 if=none,id=stick,file=<img>,format=raw then
+# device_add usb-storage,drive=stick,bus=xhci.0 (run-vm.sh adds the xHCI controller).
+if [ -n "$USBLOCK" ]; then
+  if pgrep -f "file=$IMG," >/dev/null; then echo "The VM is running; stop it first." >&2; exit 1; fi
+  E=$(esp)
+  if [ "$USBLOCK" = on ]; then
+    signed_addon 'tungsten.usblock=yes' "$T/vm-usb-lock.addon.efi"
+    mcopy -o -i "$E" "$T/vm-usb-lock.addon.efi" ::/loader/addons/vm-usb-lock.addon.efi
+  else
+    mdel -i "$E" ::/loader/addons/vm-usb-lock.addon.efi 2>/dev/null || :
   fi
 fi
 # A login prompt on the second serial port as well (run-vm.sh: <image>.vm/serial1.sock),

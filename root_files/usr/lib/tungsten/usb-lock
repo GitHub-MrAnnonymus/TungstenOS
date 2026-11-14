@@ -2,8 +2,9 @@
 # Locks the empty external USB ports at the controller: a device plugged into a locked port
 # is not powered up for enumeration, so nothing of it reaches the kernel's USB code (unlike
 # USBGuard, which authorizes devices after the kernel has read their descriptors).
-# External ports are those the firmware marks as hotplug (ACPI _PLD, connect_type); internal
-# ones (webcam, Bluetooth, fingerprint reader) and ports with a device stay as they are.
+# External ports are those the firmware marks as hotplug (ACPI _PLD, connect_type) or does
+# not describe; internal ones (webcam, Bluetooth, fingerprint reader) and ports with a
+# device stay as they are.
 # Root can unlock them again: the firmware's own USB setting, with a BIOS password, is the
 # protection against a compromised system.
 #
@@ -26,8 +27,17 @@ STATUS=/run/tungsten-guard/usb.json
 
 ports() { ls -d /sys/bus/usb/devices/usb*/*-0:1.0/usb*-port* 2>/dev/null; }
 # Notebook, laptop, sub-notebook, convertible, detachable (SMBIOS chassis types).
-laptop() { case $(cat /sys/class/dmi/id/chassis_type 2>/dev/null) in 8|9|10|14|31|32) return 0 ;; esac; return 1; }
-external() { [ "$(cat "$1/connect_type" 2>/dev/null)" = hotplug ]; }
+# tungsten.usblock=yes|no on the kernel command line wins (testing: the VM is no laptop; on
+# real machines only through a signed add-on).
+laptop() {
+  case " $(cat /proc/cmdline) " in *" tungsten.usblock=yes "*) return 0 ;; *" tungsten.usblock=no "*) return 1 ;; esac
+  case $(cat /sys/class/dmi/id/chassis_type 2>/dev/null) in 8|9|10|14|31|32) return 0 ;; esac
+  return 1
+}
+# hotplug: external by the firmware's description. Without one (unknown, e.g. VMs) an empty
+# port is treated as external too; hardwired and "not used" ports are never locked (an
+# internal webcam with a privacy switch reconnects on its port).
+external() { case $(cat "$1/connect_type" 2>/dev/null) in hotplug|unknown|"") return 0 ;; esac; return 1; }
 occupied() { [ -e "$1/device" ]; }
 
 status() {

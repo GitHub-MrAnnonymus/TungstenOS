@@ -163,7 +163,7 @@ exec qemu-system-x86_64 \
   -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 \
   -drive file="$IMG",format=raw,if=virtio,cache=none "${extra[@]}" \
   -device virtio-vga-gl -display gtk,gl=on \
-  -device virtio-keyboard-pci -device virtio-tablet-pci \
+  -device virtio-keyboard-pci -device virtio-tablet-pci -device qemu-xhci,id=xhci \
   -nic user,model=virtio-net-pci \
   -serial mon:stdio \
   -serial unix:"$STATE/serial1.sock",server=on,wait=off
