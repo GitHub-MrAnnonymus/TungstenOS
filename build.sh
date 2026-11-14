@@ -187,6 +187,11 @@ arch-chroot "$WORKDIR" /bin/bash -s "$POLICY" "$AUDIT_ALL" <<'CHROOT'
 set -euo pipefail
 POLICY=$1 AUDIT_ALL=$2
 
+# Users and groups declared by TungstenOS's own sysusers.d files (usbguard), copied in
+# after the packages: otherwise the first boot creates them and writes /etc/passwd or
+# /etc/group into the /etc overlay, where that copy hides every later image's IDs.
+systemd-sysusers
+
 ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 locale-gen
 
