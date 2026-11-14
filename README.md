@@ -254,6 +254,20 @@ $EDITOR patches/series                              # comment out patches to ski
 
 Update `pkgver` and the tarball checksum in `kernel/PKGBUILD`. Patches that conflict once their neighbours are disabled are kept as rebased copies in `kernel/patch-overrides/`. `config.fragment` lists every deviation from Arch's linux-hardened configuration, and the build fails if any of them is not honoured. `config.slim` disables the options that build modules blocked in modprobe; regenerate it with `kernel/update-slim-config.py <patched-tree>` whenever the blocklists change. The NVIDIA module version follows Arch's `nvidia-utils` automatically.
 
+### Secure Boot revocations
+
+TungstenOS revokes its own signed boot binaries with dbx updates signed by the KEK, as Microsoft does for the binaries it signs. When systemd-boot or systemd-stub has a Secure Boot bypass (systemd's GitHub security advisories), release a fixed build, then revoke the affected builds on the offline machine:
+
+```sh
+# The systemd-boot and UKIs of the affected releases, from their GitHub release assets
+keys/sign-efi-update.sh /path/to/offline/storage systemd-boot-cve-2027-1234 dbx-hash *.efi
+# After a key rotation: trust the new db certificate first, revoke the old one later
+keys/sign-efi-update.sh /path/to/offline/storage new-db-key db-cert new-db.crt
+keys/sign-efi-update.sh /path/to/offline/storage old-db-key dbx-cert old-db.crt
+```
+
+Commit `keys/secureboot/updates/`. Each system applies the updates of its image at boot (`tungsten-secureboot-update.service`), refreshes its pcrlock policy for the new PCR 7, and holds an update back while it would revoke systemd-boot, a UKI or an add-on on its ESP; Tungsten Guard shows held-back updates. Microsoft's own dbx updates reach machines that trust Microsoft's keys through fwupd. To test in the VM, sign with the development KEK: `SB_PUB=~/.local/share/tungstenos-dev/keys keys/sign-efi-update.sh ~/.local/share/tungstenos-dev/keys <name> ...`.
+
 ### SELinux policy
 
 The system is enforcing and cannot be switched to permissive at runtime (`secure_mode_policyload`). Collect denials from normal use:

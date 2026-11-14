@@ -14,6 +14,9 @@
 #       one is revoked).
 #
 # Output: keys/secureboot/updates/NNNN-<name>/{update.auth,update.json}. Commit both.
+# For the development VM (its own key hierarchy): SB_PUB=<dev keys dir>, which holds GUID,
+# KEK.crt and KEK.key; the update goes to <dev keys dir>/updates, which development builds
+# ship instead (install/dev/build-in-container.sh).
 # Updates are appends (EFI_VARIABLE_APPEND_WRITE): they add entries, never remove any, and
 # applying one twice changes nothing.
 set -euo pipefail
@@ -26,8 +29,9 @@ shift 3
 for t in openssl cert-to-efi-sig-list hash-to-efi-sig-list sign-efi-sig-list jq; do
   command -v "$t" >/dev/null || { echo "missing $t (pacman -S efitools openssl jq)" >&2; exit 1; }
 done
-GUID=$(cat secureboot/GUID)
-UPDATES=secureboot/updates
+PUB=${SB_PUB:-secureboot}
+GUID=$(cat "$PUB/GUID")
+UPDATES=${SB_UPDATES:-$PUB/updates}
 mkdir -p "$UPDATES"
 n=$(find "$UPDATES" -mindepth 1 -maxdepth 1 -type d | wc -l)
 OUT=$UPDATES/$(printf '%04d' $((n + 1)))-$NAME
@@ -68,7 +72,7 @@ esac
 mkdir -p "$OUT"
 # Timestamped, append: firmware accepts appends regardless of the previous timestamp.
 sign-efi-sig-list -a -t "$(date -u '+%Y-%m-%d %H:%M:%S')" -g "$GUID" \
-  -k "$PRIV/KEK.key" -c secureboot/KEK.crt "$var" "$WORK/update.esl" "$OUT/update.auth"
+  -k "$PRIV/KEK.key" -c "$PUB/KEK.crt" "$var" "$WORK/update.esl" "$OUT/update.auth"
 jq -n --arg name "$NAME" --arg var "$var" --arg kind "$KIND" --argjson entries "$entries" \
    --arg created "$(date -u -Iseconds)" \
    '{name: $name, var: $var, kind: $kind, created: $created, entries: $entries}' > "$OUT/update.json"

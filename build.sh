@@ -148,9 +148,11 @@ set_toml netprobe_timeout -1
 install -Dm644 "$SRC"/keys/tungsten.pgp "$WORKDIR"/usr/lib/systemd/import-pubring.pgp
 # Secure Boot database updates signed with the KEK (keys/sign-efi-update.sh), applied at
 # boot by tungsten-secureboot-update.service.
-if [ -d "$SRC"/keys/secureboot/updates ]; then
+# Development builds pass their own (SB_UPDATES_DIR, signed with the development KEK).
+SB_UPDATES_DIR=${SB_UPDATES_DIR:-$SRC/keys/secureboot/updates}
+if [ -d "$SB_UPDATES_DIR" ]; then
   mkdir -p "$WORKDIR"/usr/share/tungsten/secureboot-updates
-  cp -r "$SRC"/keys/secureboot/updates/. "$WORKDIR"/usr/share/tungsten/secureboot-updates/
+  cp -r "$SB_UPDATES_DIR"/. "$WORKDIR"/usr/share/tungsten/secureboot-updates/
 fi
 # Verifies the dm-verity signatures of system extensions.
 install -Dm644 "$SB_DIR"/db.pem "$WORKDIR"/usr/lib/verity.d/tungsten.crt

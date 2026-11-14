@@ -48,7 +48,9 @@ fi
 
 # --- Build ---
 TAG=$(date -u +'%Y%m%d%H%M')
-OS_BUILD_TAG=$TAG UPDATE_URL=https://tungsten.invalid/ TUNGSTEN_REPO=$TUNGSTEN_REPO SB_DIR=$K \
+# Secure Boot database updates signed with the development KEK (SB_PUB=$DEV/keys
+# keys/sign-efi-update.sh ...), not the release ones, which the VM firmware would refuse.
+OS_BUILD_TAG=$TAG UPDATE_URL=https://tungsten.invalid/ TUNGSTEN_REPO=$TUNGSTEN_REPO SB_DIR=$K SB_UPDATES_DIR=$K/updates \
   bash /src/build.sh
 B=/state/builds/$TAG
 mkdir -p "$B"
