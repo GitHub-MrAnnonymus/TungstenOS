@@ -1165,7 +1165,8 @@ allow user_systemd_tmpfiles_t user_tmp_t:file { manage_file_perms relabelfrom re
 
 # tailscaled: refpolicy has no domain for it (it ran as initrc_t). A VPN daemon that handles
 # traffic from the internet, so its own domain with what it needs: the tun device, routes
-# and firewall rules (netlink, iptables/nft), its state, cache and socket. Tailscale SSH
+# and firewall rules (all over netlink: nftables mode, see tailscaled.service.d; it runs no
+# programs), its state, cache and socket. Tailscale SSH
 # (root shells for remote users) is deliberately not possible (the unit sandbox prevents it too).
 # Clients (the root shell: tailscale up; the session: status, the Dux Shell widget) reach
 # its socket; tailscaled itself decides what each caller may do (operator, root).
@@ -1214,7 +1215,6 @@ sysnet_read_config(tailscaled_t)
 logging_send_syslog_msg(tailscaled_t)
 init_read_state(tailscaled_t)
 corecmd_search_bin(tailscaled_t)
-iptables_domtrans(tailscaled_t)
 
 manage_dirs_pattern(tailscaled_t, tailscaled_var_lib_t, tailscaled_var_lib_t)
 manage_files_pattern(tailscaled_t, tailscaled_var_lib_t, tailscaled_var_lib_t)
