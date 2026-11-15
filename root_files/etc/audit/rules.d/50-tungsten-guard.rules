@@ -1,6 +1,11 @@
 # Programs a logged-in user tried to run and the kernel refused: noexec mounts (homes,
 # /tmp), SELinux and IPE. tungsten-guard-execwatch turns them into notifications for that
 # user. Not for services (auid unset) or system accounts (auid < 1000).
+# Not reported: Trivalent starting bwrap. GTK's file dialog in the browser (downloads) has
+# glycin render previews in a bubblewrap sandbox, which the browser may not start (SELinux);
+# the dialog just shows no previews. Hundreds of entries per download otherwise.
+-a never,exit -F arch=b64 -S execve,execveat -F exe=/usr/lib/trivalent/trivalent -F path=/usr/bin/bwrap
+-a never,exit -F arch=b32 -S execve,execveat -F exe=/usr/lib/trivalent/trivalent -F path=/usr/bin/bwrap
 -a always,exit -F arch=b64 -S execve,execveat -F exit=-EACCES -F auid>=1000 -F auid!=-1 -k tungsten-exec
 -a always,exit -F arch=b64 -S execve,execveat -F exit=-EPERM -F auid>=1000 -F auid!=-1 -k tungsten-exec
 -a always,exit -F arch=b32 -S execve,execveat -F exit=-EACCES -F auid>=1000 -F auid!=-1 -k tungsten-exec
