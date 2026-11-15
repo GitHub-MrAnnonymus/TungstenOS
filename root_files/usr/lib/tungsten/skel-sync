@@ -28,6 +28,9 @@ EXCLUDE=(
   .config/hypr/dms/colors.lua .config/hypr/dms/outputs.lua .config/hypr/dms/binds-user.lua
   .config/hypr/dms/cursor.lua '.config/gtk-*/dank-colors.css' '.config/gtk-*/gtk.css'
   .config/gtk-3.0/bookmarks .config/alacritty/dank-theme.toml
+  # Written by the shell (the color scheme path with the real home; the default has $USER)
+  # and by VSCodium (per-user values).
+  .config/qtengine/config.json .vscode-oss/argv.json
 )
 excluded() {
   local p
