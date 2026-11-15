@@ -173,7 +173,9 @@ install -Dm644 "$BOOT" "$ESP/EFI/systemd/systemd-bootx64.efi"
 install -Dm644 "$BOOT" "$ESP/EFI/BOOT/BOOTX64.EFI"
 install -Dm444 "$UKI" "$ESP/EFI/Linux/${IMAGE_ID}_${VER}+3-0.efi"
 mkdir -p "$ESP/loader"
-printf 'timeout 3\neditor no\n' > "$ESP/loader/loader.conf"
+# console-mode max: the menu would otherwise put the firmware console in text mode, often
+# 800x600, which simpledrm and Plymouth then inherit (/usr/lib/tungsten/loader-conf).
+printf 'timeout 3\nconsole-mode max\neditor no\n' > "$ESP/loader/loader.conf"
 # VM images: a login on the serial port, which install/run-vm.sh connects to the host
 # terminal (copy and paste work there). Unsigned add-ons load only without Secure Boot.
 if [ "$VM" = 1 ]; then

@@ -82,6 +82,8 @@ EOF
 sed -i 's/^title .*/title    TungstenOS installer (Arch Linux live)/' "$E/01-archiso-linux.conf"
 sed -i 's/^title .*/title    TungstenOS installer (Arch Linux live) with speech/' "$E/02-archiso-speech-linux.conf"
 sed -i 's/^default .*/default 00-tungsten-live.conf/' "$P/efiboot/loader/loader.conf"
+# Native resolution for the menu and the splash (see /usr/lib/tungsten/loader-conf).
+grep -q '^console-mode' "$P/efiboot/loader/loader.conf" || echo 'console-mode max' >> "$P/efiboot/loader/loader.conf"
 
 # The installer and the public Secure Boot keys it enrolls (enroll-secureboot.sh finds
 # them in ../keys).

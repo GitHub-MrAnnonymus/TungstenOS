@@ -1,0 +1,15 @@
+#!/bin/bash
+# systemd-boot shows its menu (loader.conf "timeout 3") in the firmware's text console, which
+# many UEFI firmwares put at 800x600. simpledrm takes over that framebuffer, and Plymouth
+# skips a simpledrm device at 800x600 ("Skipping simpledrm device with mode 800x600"): it
+# waited out its device timeout and showed the text theme (grey, three dots). With
+# console-mode max the firmware console, the menu and the splash stay at the native
+# resolution. Installations from before this setting get it once
+# (tungsten-loader-conf.service); a console-mode the user set stays.
+set -euo pipefail
+ESP=$(bootctl --print-esp-path 2>/dev/null) || exit 0
+conf=$ESP/loader/loader.conf
+[ -f "$conf" ] || exit 0
+grep -q '^console-mode' "$conf" && exit 0
+printf 'console-mode max\n' >> "$conf"
+echo "added console-mode max to $conf"

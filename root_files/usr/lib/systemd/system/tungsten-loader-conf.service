@@ -1,0 +1,12 @@
+# Adds console-mode max to systemd-boot's loader.conf on installations from before it
+# (/usr/lib/tungsten/loader-conf): the boot splash needs the native resolution.
+[Unit]
+Description=Boot menu at the native resolution
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/tungsten/loader-conf
+
+[Install]
+WantedBy=multi-user.target
