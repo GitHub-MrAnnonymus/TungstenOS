@@ -1271,7 +1271,7 @@ optional_policy(`
 	# device, and checking whether systemd runs (/run/systemd/system).
 	gen_require(`
 		type podman_user_t, systemd_unit_t, flatpak_content_t, user_runtime_root_t;
-		type container_data_home_t, xdg_data_t;
+		type container_data_home_t, xdg_data_t, bin_t;
 	')
 	files_read_etc_runtime_files(podman_user_t)
 	# Podman walks PATH and XDG_DATA_DIRS, which include the Flatpak exports; it needs nothing there.
@@ -1283,13 +1283,12 @@ optional_policy(`
 	kernel_read_vm_sysctls(podman_user_t)
 	# fusermount3 and fuse-overlayfs (rootless storage) read the mount table in /run/mount.
 	mount_read_runtime_files(podman_user_t)
-	# runsc (systrap platform) writes the stubs it runs syscalls through: executable memory.
-	# Until runsc gets its own domain (the planned hardening), Podman domain-wide. Podman and
-	# runsc look up their runtime directory under /run/user.
-	allow podman_user_t self:process execmem;
-	# systrap attaches to its own stub processes with ptrace (refused: "initialize systrap:
-	# unable to attach"). Only within the domain; the session itself may not ptrace.
-	allow podman_user_t self:process ptrace;
+	# runsc on the KVM platform (runsc-podman picks it): the guest runs in /dev/kvm, so no
+	# stub processes, ptrace or executable memory (systrap needed all three and cannot run
+	# on this kernel, which seals system mappings). The gofer bind-mounts runsc into the
+	# sandbox. Podman and runsc look up their runtime directory under /run/user.
+	dev_rw_kvm(podman_user_t)
+	allow podman_user_t bin_t:file mounton;
 	allow podman_user_t user_runtime_root_t:dir search;
 	# visorbox state (container ID files written by Podman) as container data, also when
 	# visorbox creates the directory (~/.local/state is xdg_data_t, shared by all apps).
@@ -1405,7 +1404,7 @@ dontaudit user_systemd_t virtio_device_t:chr_file getattr;
 # processes live in user namespaces the session created, and looking into those needs
 # CAP_SYS_PTRACE there (the portal refused Trivalent's file dialog without it). Only
 # within the session's own namespaces, and only for reading /proc: attaching with ptrace
-# stays refused (refpolicy's user_ptrace is off; Yama allows only descendants).
+# stays refused (refpolicy's user_ptrace is off; Yama allows it only to administrators).
 allow { user_t user_systemd_t } self:cap_userns sys_ptrace;
 
 # Trivalent: which program opens a downloaded file (xdg-mime looks at Flatpak's exports),

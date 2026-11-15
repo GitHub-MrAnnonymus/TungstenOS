@@ -6,7 +6,7 @@
 pkgname=gvisor
 pkgver=20261109.0
 _commit=c36d70fce46ce8ae807e4ad55ac7894e9bb11711  # go branch, contains tag release-20261109.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Application kernel for containers: runsc, the OCI runtime, and its sidecars'
 arch=(x86_64)
 url='https://gvisor.dev'
@@ -15,7 +15,7 @@ makedepends=(git go gcc)
 source=("git+https://github.com/google/gvisor.git#commit=${_commit}"
         runsc-podman.c)
 sha256sums=('SKIP'
-            'c0b5fe82b06c80ce78a0ffcbcdd6ca1815916a44feeb66918ec423ce1a48fb7c')
+            'a051750c0186ca953bfd3c6e10e94fc092c82781f412247676d24ceb34cb034f')
 options=(!debug !lto)
 
 build() {
