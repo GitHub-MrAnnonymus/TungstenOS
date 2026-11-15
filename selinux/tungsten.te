@@ -12,7 +12,7 @@ gen_require(`
 	type auditd_t, xdm_t, local_login_t, firewalld_t, kmod_t, NetworkManager_t, policykit_t, policykit_auth_t;
 	type systemd_homed_t, systemd_homed_runtime_t;
 	type systemd_userdbd_runtime_t, systemd_nsresourced_runtime_t;
-	type proc_t, devpts_t, var_run_t, user_home_dir_t, xdg_cache_t;
+	type proc_t, proc_net_t, devpts_t, var_run_t, user_home_dir_t, xdg_cache_t;
 	type sysctl_kernel_t, sysctl_vm_t, sysctl_vm_overcommit_t;
 	type usbguard_t, systemd_pcrphase_t, user_systemd_t, user_t, systemd_homework_t;
 	type systemd_hostnamed_t, var_lib_t, security_t, xdm_tmp_t, systemd_homed_record_t;
@@ -123,7 +123,7 @@ optional_policy(`
 # /var/tmp (XDG_CACHE_HOME=/var/tmp/trivalent_cache).
 optional_policy(`
 	gen_require(`
-		type chromium_t, chromium_xdg_config_t, chromium_xdg_cache_t;
+		type chromium_t, chromium_xdg_config_t, chromium_xdg_cache_t, xdg_cache_t;
 		type xdg_config_t, tmp_t, etc_t, locale_t, xkb_var_lib_t, gnome_xdg_config_t;
 		type user_gkeyringd_t, systemd_logind_t, systemd_logind_inhibit_runtime_t;
 	')
@@ -143,6 +143,9 @@ optional_policy(`
 	allow user_gkeyringd_t chromium_t:fd use;
 	allow user_gkeyringd_t chromium_t:fifo_file write;
 	allow user_t chromium_t:fd use;
+	# fontconfig (in the browser) tries to write its cache to ~/.cache/fontconfig; the
+	# system cache is enough, the browser keeps nothing there.
+	dontaudit chromium_t xdg_cache_t:file create;
 	allow chromium_t user_t:netlink_kobject_uevent_socket { read write };
 ')
 
@@ -1239,9 +1242,14 @@ optional_policy(`
 	dbus_system_bus_client(tailscaled_t)
 ')
 
-allow { sysadm_t user_t } tailscale_runtime_t:dir search_dir_perms;
-allow { sysadm_t user_t } tailscale_runtime_t:sock_file write;
-allow { sysadm_t user_t } tailscaled_t:unix_stream_socket connectto;
+# Flatpak apps too (Trayscale): an app sees /run/tailscale only if its Flatpak permissions
+# include it, and tailscaled lets only root and the operator change anything.
+allow { sysadm_t user_t tungsten_flatpak_t } tailscale_runtime_t:dir search_dir_perms;
+allow { sysadm_t user_t tungsten_flatpak_t } tailscale_runtime_t:sock_file write;
+allow { sysadm_t user_t tungsten_flatpak_t } tailscaled_t:unix_stream_socket connectto;
+allow tungsten_flatpak_t proc_net_t:lnk_file read;
+# nftables mode loads the netfilter modules it uses on demand (signed, from the image).
+kernel_request_load_module(tailscaled_t)
 
 # Dev containers: rootless Podman with gVisor (visorbox). podman runs in podman_user_t,
 # conmon in podman_user_conmon_t, and the runtime (runsc, container_engine_exec_t) back in
