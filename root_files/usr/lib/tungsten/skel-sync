@@ -8,7 +8,7 @@
 #   S = B         the update did not change it: nothing to offer
 #   H missing     add it
 #   H = B         the user never edited it: take S
-#   else          both changed it: a three-way merge (git merge-file) that keeps the user's
+#   else          both changed it: a three-way merge (diff3 -m) that keeps the user's
 #                 edits, or, when they overlap, S (the user's file is backed up)
 #   no B yet      (first run, or a file new to the baseline) offer S as it differs
 #
@@ -58,7 +58,9 @@ propose() {
   if [ ! -e "$B" ]; then cp -- "$S" "$out"; echo differs; return; fi
   same "$B" "$S" && return                    # the update did not touch it
   if same "$H" "$B"; then cp -- "$S" "$out"; echo update; return; fi
-  if git merge-file -q -p -- "$H" "$B" "$S" > "$out" 2>/dev/null; then echo merge; return; fi
+  # diff3, not git: git runs in its own SELinux domain (user_git_t), which may not read the
+  # user's configuration (xdg_config_t).
+  if diff3 -m -- "$H" "$B" "$S" > "$out" 2>/dev/null; then echo merge; return; fi
   cp -- "$S" "$out"; echo replace
 }
 
@@ -70,12 +72,18 @@ valid() {
   return 1
 }
 
-udiff() {  # udiff <old or /dev/null> <new>: hunks only; git's errors go along (Tungsten Guard shows them)
+udiff() {  # udiff <old or /dev/null> <new>: hunks only; errors go along (Tungsten Guard shows them)
   local out rc
-  out=$(git diff --no-index --no-color --no-ext-diff -U3 -- "$1" "$2" 2>&1); rc=$?
+  out=$(LC_ALL=C diff -u -- "$1" "$2" 2>&1); rc=$?
   # Exit 1 means "files differ"; anything else is an error.
-  if [ "$rc" -gt 1 ]; then printf 'skel-sync: git diff failed (%s):\n%s\n' "$rc" "$out"; return 1; fi
+  if [ "$rc" -gt 1 ]; then printf 'skel-sync: diff failed (%s):\n%s\n' "$rc" "$out"; return 1; fi
+  case $out in "Binary files "*) echo "(binary file, not shown)"; return ;; esac
   sed -n '/^@@/,$p' <<<"$out"
+}
+
+counts() {  # counts <old or /dev/null> <new>: "<added> <removed>" lines
+  LC_ALL=C diff -u -- "$1" "$2" 2>/dev/null |
+    awk '/^\+\+\+ |^--- / { next } /^\+/ { a++ } /^-/ { r++ } END { print a + 0, r + 0 }'
 }
 
 remember() { mkdir -p -- "$(dirname -- "$BASE/$1")" && cp -- "$SKEL/$1" "$BASE/$1"; }
@@ -102,7 +110,7 @@ case ${1:-} in
       tmp=$(mktemp); kind=$(propose "$f" "$tmp")
       if [ -n "$kind" ]; then
         old=$HOME/$f; [ -e "$old" ] || old=/dev/null
-        read -r added removed _ < <(git diff --no-index --numstat -- "$old" "$tmp" 2>/dev/null || :)
+        read -r added removed < <(counts "$old" "$tmp")
         out=$(jq -c --arg p "$f" --arg k "$kind" --arg a "${added:-0}" --arg r "${removed:-0}" \
           '. + [{path: $p, kind: $k, added: ($a | tonumber? // 0), removed: ($r | tonumber? // 0)}]' <<<"$out")
       fi
