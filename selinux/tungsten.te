@@ -1215,6 +1215,9 @@ miscfiles_read_localization(tailscaled_t)
 miscfiles_read_generic_certs(tailscaled_t)
 sysnet_dns_name_resolve(tailscaled_t)
 sysnet_read_config(tailscaled_t)
+# User names through the user database (homed accounts are not in /etc/passwd): the operator
+# (tailscale set --operator=<user>), who may control it without root (Trayscale).
+auth_use_nsswitch(tailscaled_t)
 logging_send_syslog_msg(tailscaled_t)
 init_read_state(tailscaled_t)
 corecmd_search_bin(tailscaled_t)
