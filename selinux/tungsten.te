@@ -1017,6 +1017,9 @@ allow user_bubblewrap_t xdg_cache_t:file { getattr map read };
 
 # Inside the sandbox: run the app and runtime programs, JIT.
 can_exec(tungsten_flatpak_t, flatpak_content_t)
+# Copies of Flatpak files into the home (Bazaar caches app icons) try to keep the label;
+# they keep the home's own instead, which is right, so the refusal is not logged.
+dontaudit user_t flatpak_content_t:file relabelto;
 allow tungsten_flatpak_t flatpak_content_t:dir list_dir_perms;
 allow tungsten_flatpak_t flatpak_content_t:file { getattr ioctl lock map open read };
 allow tungsten_flatpak_t flatpak_content_t:lnk_file { getattr read };
