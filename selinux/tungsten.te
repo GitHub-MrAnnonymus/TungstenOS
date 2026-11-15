@@ -1253,7 +1253,7 @@ optional_policy(`
 	# Gaps in the rootless domain (seen under --audit-all): the machine ID, the random
 	# device, and checking whether systemd runs (/run/systemd/system).
 	gen_require(`
-		type podman_user_t, systemd_unit_t, flatpak_content_t;
+		type podman_user_t, systemd_unit_t, flatpak_content_t, user_runtime_root_t;
 	')
 	files_read_etc_runtime_files(podman_user_t)
 	# Podman walks PATH and XDG_DATA_DIRS, which include the Flatpak exports; it needs nothing there.
@@ -1265,6 +1265,11 @@ optional_policy(`
 	kernel_read_vm_sysctls(podman_user_t)
 	# fusermount3 and fuse-overlayfs (rootless storage) read the mount table in /run/mount.
 	mount_read_runtime_files(podman_user_t)
+	# runsc (systrap platform) writes the stubs it runs syscalls through: executable memory.
+	# Until runsc gets its own domain (the planned hardening), Podman domain-wide. Podman and
+	# runsc look up their runtime directory under /run/user.
+	allow podman_user_t self:process execmem;
+	allow podman_user_t user_runtime_root_t:dir search;
 	dev_read_urand(podman_user_t)
 	allow podman_user_t systemd_unit_t:dir getattr;
 	# Cleaning up (rm of ~/.local/share/containers, podman system reset).
@@ -1553,4 +1558,25 @@ optional_policy(`
 	allow plymouthd_t self:capability sys_chroot;
 	allow plymouthd_t plymouthd_var_log_t:file write;
 	dontaudit plymouthd_t flatpak_content_t:dir search;
+')
+
+# journalctl in services (systemd_journal_init_t; the Wi-Fi watchdog follows kernel messages)
+# maps the journal files: refused, it exited at once.
+optional_policy(`
+	gen_require(`
+		type systemd_journal_init_t, systemd_journal_t;
+	')
+	allow systemd_journal_init_t systemd_journal_t:file map;
+')
+
+# Lookups that need nothing and only fill the audit log: tailscaled checks for the iptables
+# programs (it uses nftables) and watches /etc; fwupd (its dconf worker) looks into /root.
+optional_policy(`
+	gen_require(`
+		type tailscaled_t, iptables_exec_t, bin_t, mnt_t, etc_t, fwupd_t, user_home_dir_t;
+	')
+	dontaudit tailscaled_t { bin_t iptables_exec_t }:file getattr;
+	dontaudit tailscaled_t mnt_t:dir search;
+	dontaudit tailscaled_t etc_t:dir { watch watch_reads };
+	dontaudit fwupd_t user_home_dir_t:dir { getattr search };
 ')
