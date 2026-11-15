@@ -41,7 +41,8 @@ files() {
   local f
   while IFS= read -r -d '' f; do
     excluded "$f" || printf '%s\n' "$f"
-  done < <(cd "$SKEL" && find . -type f -printf '%P\0' | sort -z)
+  # Unreadable skeleton directories (.local/share/keyrings, mode 0700) hold nothing to offer.
+  done < <(cd "$SKEL" && find . -type f -readable -printf '%P\0' 2>/dev/null | sort -z)
 }
 same() { cmp -s -- "$1" "$2"; }
 
@@ -63,13 +64,18 @@ propose() {
 
 valid() {
   local f
+  [ -n "$1" ] || { echo "skel-sync: which file? (a path from skel-sync status, e.g. .config/hypr/hyprland.lua)" >&2; return 1; }
   while IFS= read -r f; do [ "$f" = "$1" ] && return 0; done < <(files)
   echo "skel-sync: not a default file: $1" >&2
   return 1
 }
 
-udiff() {  # udiff <old or /dev/null> <new>: hunks only
-  git diff --no-index --no-color --no-ext-diff -U3 -- "$1" "$2" 2>/dev/null | sed -n '/^@@/,$p'
+udiff() {  # udiff <old or /dev/null> <new>: hunks only; git's errors go along (Tungsten Guard shows them)
+  local out rc
+  out=$(git diff --no-index --no-color --no-ext-diff -U3 -- "$1" "$2" 2>&1); rc=$?
+  # Exit 1 means "files differ"; anything else is an error.
+  if [ "$rc" -gt 1 ]; then printf 'skel-sync: git diff failed (%s):\n%s\n' "$rc" "$out"; return 1; fi
+  sed -n '/^@@/,$p' <<<"$out"
 }
 
 remember() { mkdir -p -- "$(dirname -- "$BASE/$1")" && cp -- "$SKEL/$1" "$BASE/$1"; }

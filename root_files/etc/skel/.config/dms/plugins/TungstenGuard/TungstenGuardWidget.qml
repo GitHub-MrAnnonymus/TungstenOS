@@ -38,6 +38,7 @@ PluginComponent {
     property var skelChanges: []      // [{path, kind, added, removed}]
     property string skelOpen: ""      // the file whose diff is shown
     property string skelDiff: ""
+    property bool skelDiffLoading: false
 
     function refreshSkel() {
         if (!skelStatusProc.running)
@@ -56,6 +57,7 @@ PluginComponent {
         }
         skelOpen = path;
         skelDiff = "";
+        skelDiffLoading = true;
         skelDiffProc.command = [skelSync, "diff", path];
         skelDiffProc.running = true;
     }
@@ -267,7 +269,10 @@ PluginComponent {
     Process {
         id: skelDiffProc
         stdout: StdioCollector {
-            onStreamFinished: root.skelDiff = text
+            onStreamFinished: {
+                root.skelDiff = text;
+                root.skelDiffLoading = false;
+            }
         }
     }
 
@@ -653,7 +658,9 @@ PluginComponent {
                                     wrapMode: Text.WrapAnywhere
                                     font.family: Theme.monoFontFamily
                                     font.pixelSize: Theme.fontSizeSmall
-                                    text: root.skelDiff ? root.diffHtml(root.skelDiff) : "Loading…"
+                                    text: root.skelDiffLoading ? "Loading…"
+                                          : root.skelDiff ? root.diffHtml(root.skelDiff)
+                                          : "No line changes (only permissions, or skel-sync could not read the file)"
                                 }
                             }
                         }
