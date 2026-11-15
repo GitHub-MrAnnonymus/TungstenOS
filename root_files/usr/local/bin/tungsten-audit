@@ -22,7 +22,10 @@ check "SMT disabled (mitigations=auto,nosmt)" sh -c '[ "$(cat /sys/devices/syste
 check "No CPU vulnerability reported as vulnerable" \
   sh -c '! grep -l "^Vulnerable" /sys/devices/system/cpu/vulnerabilities/* | grep -q .'
 check "Unprivileged BPF disabled" sh -c '[ "$(cat /proc/sys/kernel/unprivileged_bpf_disabled)" != 0 ]'
-check "ptrace restricted to admins (Yama 2+)" sh -c '[ "$(cat /proc/sys/kernel/yama/ptrace_scope)" -ge 2 ]'
+# Yama 1 (descendants only); SELinux refuses ptrace to the session (user_ptrace off) and
+# allows it only to gVisor's runsc, on its own processes.
+check "ptrace limited to descendants (Yama 1+)" sh -c '[ "$(cat /proc/sys/kernel/yama/ptrace_scope)" -ge 1 ]'
+check "The session may not ptrace (SELinux user_ptrace off)" sh -c '[ "$(getsebool user_ptrace 2>/dev/null | awk "{print \$NF}")" = off ]'
 
 section "Mandatory access control"
 check "SELinux enforcing" sh -c '[ "$(getenforce)" = Enforcing ]'

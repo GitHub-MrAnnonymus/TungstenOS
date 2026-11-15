@@ -1287,6 +1287,9 @@ optional_policy(`
 	# Until runsc gets its own domain (the planned hardening), Podman domain-wide. Podman and
 	# runsc look up their runtime directory under /run/user.
 	allow podman_user_t self:process execmem;
+	# systrap attaches to its own stub processes with ptrace (refused: "initialize systrap:
+	# unable to attach"). Only within the domain; the session itself may not ptrace.
+	allow podman_user_t self:process ptrace;
 	allow podman_user_t user_runtime_root_t:dir search;
 	# visorbox state (container ID files written by Podman) as container data, also when
 	# visorbox creates the directory (~/.local/state is xdg_data_t, shared by all apps).
@@ -1401,7 +1404,8 @@ dontaudit user_systemd_t virtio_device_t:chr_file getattr;
 # The portals identify the calling app through /proc/<pid>/root; Trivalent's and Flatpak's
 # processes live in user namespaces the session created, and looking into those needs
 # CAP_SYS_PTRACE there (the portal refused Trivalent's file dialog without it). Only
-# within the session's own namespaces; Yama keeps ptrace attaching to administrators.
+# within the session's own namespaces, and only for reading /proc: attaching with ptrace
+# stays refused (refpolicy's user_ptrace is off; Yama allows only descendants).
 allow { user_t user_systemd_t } self:cap_userns sys_ptrace;
 
 # Trivalent: which program opens a downloaded file (xdg-mime looks at Flatpak's exports),
