@@ -1271,7 +1271,8 @@ optional_policy(`
 	# device, and checking whether systemd runs (/run/systemd/system).
 	gen_require(`
 		type podman_user_t, systemd_unit_t, flatpak_content_t, user_runtime_root_t;
-		type container_data_home_t, xdg_data_t, bin_t;
+		type container_data_home_t, xdg_data_t, bin_t, user_systemd_t;
+		class dbus send_msg;
 	')
 	files_read_etc_runtime_files(podman_user_t)
 	# Podman walks PATH and XDG_DATA_DIRS, which include the Flatpak exports; it needs nothing there.
@@ -1290,6 +1291,10 @@ optional_policy(`
 	dev_rw_kvm(podman_user_t)
 	allow podman_user_t bin_t:file mounton;
 	allow podman_user_t user_runtime_root_t:dir search;
+	# Podman asks the user manager (session bus) to move its pause process, which holds the
+	# user namespace, into a scope of its own ("Sender is not authorized to send message").
+	allow podman_user_t user_systemd_t:dbus send_msg;
+	allow user_systemd_t podman_user_t:dbus send_msg;
 	# visorbox state (container ID files written by Podman) as container data, also when
 	# visorbox creates the directory (~/.local/state is xdg_data_t, shared by all apps).
 	filetrans_pattern(user_t, xdg_data_t, container_data_home_t, dir, "visorbox")
