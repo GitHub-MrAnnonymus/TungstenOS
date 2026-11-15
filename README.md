@@ -49,11 +49,11 @@ Each release contains one image for x86_64 systems with AMD or Intel graphics, p
 
 Each extension is a dm-verity image signed with the db key. It is built in the same run as `/usr` and merges only into that exact version (`SYSEXT_LEVEL`); `systemd-sysext` refuses unsigned images, and the IPE policy in the UKI pins each extension's root hash for kernel modules and firmware. Extensions are defined in `components/<name>/`: `packages`, `units` to enable, and `root_files/usr`. Files the packages add to `/etc` are shipped as factory defaults and copied to `/etc` at boot where missing; users and groups they declare are created after the merge.
 
-Installed extensions are sysupdate features and are updated with `/usr`. To add or remove one later:
+Installed extensions are sysupdate features and are updated with `/usr`. To add or remove one later, as the normal user (polkit asks for the administrator password; as root through `run0`, the call is refused):
 
 ```sh
-run0 updatectl enable --now nvidia    # downloads it for the running version
-run0 updatectl disable --now nvidia
+updatectl enable --now nvidia    # downloads it for the running version
+updatectl disable --now nvidia
 ```
 
 The change takes effect at the next boot.
@@ -223,7 +223,7 @@ flatpak install flathub <application>
 
 Per-user (`--user`) Flatpak installations cannot run, because the root partition and home directories do not allow execution.
 
-A factory reset also removes installed extensions; enable them again with `updatectl enable --now`.
+A factory reset also removes installed extensions; enable them again with `updatectl enable --now <name>`.
 
 An update can also change the desktop defaults in `/etc/skel` (the Hyprland configuration, Dux Shell plugins), which new accounts get. For existing accounts, Tungsten Guard lists the changed files with their diffs and applies each one only after approval (`/usr/lib/tungsten/skel-sync`): files the user never edited are replaced, edits are merged where they do not overlap with the update's, and a replaced file is backed up to `~/.local/state/tungsten/skel/backup`. Settings the shell manages itself (`settings.json`, generated colors, monitor layout) are left alone.
 
