@@ -1224,6 +1224,9 @@ sysnet_read_config(tailscaled_t)
 # User names through the user database (homed accounts are not in /etc/passwd): the operator
 # (tailscale set --operator=<user>), who may control it without root (Trayscale).
 auth_use_nsswitch(tailscaled_t)
+# Files the system writes into /etc at runtime (machine-id, resolv.conf), and /proc/sys/fs.
+files_read_etc_runtime_files(tailscaled_t)
+kernel_read_fs_sysctls(tailscaled_t)
 logging_send_syslog_msg(tailscaled_t)
 init_read_state(tailscaled_t)
 corecmd_search_bin(tailscaled_t)
@@ -1581,6 +1584,8 @@ optional_policy(`
 		type systemd_journal_init_t, systemd_journal_t;
 	')
 	allow systemd_journal_init_t systemd_journal_t:file map;
+	# journalctl -f waits for new entries through inotify on the journal directory.
+	allow systemd_journal_init_t systemd_journal_t:dir watch;
 ')
 
 # Lookups that need nothing and only fill the audit log: tailscaled checks for the iptables
