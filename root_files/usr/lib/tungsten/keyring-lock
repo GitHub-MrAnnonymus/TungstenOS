@@ -41,8 +41,17 @@ unlock_usb() {
 }
 
 # Locked since boot (usb-lock boot): the first login ends it, unless auto-lock wants the
-# ports locked anyway while the screen is locked (handled below).
-[ -e /run/tungsten-usb-lock/boot ] && systemctl stop tungsten-usb-lock.service && echo "unlocked USB ports locked since boot"
+# ports locked anyway while the screen is locked (handled below). The state comes first
+# from the file Tungsten Guard reads (written in the system, so the session may read it):
+# at a login the check of /run/tungsten-usb-lock alone came out false although the ports
+# were locked (that directory is created in the initrd, before the SELinux policy).
+usb_state=$(cat /run/tungsten-guard/usb.json 2>/dev/null)
+if [[ $usb_state == *'"boot": true'* ]] || [ -e /run/tungsten-usb-lock/boot ]; then
+  if systemctl stop tungsten-usb-lock.service; then echo "unlocked USB ports locked since boot"
+  else echo "could not unlock the USB ports locked since boot" >&2; fi
+else
+  echo "USB ports not locked since boot (${usb_state:-no usb.json})"
+fi
 
 gdbus monitor --system --dest org.freedesktop.login1 --object-path "$session" | while read -r line; do
   case $line in
