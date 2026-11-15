@@ -1534,3 +1534,23 @@ allow user_t tungsten_usb_lock_unit_t:service { start stop status };
 # tungsten-secureboot-update (init_t): appends signed updates to db/dbx in efivarfs and
 # toggles the immutable flag around the write (FS_IOC_SETFLAGS).
 fs_manage_efivarfs_files(init_t)
+
+# Plymouth at shutdown and reboot (plymouthd started from the real system runs as
+# plymouthd_t; the boot splash starts in the initrd, before the policy). Refused on every
+# shutdown: mapping its theme and font files from /usr, telling systemd to stop printing
+# status on the console (signals to PID 1), reading /proc of PID 1 and its client,
+# chroot into the shutdown initramfs, and writing a --debug-file log (refpolicy only lets
+# it append). Font directory scans that reach the Flatpak exports are not audited.
+optional_policy(`
+	gen_require(`
+		type plymouthd_t, plymouth_t, plymouthd_var_log_t, flatpak_content_t;
+	')
+	files_map_usr_files(plymouthd_t)
+	init_signal(plymouthd_t)
+	init_read_state(plymouthd_t)
+	allow plymouthd_t plymouth_t:dir search;
+	allow plymouthd_t plymouth_t:file read_file_perms;
+	allow plymouthd_t self:capability sys_chroot;
+	allow plymouthd_t plymouthd_var_log_t:file write;
+	dontaudit plymouthd_t flatpak_content_t:dir search;
+')
