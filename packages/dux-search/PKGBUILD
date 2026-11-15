@@ -2,8 +2,8 @@
 # Dux Shell's launcher searches files through it (dsearch serve, a user service).
 
 pkgname=dux-search
-pkgver=2.1.0
-_commit=d9495f1ddf05e9269923b166d9422a5db97527d6  # tag v2.1.0
+pkgver=2.1.1
+_commit=c6be234e35eec5f9c867fd7588ce793e1d5dc03b  # tag v2.1.1
 pkgrel=1
 pkgdesc='Dux Search: indexed filesystem search for Dux Shell'
 arch=(x86_64)
