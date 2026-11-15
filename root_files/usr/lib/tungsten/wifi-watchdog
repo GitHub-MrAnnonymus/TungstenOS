@@ -1,0 +1,42 @@
+#!/bin/bash
+# Resets an Intel Wi-Fi card (iwlwifi) that fails while the system runs. Some cards (seen:
+# AX210 on an ASUS Tiger Lake laptop, with ASPM already off) fail on a later start or after
+# a while: a fatal PCIe error ("AER: can't recover"), "iwlwifi transaction failed",
+# "Failed to start RT ucode: -110", registers 0x5a5a5a5a, and NetworkManager gives up.
+# Removing the card and rescanning the bus brings it back. tungsten-wifi-recover.service
+# handles boot; this follows the kernel log for the rest of the session
+# (tungsten-wifi-watchdog.service).
+# At most one reset per 30 s (errors come in bursts) and 5 per hour, so a card that is
+# really broken is not reset forever.
+set -uo pipefail
+declare -a resets=()
+
+reset_card() {
+  local pci=$1 now n=0 t
+  now=$(date +%s)
+  for t in "${resets[@]}"; do (( now - t < 3600 )) && n=$((n + 1)); done
+  if [ "$n" -ge 5 ]; then
+    echo "$pci failed again; 5 resets in the last hour, leaving it alone" >&2
+    return
+  fi
+  resets+=("$now")
+  echo "$pci failed; removing and rescanning the device"
+  echo 1 > "/sys/bus/pci/devices/$pci/remove" 2>/dev/null || :
+  sleep 1
+  echo 1 > /sys/bus/pci/rescan
+  sleep 2
+  if [ -e "/sys/bus/pci/devices/$pci/net" ]; then echo "$pci recovered"
+  else echo "$pci did not come back" >&2; fi
+}
+
+last=0
+journalctl -k -f -n 0 -o cat 2>/dev/null |
+  while IFS= read -r line; do
+    [[ $line =~ iwlwifi\ ([0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-9]):\ (Failed\ to\ start\ RT\ ucode|AER:\ can.t\ recover|iwlwifi\ transaction\ failed|HW\ error) ]] || continue
+    now=$(date +%s)
+    (( now - last < 30 )) && continue
+    last=$now
+    # The driver retries on its own for a few seconds; reset only once it has given up.
+    sleep 5
+    reset_card "${BASH_REMATCH[1]}"
+  done

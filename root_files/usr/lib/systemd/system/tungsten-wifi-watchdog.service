@@ -1,0 +1,13 @@
+# Resets an Intel Wi-Fi card that fails while the system runs (/usr/lib/tungsten/wifi-watchdog).
+[Unit]
+Description=Reset Intel Wi-Fi cards that fail while running
+After=tungsten-wifi-recover.service systemd-journald.service
+ConditionPathExistsGlob=/sys/bus/pci/drivers/iwlwifi/0000:*
+
+[Service]
+ExecStart=/usr/lib/tungsten/wifi-watchdog
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
