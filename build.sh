@@ -204,6 +204,13 @@ systemctl enable \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \
   tungsten-pcrlock-predict systemd-pcrlock-make-policy systemd-sysext
+# sysupdate tells the sockets in /run/systemd/sysupdate/notify that an update is installed;
+# the pcrlock one recomputes the TPM policy for the new UKI before the reboot (drop-in:
+# pcrlock-predict --make-policy). Not enabled, nothing heard it: PCR 4 of the updated boot
+# was outside the policy until the boot after it. The bootctl and sysext ones stay off:
+# systemd-boot-update.service installs the boot loader at boot, and refreshing extensions
+# would swap parts of /usr under the running session.
+systemctl enable systemd-sysupdate-notify-pcrlock.socket
 systemctl disable systemd-timesyncd.service
 # Locale, keymap and timezone come from the image, and root stays locked: never ask.
 systemctl mask systemd-firstboot.service
