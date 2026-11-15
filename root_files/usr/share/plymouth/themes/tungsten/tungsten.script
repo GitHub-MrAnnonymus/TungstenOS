@@ -4,22 +4,22 @@
 # hot.png (glowing filament), glow.png (halo), bullet.png (one typed character),
 # wordmark-<height>.png ("TungstenOS" in Manrope, several sizes).
 
+# Everything is laid out from the window size, again whenever it changes: Plymouth starts
+# on the firmware framebuffer (simpledrm), and when the GPU driver takes over at the
+# display's own resolution, a layout made once stayed at the old coordinates (top left).
+
 Window.SetBackgroundTopColor(0, 0, 0);
 Window.SetBackgroundBottomColor(0, 0, 0);
 
-size = Math.Int(Math.Min(Window.GetWidth(), Window.GetHeight()) * 0.30);
-x = Window.GetX() + Window.GetWidth() / 2 - size / 2;
-y = Window.GetY() + Window.GetHeight() / 2 - size / 2;
-
-fun layer(file, z) {
-  s = Sprite(Image(file).Scale(size, size));
-  s.SetPosition(x, y, z);
-  return s;
-}
-frame = layer("frame.png", 1);
-cold = layer("cold.png", 2);
-glow = layer("glow.png", 3);
-hot = layer("hot.png", 4);
+frame_image = Image("frame.png");
+cold_image = Image("cold.png");
+glow_image = Image("glow.png");
+hot_image = Image("hot.png");
+frame = Sprite();
+cold = Sprite();
+glow = Sprite();
+hot = Sprite();
+wordmark = Sprite();
 
 progress = 0;
 shown = 0;
@@ -36,6 +36,8 @@ Plymouth.SetBootProgressFunction(progress_cb);
 # down over about three seconds.
 # Function variables are local; the animation state lives in global.
 fun refresh_cb() {
+  if (Window.GetWidth() != global.layout_w || Window.GetHeight() != global.layout_h)
+    layout();
   global.ticks = global.ticks + 1;
   if (global.cooling)
     target = 1 - Math.Min(1, global.ticks / 150);
@@ -54,7 +56,11 @@ Plymouth.SetRefreshFunction(refresh_cb);
 # text, then one glowing dot per typed character (images; the initramfs fonts lack ●).
 prompt_sprite = Sprite();
 message_sprite = Sprite();
-text_y = y + size + 28;
+prompt = "";
+bullets = 0;
+prompt_shown = 0;
+message = "";
+message_shown = 0;
 dot_image = Image("bullet.png");
 dot_gap = 24;
 dot_max = 48;
@@ -68,6 +74,9 @@ fun center_x(image) {
 }
 
 fun display_password_cb(prompt, bullets) {
+  global.prompt = prompt;
+  global.bullets = bullets;
+  global.prompt_shown = 1;
   p = Image.Text(prompt, 0.72, 0.74, 0.78, 1, "Sans 13");
   global.prompt_sprite.SetImage(p);
   global.prompt_sprite.SetPosition(center_x(p), global.text_y, 10);
@@ -86,38 +95,66 @@ fun display_password_cb(prompt, bullets) {
 Plymouth.SetDisplayPasswordFunction(display_password_cb);
 
 fun display_normal_cb() {
+  global.prompt_shown = 0;
   global.prompt_sprite.SetOpacity(0);
   for (i = 0; i < global.dot_max; i++)
     global.dots[i].SetOpacity(0);
 }
 Plymouth.SetDisplayNormalFunction(display_normal_cb);
 
-# The wordmark, bottom centre, about 4 % of the screen height: the largest pre-rendered
-# size that fits (shown pixel for pixel; Plymouth's scaling makes thin text jagged).
-target = Window.GetHeight() * 0.042;
-wordmark_h = 24;
-if (target >= 32) wordmark_h = 32;
-if (target >= 40) wordmark_h = 40;
-if (target >= 48) wordmark_h = 48;
-if (target >= 56) wordmark_h = 56;
-if (target >= 64) wordmark_h = 64;
-if (target >= 72) wordmark_h = 72;
-if (target >= 88) wordmark_h = 88;
-if (wordmark_h == 24) wordmark_image = Image("wordmark-24.png");
-if (wordmark_h == 32) wordmark_image = Image("wordmark-32.png");
-if (wordmark_h == 40) wordmark_image = Image("wordmark-40.png");
-if (wordmark_h == 48) wordmark_image = Image("wordmark-48.png");
-if (wordmark_h == 56) wordmark_image = Image("wordmark-56.png");
-if (wordmark_h == 64) wordmark_image = Image("wordmark-64.png");
-if (wordmark_h == 72) wordmark_image = Image("wordmark-72.png");
-if (wordmark_h == 88) wordmark_image = Image("wordmark-88.png");
-wordmark = Sprite(wordmark_image);
-wordmark_y = Window.GetY() + Window.GetHeight() - wordmark_h - Math.Int(Window.GetHeight() * 0.07);
-wordmark.SetPosition(Window.GetX() + Window.GetWidth() / 2 - wordmark_image.GetWidth() / 2, wordmark_y, 5);
-
 fun message_cb(text) {
+  global.message = text;
+  global.message_shown = 1;
   m = Image.Text(text, 0.55, 0.57, 0.62, 1, "Sans 11");
   global.message_sprite.SetImage(m);
   global.message_sprite.SetPosition(center_x(m), global.wordmark_y - m.GetHeight() - 24, 10);
 }
 Plymouth.SetMessageFunction(message_cb);
+
+fun layout() {
+  global.layout_w = Window.GetWidth();
+  global.layout_h = Window.GetHeight();
+  # The mark: 30 % of the shorter side, centred.
+  size = Math.Int(Math.Min(global.layout_w, global.layout_h) * 0.30);
+  x = Window.GetX() + global.layout_w / 2 - size / 2;
+  y = Window.GetY() + global.layout_h / 2 - size / 2;
+  global.frame.SetImage(global.frame_image.Scale(size, size));
+  global.frame.SetPosition(x, y, 1);
+  global.cold.SetImage(global.cold_image.Scale(size, size));
+  global.cold.SetPosition(x, y, 2);
+  global.glow.SetImage(global.glow_image.Scale(size, size));
+  global.glow.SetPosition(x, y, 3);
+  global.hot.SetImage(global.hot_image.Scale(size, size));
+  global.hot.SetPosition(x, y, 4);
+  global.text_y = y + size + 28;
+
+  # The wordmark, bottom centre, about 4 % of the screen height: the largest pre-rendered
+  # size that fits (shown pixel for pixel; Plymouth's scaling makes thin text jagged).
+  target = global.layout_h * 0.042;
+  h = 24;
+  if (target >= 32) h = 32;
+  if (target >= 40) h = 40;
+  if (target >= 48) h = 48;
+  if (target >= 56) h = 56;
+  if (target >= 64) h = 64;
+  if (target >= 72) h = 72;
+  if (target >= 88) h = 88;
+  if (h == 24) image = Image("wordmark-24.png");
+  if (h == 32) image = Image("wordmark-32.png");
+  if (h == 40) image = Image("wordmark-40.png");
+  if (h == 48) image = Image("wordmark-48.png");
+  if (h == 56) image = Image("wordmark-56.png");
+  if (h == 64) image = Image("wordmark-64.png");
+  if (h == 72) image = Image("wordmark-72.png");
+  if (h == 88) image = Image("wordmark-88.png");
+  global.wordmark.SetImage(image);
+  global.wordmark_y = Window.GetY() + global.layout_h - h - Math.Int(global.layout_h * 0.07);
+  global.wordmark.SetPosition(Window.GetX() + global.layout_w / 2 - image.GetWidth() / 2, global.wordmark_y, 5);
+
+  # What was on screen, at the new place.
+  if (global.prompt_shown)
+    display_password_cb(global.prompt, global.bullets);
+  if (global.message_shown)
+    message_cb(global.message);
+}
+layout();
