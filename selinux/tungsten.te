@@ -1205,6 +1205,9 @@ kernel_rw_net_sysctls(tailscaled_t)
 kernel_read_kernel_sysctls(tailscaled_t)
 dev_read_urand(tailscaled_t)
 dev_read_sysfs(tailscaled_t)
+# Its state (machine key, WireGuard keys, Tailnet Lock keys) sealed with the TPM
+# (TS_ENCRYPT_STATE, tailscaled.service.d/20-sandbox.conf).
+dev_rw_tpm(tailscaled_t)
 fs_getattr_all_fs(tailscaled_t)
 files_read_etc_files(tailscaled_t)
 files_read_usr_files(tailscaled_t)
