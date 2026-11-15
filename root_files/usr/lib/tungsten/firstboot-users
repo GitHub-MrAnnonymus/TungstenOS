@@ -56,7 +56,7 @@ export GUM_CHOOSE_CURSOR_FOREGROUND=$ACCENT GUM_INPUT_CURSOR_FOREGROUND=$ACCENT 
   GUM_FILTER_INDICATOR_FOREGROUND=$ACCENT GUM_FILTER_MATCH_FOREGROUND=$ACCENT \
   GUM_CONFIRM_SELECTED_BACKGROUND=$ACCENT
 LOG=/run/tungsten-firstboot.log
-STEPS=5
+STEPS=6
 # After a factory reset the new root partition has only its TPM key (systemd-repart): ask for
 # a recovery passphrase, as the installer does. A slot no systemd-tpm2 token uses is a
 # passphrase or recovery key.
@@ -66,7 +66,7 @@ if meta=$(cryptsetup luksDump --dump-json-metadata "$ROOTDEV" 2>/dev/null) &&
    [ "$(jq '[.tokens[] | select(.type == "systemd-tpm2") | .keyslots[]] as $tpm
         | [.keyslots | keys[] | select(. as $k | $tpm | index($k) | not)] | length' <<<"$meta")" -eq 0 ]; then
   need_recovery=1
-  STEPS=6
+  STEPS=7
 fi
 step=1
 
@@ -269,7 +269,79 @@ else
   unset pin
 fi
 
-# 6. Done
+# 6. USB devices. tungsten-usbguard-init allowed whatever was plugged in at this boot (the
+# keyboard has to work here); review that, and allow what should be usable from now on.
+# Everything else stays blocked until the administrator allows it (USBGuard).
+# usb_devices <allowed|blocked> [all]: "id<TAB>label" per device, hubs left out; built-in
+# parts (hardwired or unused ports) only with "all", marked.
+usb_devices() {
+  local re_id='^([0-9]+): ' re_vid=' id ([0-9a-f]{4}:[0-9a-f]{4})' re_name=' name "([^"]*)"'
+  local re_ct='with-connect-type "([^"]*)"' re_hub='with-interface (\{ )?09:'
+  usbguard list-devices "--$1" 2>/dev/null | while IFS= read -r line; do
+    [[ $line =~ $re_id ]] || continue
+    local id=${BASH_REMATCH[1]} name="" ct="" vid=""
+    [[ $line =~ $re_vid ]] && vid=${BASH_REMATCH[1]}
+    [[ $line =~ $re_name ]] && name=${BASH_REMATCH[1]}
+    [[ $line =~ $re_ct ]] && ct=${BASH_REMATCH[1]}
+    [[ $line =~ $re_hub ]] && continue          # hubs
+    if [ "$ct" = hardwired ] || [ "$ct" = "not used" ]; then
+      [ "${2:-}" = all ] || continue
+      printf '%s\t%s (%s) · built in\n' "$id" "${name:-unnamed device}" "$vid"
+    else
+      printf '%s\t%s (%s)\n' "$id" "${name:-unnamed device}" "$vid"
+    fi
+  done
+}
+step=$((step + 1))
+header "Step $step of $STEPS · USB devices"
+say "USB devices that are not allowed here are blocked: nothing plugged in later works until" \
+    "the administrator allows it. These were plugged in at this boot and are allowed:"
+echo
+mapfile -t allowed < <(usb_devices allowed all)
+if [ ${#allowed[@]} -gt 0 ]; then
+  say "$(printf '  • %s\n' "${allowed[@]#*$'\t'}")"
+else
+  say "  (none besides the built-in hubs)"
+fi
+echo
+mapfile -t external < <(usb_devices allowed)
+if [ ${#external[@]} -gt 0 ]; then
+  say "Remove any you do not want allowed, e.g. a USB stick that was left plugged in."
+  if remove=$(printf '%s\n' "${external[@]}" | cut -f2 |
+      gum choose --no-limit --header "Space selects, Enter confirms (nothing selected keeps all)"); then
+    while IFS= read -r label; do
+      [ -n "$label" ] || continue
+      for e in "${external[@]}"; do
+        [ "${e#*$'\t'}" = "$label" ] && usbguard block-device -p "${e%%$'\t'*}" >/dev/null 2>&1
+      done
+    done <<<"$remove"
+  fi
+fi
+header "Step $step of $STEPS · USB devices"
+say "Now plug in the USB devices you want to keep using: mouse, keyboard, security key," \
+    "docking station. Then continue."
+echo
+if gum confirm --affirmative "Continue" --negative "Skip" "Plugged in?"; then
+  sleep 2   # USBGuard sees a device a moment after it is plugged in
+  mapfile -t blocked < <(usb_devices blocked)
+  if [ ${#blocked[@]} -gt 0 ]; then
+    if allow=$(printf '%s\n' "${blocked[@]}" | cut -f2 |
+        gum choose --no-limit --selected='*' --header "Allow (Space toggles, Enter confirms)"); then
+      while IFS= read -r label; do
+        [ -n "$label" ] || continue
+        for b in "${blocked[@]}"; do
+          [ "${b#*$'\t'}" = "$label" ] && usbguard allow-device -p "${b%%$'\t'*}" >/dev/null 2>&1
+        done
+      done <<<"$allow"
+    fi
+  else
+    say "No new device found. Allow one later with: run0 usbguard allow-device -p <number>" \
+        "(numbers from: run0 usbguard list-devices --blocked)"
+    read -r -t 300 -p "  Press Enter to continue. " _ || :
+  fi
+fi
+
+# 7. Done
 step=$((step + 1))
 header "Step $step of $STEPS · Ready"
 gum style --margin "0 2" --foreground "$OK" --bold "All set. Log in as $user at the login screen."

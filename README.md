@@ -85,7 +85,7 @@ run0 tungsten-etc reset <file>   # restore the default at the next boot (--all f
 
 Settings made with graphical tools, such as firewall-config, NetworkManager connections and USBGuard rules, are stored the same way.
 
-USBGuard allows the devices present at first boot and blocks any new device until it is allowed (`run0 usbguard allow-device <id>`). Members of the `usbguard` group receive notifications. The stricter linux-hardened mode, which blocks all new USB devices at the kernel level, remains available through `mydenyusb.service` and `usb-allow.service`.
+USBGuard allows the devices present at first boot and blocks any new device until it is allowed (`run0 usbguard allow-device -p <id>`). The first-boot wizard shows that list (built-in parts marked), lets you remove devices that should not be allowed, such as a USB stick left plugged in, and allows the devices you plug in during that step. Members of the `usbguard` group receive notifications. The stricter linux-hardened mode, which blocks all new USB devices at the kernel level, remains available through `mydenyusb.service` and `usb-allow.service`.
 
 Tungsten Guard (a shield in the bar) can lock the empty external USB ports at the controller, on demand or whenever the screen locks: a device plugged into a locked port is not enumerated, so nothing of it reaches the kernel. On laptops the ports are also locked from early boot (in the initrd, before the disk passphrase) until the first login; `/etc/tungsten/usb-lock-at-boot` (`yes` or `no`) overrides that, e.g. on a desktop where the keyboard is plugged in later. A reboot resets the ports: they are open during the firmware and the first seconds of the kernel. Devices behind a connected hub, and a system that is already compromised, are beyond it too: the firmware's own USB setting with a BIOS password is stronger.
 
@@ -180,7 +180,7 @@ install/dev/vm.sh
 
 The ISO boots with Secure Boot off or with the firmware in Setup Mode; the live system's UKI is not signed. The IPE policy loads only if the TungstenOS db certificate is enrolled in the firmware. The kernel has no CD-ROM driver, so the live system starts from a USB stick (`dd` the ISO; Ventoy is not supported) or a disk, not from an optical drive. In virt-manager, use a Q35 machine with UEFI (`OVMF_CODE.secboot.4m.fd` with the empty `OVMF_VARS.4m.fd` template, so the firmware starts in Setup Mode), an emulated TPM 2.0, and the ISO as a USB or VirtIO disk.
 
-On the first boot of the installed system, a wizard on the console asks for the time zone, the computer name, the administrator and the everyday account.
+On the first boot of the installed system, a wizard on the console asks for the time zone, the computer name, the administrator and the everyday account, how the disk unlocks, and which USB devices may be used.
 
 ### Manual installation
 
