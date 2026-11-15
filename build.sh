@@ -672,6 +672,10 @@ CMDLINE=(
   # Plymouth shows the text log instead of the splash when a serial console is active;
   # virt-manager adds one (console=uart,... through SMBIOS for systemd-stub).
   plymouth.ignore-serial-consoles
+  # TEMPORARY (one image): Plymouth's debug log, /var/log/plymouth-debug.log, to see why the
+  # boot falls back to the text theme. It records keystrokes (a typed passphrase), so it
+  # must not stay: remove with the next commit.
+  plymouth.debug
 )
 cat "$BOOT"/*-ucode.img > /tmp/ucode.img
 ukify build \
