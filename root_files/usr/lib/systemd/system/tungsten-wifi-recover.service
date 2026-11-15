@@ -8,7 +8,8 @@ Wants=network-pre.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/lib/tungsten/wifi-recover
-TimeoutStartSec=40
+# Two starts of up to 10 s each, then the reset and up to 10 s for the card to return.
+TimeoutStartSec=60
 
 [Install]
 WantedBy=multi-user.target

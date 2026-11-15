@@ -1,10 +1,13 @@
 #!/bin/bash
 # Some Intel Wi-Fi cards (seen: AX210 on an ASUS Tiger Lake laptop) come out of the
-# firmware in a state where their first start fails: the card reports a fatal PCIe error,
-# the port cuts the link (DPC), and every register reads 0xffffffff until the card is
-# removed and the bus rescanned. Before NetworkManager starts, bring each iwlwifi
-# interface up once and recover it that way if it fails. On working hardware this only
-# brings the interface up and down again.
+# firmware in a broken state. Either the first start fails (a fatal PCIe error, the port
+# cuts the link (DPC), every register reads 0xffffffff), or the first start works and the
+# second fails ("Failed to start RT ucode: -110", registers read 0x5a5a5a5a): that one
+# is NetworkManager's, which restarts the card to set a random MAC address for scanning,
+# and it then gives up on the device. Removing the card and rescanning the bus resets it
+# for good. Before NetworkManager starts, start each iwlwifi interface twice, as it does,
+# and recover the card that way if either start fails. On working hardware this only
+# brings the interface up and down twice.
 set -uo pipefail
 
 gone() { [ "$(cat "/sys/bus/pci/devices/$1/vendor" 2>/dev/null)" != 0x8086 ]; }
@@ -26,12 +29,19 @@ for _ in $(seq 50); do
   sleep 0.2
 done
 
+# start_twice <interface> <pci address>: up, down, up, down; fails if a start fails or the
+# card drops off the bus.
+start_twice() {
+  local n
+  for n in 1 2; do
+    timeout 10 ip link set dev "$1" up 2>/dev/null && ! gone "$2" || { echo "$1: start $n failed"; return 1; }
+    ip link set dev "$1" down 2>/dev/null
+  done
+}
+
 for ifc in "${ifs[@]}"; do
   pci=$(basename "$(readlink -f "/sys/class/net/$ifc/device")")
-  if timeout 10 ip link set dev "$ifc" up 2>/dev/null && ! gone "$pci"; then
-    ip link set dev "$ifc" down
-    continue
-  fi
+  start_twice "$ifc" "$pci" && continue
   echo "$ifc ($pci) failed to start; removing and rescanning the device"
   echo 1 > "/sys/bus/pci/devices/$pci/remove" 2>/dev/null || :
   sleep 1
