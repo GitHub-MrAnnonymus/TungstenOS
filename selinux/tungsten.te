@@ -1302,7 +1302,33 @@ optional_policy(`
 	allow podman_user_t systemd_unit_t:dir getattr;
 	# Cleaning up (rm of ~/.local/share/containers, podman system reset).
 	container_manage_all_home_content(user_t)
+	# The project directories (below): the gVisor gofer mounts the one a container gets
+	# (visorbox: the current directory) into the sandbox and serves its files.
+	manage_dirs_pattern(podman_user_t, tungsten_project_t, tungsten_project_t)
+	manage_files_pattern(podman_user_t, tungsten_project_t, tungsten_project_t)
+	manage_lnk_files_pattern(podman_user_t, tungsten_project_t, tungsten_project_t)
+	allow podman_user_t tungsten_project_t:dir mounton;
+	allow podman_user_t tungsten_project_t:file map;
+	userdom_search_user_home_dirs(podman_user_t)
 ')
+
+# ~/Projects: the part of the home that containers may mount (gVisor, visorbox), with a type
+# of its own. The rest of the ordinary home (documents, downloads: user_home_t) stays out of
+# their reach, so a container escape would not get there. The session and Flatpak apps
+# (editors such as VSCodium) use it like the rest of the home; nothing is executed from it
+# on the host (homes are noexec). A file moved in with mv keeps its old type; restorecon
+# fixes it (cp creates new files with this type).
+type tungsten_project_t;
+userdom_user_home_content(tungsten_project_t)
+manage_dirs_pattern(user_t, tungsten_project_t, tungsten_project_t)
+manage_files_pattern(user_t, tungsten_project_t, tungsten_project_t)
+manage_lnk_files_pattern(user_t, tungsten_project_t, tungsten_project_t)
+manage_sock_files_pattern(user_t, tungsten_project_t, tungsten_project_t)
+manage_fifo_files_pattern(user_t, tungsten_project_t, tungsten_project_t)
+allow user_t tungsten_project_t:{ dir file lnk_file sock_file fifo_file } { relabelfrom relabelto };
+allow user_t tungsten_project_t:dir watch;
+allow user_t tungsten_project_t:file { map watch };
+userdom_user_home_dir_filetrans(user_t, tungsten_project_t, dir, "Projects")
 
 # Programs Flatpak apps download for themselves (VSCodium's extensions: language servers,
 # debuggers, Claude Code) live in /var/lib/tungsten-apps/<uid>/<app id>, bind-mounted exec
@@ -1345,7 +1371,7 @@ allow { init_t sysadm_t } steam_data_t:{ file lnk_file fifo_file sock_file } man
 allow { init_t sysadm_t } steam_data_t:{ dir file lnk_file } { relabelfrom relabelto };
 # cp -a and mv keep the SELinux label (Steam moves its data around in ~/.var/app): a
 # relabel from and to the same type.
-allow tungsten_flatpak_t user_home_t:{ dir file lnk_file } { relabelfrom relabelto };
+allow tungsten_flatpak_t { user_home_t tungsten_project_t }:{ dir file lnk_file } { relabelfrom relabelto };
 userdom_use_user_terminals(tungsten_flatpak_t)
 logging_send_syslog_msg(tungsten_flatpak_t)
 allow tungsten_flatpak_t devlog_t:sock_file { getattr read write };
@@ -1356,9 +1382,9 @@ allow tungsten_flatpak_t syslogd_t:unix_stream_socket connectto;
 allow tungsten_flatpak_t user_home_dir_t:dir { getattr open read search };
 # Apps with filesystem=host or home (Loupe, file managers) see the real /home.
 files_search_home(tungsten_flatpak_t)
-allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:dir manage_dir_perms;
-allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:{ file lnk_file } manage_file_perms;
-allow tungsten_flatpak_t { user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:file map;
+allow tungsten_flatpak_t { user_home_t tungsten_project_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:dir manage_dir_perms;
+allow tungsten_flatpak_t { user_home_t tungsten_project_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:{ file lnk_file } manage_file_perms;
+allow tungsten_flatpak_t { user_home_t tungsten_project_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:file map;
 allow tungsten_flatpak_t gnome_xdg_config_t:dir list_dir_perms;
 allow tungsten_flatpak_t gnome_xdg_config_t:file { getattr open read map };
 # Apps never add entries to the home's top level (that would also let them move a file
@@ -1367,7 +1393,7 @@ allow tungsten_flatpak_t gnome_xdg_config_t:file { getattr open read map };
 fs_manage_fusefs_dirs(tungsten_flatpak_t)
 fs_manage_fusefs_files(tungsten_flatpak_t)
 # GLib follows changes (inotify): settings, overrides, installed apps.
-allow tungsten_flatpak_t { flatpak_content_t user_home_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t gnome_xdg_config_t }:dir watch;
+allow tungsten_flatpak_t { flatpak_content_t user_home_t tungsten_project_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t gnome_xdg_config_t }:dir watch;
 # Chromium-based apps (Electron) watch the time zone, the sandbox's /etc and
 # /run/host/monitor (Flatpak's copies of resolv.conf, localtime); they read the machine
 # ID and kernel sysctls, and keep a logind sleep inhibitor (video, downloads) as Trivalent
