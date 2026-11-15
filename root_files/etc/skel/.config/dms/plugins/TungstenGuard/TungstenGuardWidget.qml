@@ -83,6 +83,20 @@ PluginComponent {
     }
 
     readonly property string osAvailable: status?.os?.available ?? ""
+    // Installing a TungstenOS update (updatectl update), with sysupdated's job progress.
+    property bool osInstalling: false
+    property int osProgress: 0
+    property string osInstalled: ""   // the version installed, active after a reboot
+    property string osInstallError: ""
+
+    function installOs() {
+        if (osInstalling)
+            return;
+        osInstalling = true;
+        osProgress = 0;
+        osInstallError = "";
+        osInstallProc.running = true;
+    }
     readonly property int flatpakCount: status?.flatpaks ?? 0
     readonly property var firmware: status?.firmware ?? []
     // Warnings the user dismissed, by key; a key includes the state it was about, so a
@@ -264,6 +278,49 @@ PluginComponent {
                 }
             }
         }
+    }
+
+    Process {
+        id: osInstallProc
+        command: ["updatectl", "update"]
+        stderr: StdioCollector {
+            id: osInstallErr
+        }
+        onExited: exitCode => {
+            root.osInstalling = false;
+            if (exitCode === 0) {
+                root.osInstalled = root.osAvailable;
+                root.notify("TungstenOS " + root.osInstalled + " installed", "Restart to use it.");
+            } else {
+                const lines = (osInstallErr.text || "").trim().split("\n");
+                root.osInstallError = lines[lines.length - 1] || ("updatectl exited with " + exitCode);
+                root.notify("TungstenOS update failed", root.osInstallError, "critical");
+            }
+        }
+    }
+
+    // sysupdated's jobs: (id, type, progress in percent, object path).
+    Process {
+        id: osJobsProc
+        command: ["busctl", "--system", "--json=short", "call", "org.freedesktop.sysupdate1",
+                  "/org/freedesktop/sysupdate1", "org.freedesktop.sysupdate1.Manager", "ListJobs"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const jobs = JSON.parse(text).data[0];
+                    const job = jobs.find(j => j[1] === "update") ?? jobs[0];
+                    if (job)
+                        root.osProgress = job[2];
+                } catch (e) {}
+            }
+        }
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.osInstalling
+        onTriggered: if (!osJobsProc.running) osJobsProc.running = true
     }
 
     Process {
@@ -539,15 +596,28 @@ PluginComponent {
                         first: true
                         icon: root.osAvailable ? "system_update" : "check_circle"
                         tint: root.osAvailable ? Theme.primary : Theme.onSurfaceVariant
-                        title: root.osAvailable ? "TungstenOS " + root.osAvailable : "TungstenOS is up to date"
-                        detail: "Installed: " + (root.status?.os?.current || "unknown")
+                        title: root.osInstalled ? "TungstenOS " + root.osInstalled + " installed"
+                             : root.osAvailable ? "TungstenOS " + root.osAvailable : "TungstenOS is up to date"
+                        detail: root.osInstalling ? "Downloading and installing… " + root.osProgress + " %"
+                              : root.osInstalled ? "Restart to use it · running " + (root.status?.os?.current || "unknown")
+                              : root.osInstallError ? "Update failed: " + root.osInstallError
+                              : "Installed: " + (root.status?.os?.current || "unknown")
                                 + (root.osAvailable ? " · active after a reboot" : "")
 
                         DButton {
-                            visible: root.osAvailable !== ""
-                            text: "Install"
-                            iconName: "download"
-                            onClicked: Quickshell.execDetached(["updatectl", "update"])
+                            visible: root.osAvailable !== "" && root.osInstalled === ""
+                            enabled: !root.osInstalling
+                            text: root.osInstalling ? "Installing " + root.osProgress + " %"
+                                : root.osInstallError ? "Retry" : "Install"
+                            iconName: root.osInstalling ? "downloading" : "download"
+                            onClicked: root.installOs()
+                        }
+
+                        DButton {
+                            visible: root.osInstalled !== ""
+                            text: "Restart"
+                            iconName: "restart_alt"
+                            onClicked: Quickshell.execDetached(["systemctl", "reboot"])
                         }
                     }
 
