@@ -1271,6 +1271,7 @@ optional_policy(`
 	# device, and checking whether systemd runs (/run/systemd/system).
 	gen_require(`
 		type podman_user_t, systemd_unit_t, flatpak_content_t, user_runtime_root_t;
+		type container_data_home_t, xdg_data_t;
 	')
 	files_read_etc_runtime_files(podman_user_t)
 	# Podman walks PATH and XDG_DATA_DIRS, which include the Flatpak exports; it needs nothing there.
@@ -1287,6 +1288,9 @@ optional_policy(`
 	# runsc look up their runtime directory under /run/user.
 	allow podman_user_t self:process execmem;
 	allow podman_user_t user_runtime_root_t:dir search;
+	# visorbox state (container ID files written by Podman) as container data, also when
+	# visorbox creates the directory (~/.local/state is xdg_data_t, shared by all apps).
+	filetrans_pattern(user_t, xdg_data_t, container_data_home_t, dir, "visorbox")
 	dev_read_urand(podman_user_t)
 	allow podman_user_t systemd_unit_t:dir getattr;
 	# Cleaning up (rm of ~/.local/share/containers, podman system reset).

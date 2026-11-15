@@ -36,6 +36,8 @@ HOME_DIR/\.cache/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_ca
 /var/cache/dms-greeter(/.*)?			gen_context(system_u:object_r:user_home_t)
 /var/tmp/trivalent_cache(/.*)?			gen_context(system_u:object_r:chromium_xdg_cache_t)
 HOME_DIR/\.local/share/pki(/.*)?			gen_context(system_u:object_r:chromium_xdg_config_t)
+# visorbox keeps container ID files here and Podman writes them: container data, not app data.
+HOME_DIR/\.local/state/visorbox(/.*)?			gen_context(system_u:object_r:container_data_home_t)
 
 # Run by pam_exec in the login domains; glycin's image loaders, started through bwrap,
 # return to the user domain as programs.
