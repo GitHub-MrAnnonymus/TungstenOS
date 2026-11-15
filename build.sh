@@ -456,6 +456,11 @@ phase "Hermetic /usr"
 FACTORY="$WORKDIR"/usr/share/factory
 TMPFILES="$WORKDIR"/usr/lib/tmpfiles.d/tungsten-factory.conf
 rm -rf "$FACTORY" && mkdir -p "$FACTORY/var/lib"
+# pacman's keyring: archlinux-keyring's install script creates a local master key, whose
+# private half would ship to every machine in this public image. Nothing uses pacman at
+# runtime (/usr is read-only); "pacman-key --init" makes a machine its own if needed.
+# Extensions are verified with the build host's keyring (pacstrap).
+rm -rf "$WORKDIR"/etc/pacman.d/gnupg
 # /etc defaults: the lower layer of the /etc overlay.
 cp -a "$WORKDIR"/etc "$FACTORY"/etc
 {
