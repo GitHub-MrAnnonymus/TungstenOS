@@ -1,0 +1,46 @@
+#!/bin/bash
+# Flathub is limited to apps whose publisher Flathub has verified (the remote's "verified"
+# subset). This switches that off for the whole system, or back on:
+#
+#   tungsten-unverified-flatpaks enable     Flathub offers all its apps
+#   tungsten-unverified-flatpaks disable    verified apps only again (the default)
+#   tungsten-unverified-flatpaks status
+#
+# Changing a system remote asks for an administrator password (polkit). Per-user remotes are
+# no way around it: per-user apps cannot run, as homes do not allow execution. The choice is
+# stored in the remote's configuration in /var/lib/flatpak and survives image updates.
+set -euo pipefail
+REMOTE=flathub
+usage() { sed -n '5,7p' "$0" | sed 's/^# *//' >&2; exit 2; }
+
+subset() { flatpak remotes --system --columns=name,subset | awk -v r="$REMOTE" '$1 == r { print $2 }'; }
+flatpak remotes --system --columns=name | grep -qx "$REMOTE" || { echo "No system remote named $REMOTE." >&2; exit 1; }
+
+case ${1:-} in
+  enable)
+    flatpak remote-modify --system --subset= "$REMOTE"
+    echo "Flathub now offers unverified apps too. Their publisher may not be the app's developer:"
+    echo "check an app's page before installing it. Undo with: tungsten-unverified-flatpaks disable"
+    ;;
+  disable)
+    flatpak remote-modify --system --subset=verified "$REMOTE"
+    echo "Flathub is limited to verified apps again."
+    # Installed unverified apps are not removed, but the remote no longer offers them, so
+    # they get no more updates.
+    if offered=$(flatpak remote-ls --system --app --columns=application "$REMOTE" 2>/dev/null); then
+      stale=$(flatpak list --system --app --columns=application,origin |
+        awk -v r="$REMOTE" '$2 == r { print $1 }' | grep -vxF -f <(printf '%s\n' "$offered") || true)
+      if [ -n "$stale" ]; then
+        echo
+        echo "These installed apps are not verified and will no longer be updated:"
+        printf '  %s\n' $stale
+        echo "Remove them with: flatpak uninstall <application>"
+      fi
+    fi
+    ;;
+  status)
+    if [ "$(subset)" = verified ]; then echo "Flathub: verified apps only"
+    else echo "Flathub: all apps, unverified included"; fi
+    ;;
+  *) usage ;;
+esac

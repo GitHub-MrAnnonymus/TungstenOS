@@ -341,7 +341,7 @@ FSTAB
 
 mkdir -p /etc/flatpak/remotes.d
 curl -fsSL --proto '=https' https://dl.flathub.org/repo/flathub.flatpakrepo -o /etc/flatpak/remotes.d/flathub.flatpakrepo
-# Only apps whose publisher Flathub has verified.
+# Only apps whose publisher Flathub has verified (tungsten-unverified-flatpaks lifts it).
 echo 'Subset=verified' >> /etc/flatpak/remotes.d/flathub.flatpakrepo
 
 # Label homed homes at login (see /usr/lib/tungsten/home-label).

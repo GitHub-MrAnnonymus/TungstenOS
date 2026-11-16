@@ -33,7 +33,7 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 | Disk encryption | LUKS2 bound to the TPM through a signed PCR 11 policy valid only in the initrd, plus a systemd-pcrlock policy for firmware, Secure Boot and bootloader (optional PIN); the TPM rate-limits PIN guesses and its lockout cannot be reset; each home is a separate systemd-homed LUKS image |
 | Memory allocator | GrapheneOS [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc), preloaded into every process (`/etc/ld.so.preload`), with [no_rlimit_as](https://github.com/HastD/no_rlimit_as) so address-space limits cannot break it; also preloaded into Flatpak apps |
 | Peripherals | USBGuard blocks unknown USB devices; IOMMU enforced; Thunderbolt and about 760 unused or risky kernel modules blocked |
-| Flatpak | Flathub limited to verified publishers; apps and runtimes updated daily |
+| Flatpak | Flathub limited to verified publishers (switchable); apps and runtimes updated daily |
 | Crash data | Crashes are logged with a backtrace; core dumps (process memory) are not stored |
 | Network | firewalld with inbound traffic dropped by default, encrypted DNS (dnscrypt-proxy, which also blocks IPv6 (AAAA) lookups), authenticated time (NTS) |
 
@@ -224,6 +224,8 @@ flatpak install flathub <application>
 ```
 
 Per-user (`--user`) Flatpak installations cannot run, because the root partition and home directories do not allow execution.
+
+Flathub is limited to apps whose publisher Flathub has verified. `tungsten-unverified-flatpaks enable` lifts that for the whole system (it asks for an administrator password), and `disable` restores it; the choice survives image updates.
 
 A factory reset also removes installed extensions; enable them again with `updatectl enable --now <name>`.
 

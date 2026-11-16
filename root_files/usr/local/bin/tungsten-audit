@@ -40,7 +40,11 @@ check "No setuid or setgid binaries in /usr" sh -c '[ -z "$(find /usr -xdev -per
 check "Core dumps not stored" sh -c 'systemd-analyze cat-config systemd/coredump.conf | grep -qx "Storage=none"'
 
 section "Flatpak"
-check "Flathub limited to verified apps" sh -c 'flatpak remotes --system --columns=name,subset | grep -q "flathub.*verified"'
+if flatpak remotes --system --columns=name,subset | grep -q "flathub.*verified"; then
+  pass "Flathub limited to verified apps"
+else
+  warn "Flathub offers unverified apps (tungsten-unverified-flatpaks disable restricts it again)"
+fi
 check "Automatic Flatpak updates" systemctl is-enabled tungsten-flatpak-update.timer
 check "hardened_malloc in Flatpaks" grep -q libhardened_malloc /var/lib/flatpak/overrides/global
 check "Flatpaks cannot read the keyring directly" grep -qx "org.freedesktop.secrets=none" /var/lib/flatpak/overrides/global
