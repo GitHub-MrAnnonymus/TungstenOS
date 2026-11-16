@@ -29,8 +29,20 @@ done
 shopt -s nullglob
 ukis=("$ESP"/EFI/Linux/tungsten*.efi)
 [ ${#ukis[@]} -gt 0 ] || { echo "no TungstenOS UKIs in $ESP/EFI/Linux" >&2; exit 1; }
+# Once a version is confirmed (boot-confirm: its desktop session ran on two boots), older
+# UKIs leave the policy: the previous A/B slot then needs the recovery key. The running one
+# always stays, also after a manual rollback to an older version.
+confirmed=$(cat /var/lib/tungsten/pcrlock-confirmed 2>/dev/null || true)
+# shellcheck disable=SC1091
+booted=$(. /usr/lib/os-release; echo "${IMAGE_VERSION:-}")
 for uki in "${ukis[@]}"; do
   name=$(basename "$uki" .efi); name=${name%%+*}   # drop the boot-counting suffix
+  ver=${name#tungsten_}
+  if [[ $confirmed =~ ^[0-9]+$ && $ver =~ ^[0-9]+$ ]] && [ "$ver" != "$booted" ] &&
+     [ "$ver" -lt "$confirmed" ]; then
+    echo "leaving out $name: older than the confirmed version $confirmed"
+    continue
+  fi
   # lock-uki records both the UKI's PE hash (PCR 4) and its sections (PCR 11); a
   # separate lock-pe would count the PE hash twice. Numbered before the add-ons,
   # which systemd-stub loads (and the firmware measures into PCR 4) after the UKI.

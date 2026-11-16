@@ -200,7 +200,7 @@ systemctl enable \
   systemd-homed systemd-homed-firstboot auditd power-profiles-daemon systemd-oomd \
   tungsten-relabel tungsten-clear-console tungsten-sysext-sysusers \
   tungsten-guard-check.timer tungsten-guard-execwatch fwupd-refresh.timer tungsten-secureboot-update tungsten-wifi-recover tungsten-wifi-watchdog tungsten-loader-conf tungsten-usb-lock-status tungsten-usb-lock-boot \
-  systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-flatpak-update.timer \
+  systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-boot-confirm tungsten-flatpak-update.timer \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \
   tungsten-pcrlock-predict systemd-pcrlock-make-policy systemd-sysext

@@ -1,0 +1,51 @@
+#!/bin/bash
+# Confirms the running TungstenOS version once it has proven itself on two boots: on each, a
+# desktop session (not the greeter) ran for a minute. pcrlock-predict then leaves older UKIs
+# out of the TPM policy, so the previous A/B slot no longer unlocks the disk without the
+# recovery key (it stays in the boot menu). Until then both slots unlock, so the automatic
+# rollback works.
+#
+# State, in /var/lib/tungsten:
+#   boot-confirm         "<version> <boots with a good session> <boot id of the last one>"
+#   pcrlock-confirmed    the confirmed version (read by pcrlock-predict)
+set -euo pipefail
+STATE=/var/lib/tungsten/boot-confirm
+CONFIRMED=/var/lib/tungsten/pcrlock-confirmed
+NEEDED=2      # boots
+SESSION=60    # seconds a desktop session must have run
+
+# shellcheck disable=SC1091
+version=$(. /usr/lib/os-release; echo "${IMAGE_VERSION:-}")
+[[ $version =~ ^[0-9]+$ ]] || { echo "no image version in os-release" >&2; exit 0; }
+boot=$(cat /proc/sys/kernel/random/boot_id)
+[ "$(cat "$CONFIRMED" 2>/dev/null)" = "$version" ] && exit 0
+
+read -r s_version s_count s_boot 2>/dev/null < "$STATE" || true
+[ "${s_boot:-}" = "$boot" ] && exit 0   # this boot already counted
+
+# A local, active desktop session that has run long enough. The greeter's session has the
+# class "greeter"; a session that crashed within the minute is gone from the list.
+good_session() {
+  local id now
+  now=$(awk '{ printf "%d", $1 * 1000000 }' /proc/uptime)
+  for id in $(loginctl list-sessions --no-legend | awk '{ print $1 }'); do
+    declare -A p=()
+    while IFS='=' read -r k v; do p[$k]=$v; done < <(loginctl show-session "$id" \
+      -p Class -p Type -p Remote -p Active -p State -p TimestampMonotonic 2>/dev/null)
+    [ "${p[Class]:-}" = user ] && [ "${p[Remote]:-}" = no ] && [ "${p[Active]:-}" = yes ] &&
+      [ "${p[Type]:-}" = wayland ] && [ "${p[State]:-}" != closing ] || continue
+    [ $(( now - ${p[TimestampMonotonic]:-$now} )) -ge $(( SESSION * 1000000 )) ] && return 0
+  done
+  return 1
+}
+until good_session; do sleep 15; done
+
+if [ "${s_version:-}" = "$version" ]; then count=$(( ${s_count:-0} + 1 )); else count=1; fi
+mkdir -p "$(dirname "$STATE")"
+echo "$version $count $boot" > "$STATE.new" && mv -f "$STATE.new" "$STATE"
+echo "TungstenOS $version: desktop session ran on $count of $NEEDED boots"
+[ "$count" -ge "$NEEDED" ] || exit 0
+
+echo "$version" > "$CONFIRMED.new" && mv -f "$CONFIRMED.new" "$CONFIRMED"
+echo "TungstenOS $version confirmed: older versions leave the TPM policy"
+exec /usr/local/lib/tungsten/pcrlock-predict --make-policy

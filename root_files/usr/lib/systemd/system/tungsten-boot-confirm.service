@@ -1,0 +1,15 @@
+# Confirms the running version after two boots with a working desktop session; older UKIs
+# then leave the TPM policy (see /usr/local/lib/tungsten/boot-confirm).
+[Unit]
+Description=Confirm the TungstenOS version once its desktop session has run on two boots
+After=tungsten-boot-check.service tungsten-pcrlock-predict.service systemd-logind.service
+ConditionSecurity=measured-uki
+ConditionPathExists=/var/lib/systemd/pcrlock.json
+
+[Service]
+# simple: waits for a session in the background without holding up multi-user.target.
+Type=simple
+ExecStart=/usr/local/lib/tungsten/boot-confirm
+
+[Install]
+WantedBy=multi-user.target
