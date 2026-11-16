@@ -1132,6 +1132,12 @@ allow tungsten_flatpak_t steam_data_t:file { execute execute_no_trans map execmo
 # bwrap receive them.
 allow { user_t user_dbusd_t user_bubblewrap_t } steam_data_t:{ file fifo_file } { append getattr ioctl read write };
 allow { user_t user_dbusd_t user_bubblewrap_t } steam_data_t:sock_file getattr;
+# The SteamRT 3 client restarts itself in a nested sandbox of its runtime: pressure-vessel
+# passes the runtime and app directories as descriptors (Flatpak's usr-fd/app-fd, O_PATH).
+# Receiving an O_PATH descriptor checks ioctl, and the D-Bus proxy (user_t), the session bus
+# and the portal drop it silently otherwise ("Not enough fds for message").
+allow { user_t user_dbusd_t user_bubblewrap_t } steam_data_t:dir { getattr ioctl open read search };
+allow { user_t user_dbusd_t user_bubblewrap_t } flatpak_content_t:dir ioctl;
 # Each user's directory is created at login by the user's systemd-tmpfiles
 # (user_systemd_tmpfiles_t, tungsten-steam.conf), which also links Steam's data paths in
 # its Flatpak home there (replacing what is in the way). Flatpak and bwrap find and bind
