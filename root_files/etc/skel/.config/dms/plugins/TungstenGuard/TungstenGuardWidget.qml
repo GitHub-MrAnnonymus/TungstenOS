@@ -83,6 +83,20 @@ PluginComponent {
     }
 
     readonly property string osAvailable: status?.os?.available ?? ""
+    // "Check now": starts tungsten-guard-check.service (polkit and SELinux allow the session
+    // exactly that); done when status.json arrives with a newer check time.
+    property bool checking: false
+    property string checkStartedFrom: ""
+
+    function checkNow() {
+        if (checking)
+            return;
+        checking = true;
+        checkStartedFrom = status?.checked ?? "";
+        Quickshell.execDetached(["systemctl", "start", "--no-block", "tungsten-guard-check.service"]);
+        checkTimeout.restart();
+    }
+
     // Installing a TungstenOS update (updatectl update), with sysupdated's job progress.
     property bool osInstalling: false
     property int osProgress: 0
@@ -198,6 +212,8 @@ PluginComponent {
             return;
         }
         root.status = s;
+        if (root.checking && (s?.checked ?? "") !== root.checkStartedFrom)
+            root.checking = false;
         root.refreshSkel();
         // Notify once per new TungstenOS version and once per dbx update.
         const os = s?.os?.available ?? "";
@@ -314,6 +330,13 @@ PluginComponent {
                 } catch (e) {}
             }
         }
+    }
+
+    // A check that never reports back (no network, a hang) does not keep the button disabled.
+    Timer {
+        id: checkTimeout
+        interval: 180000
+        onTriggered: root.checking = false
     }
 
     Timer {
@@ -518,7 +541,7 @@ PluginComponent {
 
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.iconSize * 2.2 - Theme.spacingL
+                            width: parent.width - Theme.iconSize * 2.2 - Theme.spacingL * 2 - refreshButton.width
 
                             StyledText {
                                 width: parent.width
@@ -531,12 +554,23 @@ PluginComponent {
 
                             StyledText {
                                 width: parent.width
-                                text: root.status ? "Tungsten Guard · checked "
+                                text: root.checking ? "Tungsten Guard · checking…"
+                                    : root.status ? "Tungsten Guard · checked "
                                       + new Date(root.status.checked).toLocaleTimeString(Qt.locale(), Locale.ShortFormat)
                                     : "Tungsten Guard"
                                 color: Theme.onSurfaceVariant
                                 font.pixelSize: Theme.fontSizeSmall
                             }
+                        }
+
+                        // Checks TungstenOS, Flatpak and firmware updates now (otherwise hourly).
+                        DIconButton {
+                            id: refreshButton
+                            anchors.verticalCenter: parent.verticalCenter
+                            enabled: !root.checking
+                            iconName: root.checking ? "hourglass_top" : "refresh"
+                            tooltipText: root.checking ? "Checking for updates…" : "Check for updates now"
+                            onClicked: root.checkNow()
                         }
                     }
                 }

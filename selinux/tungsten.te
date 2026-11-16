@@ -1593,6 +1593,11 @@ manage_files_pattern(udev_t, tungsten_guard_runtime_t, tungsten_guard_runtime_t)
 type tungsten_usb_lock_unit_t;
 init_unit_file(tungsten_usb_lock_unit_t)
 allow user_t tungsten_usb_lock_unit_t:service { start stop status };
+# Likewise the update check (Tungsten Guard's refresh button; polkit:
+# 50-tungsten-guard-check.rules): start and status only.
+type tungsten_guard_check_unit_t;
+init_unit_file(tungsten_guard_check_unit_t)
+allow user_t tungsten_guard_check_unit_t:service { start status };
 
 # tungsten-secureboot-update (init_t): appends signed updates to db/dbx in efivarfs and
 # toggles the immutable flag around the write (FS_IOC_SETFLAGS).

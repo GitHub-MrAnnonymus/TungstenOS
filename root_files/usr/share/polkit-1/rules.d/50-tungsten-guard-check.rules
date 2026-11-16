@@ -1,0 +1,11 @@
+// The active local session may start the update check (tungsten-guard-check.service) without
+// a password: Tungsten Guard's refresh button. It only reads (TungstenOS, Flatpak and
+// firmware updates) and writes /run/tungsten-guard/status.json.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "tungsten-guard-check.service" &&
+        action.lookup("verb") == "start" &&
+        subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
