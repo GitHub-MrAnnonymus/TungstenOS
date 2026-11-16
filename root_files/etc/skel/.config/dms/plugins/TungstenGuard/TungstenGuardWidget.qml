@@ -632,7 +632,7 @@ PluginComponent {
                         tint: root.osAvailable ? Theme.primary : Theme.onSurfaceVariant
                         title: root.osInstalled ? "TungstenOS " + root.osInstalled + " installed"
                              : root.osAvailable ? "TungstenOS " + root.osAvailable : "TungstenOS is up to date"
-                        detail: root.osInstalling ? "Downloading and installing… " + root.osProgress + " %"
+                        detail: root.osInstalling ? root.osProgress + " % · active after a reboot"
                               : root.osInstalled ? "Restart to use it · running " + (root.status?.os?.current || "unknown")
                               : root.osInstallError ? "Update failed: " + root.osInstallError
                               : "Installed: " + (root.status?.os?.current || "unknown")
@@ -641,7 +641,7 @@ PluginComponent {
                         DButton {
                             visible: root.osAvailable !== "" && root.osInstalled === ""
                             enabled: !root.osInstalling
-                            text: root.osInstalling ? "Installing " + root.osProgress + " %"
+                            text: root.osInstalling ? "Installing"
                                 : root.osInstallError ? "Retry" : "Install"
                             iconName: root.osInstalling ? "downloading" : "download"
                             onClicked: root.installOs()
