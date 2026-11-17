@@ -326,6 +326,9 @@ allow user_t sysctl_irq_t:dir { getattr open read search };
 allow user_t sysctl_irq_t:file { getattr open read };
 allow user_t proc_psi_t:dir { getattr open read search };
 allow user_t proc_psi_t:file { getattr open read };
+# Chromium-based apps too (Steam's web helper): they read memory pressure from /proc/pressure.
+allow tungsten_flatpak_t proc_psi_t:dir { getattr open read search };
+allow tungsten_flatpak_t proc_psi_t:file { getattr open read };
 # Input devices handed over by logind (keyboard LEDs).
 allow user_t event_device_t:chr_file write;
 # Shared memory with the user's systemd, and memory-mapping own files.
@@ -1701,3 +1704,12 @@ optional_policy(`
 	# and in the Flatpak exports (XDG_DATA_DIRS: GSettings schemas, the dconf profile).
 	dontaudit fwupd_t flatpak_content_t:dir search;
 ')
+
+########################################
+# Bluetooth (bluetoothd starts at boot): it reads device properties from udev's database.
+
+gen_require(`
+	type bluetooth_t, udev_runtime_t;
+')
+allow bluetooth_t udev_runtime_t:dir { getattr open read search };
+allow bluetooth_t udev_runtime_t:file { getattr open read };
