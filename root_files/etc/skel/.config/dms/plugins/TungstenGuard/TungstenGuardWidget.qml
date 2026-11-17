@@ -208,6 +208,14 @@ PluginComponent {
                                  "--urgency=" + (urgency || "normal"), summary, body]);
     }
 
+    // Results that the open popout shows anyway (updates found or installed, button failures):
+    // no notification on top of it while it is open.
+    property bool popoutVisible: false
+    function notifyUpdate(summary, body, urgency) {
+        if (!popoutVisible)
+            notify(summary, body, urgency);
+    }
+
     function loadState(key, fallback) {
         const v = pluginService ? pluginService.loadPluginState("tungstenGuard", key) : null;
         return v === null || v === undefined ? fallback : v;
@@ -233,7 +241,7 @@ PluginComponent {
         const os = s?.os?.available ?? "";
         if (os && os !== loadState("notifiedOs", "")) {
             saveState("notifiedOs", os);
-            notify("TungstenOS update available", "Version " + os + " is ready to install.");
+            notifyUpdate("TungstenOS update available", "Version " + os + " is ready to install.");
         }
         const dbx = (s?.firmware ?? []).find(f => f.dbx);
         const dbxKey = dbx ? (dbx.new || "dbx") : "";
@@ -302,7 +310,7 @@ PluginComponent {
                 const key = root.skelChanges.map(c => c.path).join(",");
                 if (key && key !== root.loadState("notifiedSkel", "")) {
                     root.saveState("notifiedSkel", key);
-                    root.notify("New desktop defaults", root.skelChanges.length
+                    root.notifyUpdate("New desktop defaults", root.skelChanges.length
                                 + (root.skelChanges.length === 1 ? " file" : " files")
                                 + " changed by a TungstenOS update. Review them in Tungsten Guard.");
                 }
@@ -320,11 +328,11 @@ PluginComponent {
             root.osInstalling = false;
             if (exitCode === 0) {
                 root.osInstalled = root.osAvailable;
-                root.notify("TungstenOS " + root.osInstalled + " installed", "Restart to use it.");
+                root.notifyUpdate("TungstenOS " + root.osInstalled + " installed", "Restart to use it.");
             } else {
                 const lines = (osInstallErr.text || "").trim().split("\n");
                 root.osInstallError = lines[lines.length - 1] || ("updatectl exited with " + exitCode);
-                root.notify("TungstenOS update failed", root.osInstallError, "critical");
+                root.notifyUpdate("TungstenOS update failed", root.osInstallError, "critical");
             }
         }
     }
@@ -338,11 +346,11 @@ PluginComponent {
         onExited: exitCode => {
             root.flatpakUpdating = false;
             if (exitCode === 0) {
-                root.notify("Flatpak apps updated", "");
+                root.notifyUpdate("Flatpak apps updated", "");
             } else {
                 const lines = (flatpakUpdateErr.text || "").trim().split("\n");
                 root.flatpakUpdateError = lines[0] || ("systemctl exited with " + exitCode);
-                root.notify("Flatpak update failed", "journalctl -u tungsten-flatpak-update", "critical");
+                root.notifyUpdate("Flatpak update failed", "journalctl -u tungsten-flatpak-update", "critical");
             }
             root.checkNow();   // the count from before the update is out of date
         }
@@ -483,6 +491,9 @@ PluginComponent {
             id: popout
             headerText: ""
             property int tab: 0
+            Component.onCompleted: root.popoutVisible = visible
+            onVisibleChanged: root.popoutVisible = visible
+            Component.onDestruction: root.popoutVisible = false
 
             // One item of a grouped list: tonal card, large radii only at the group's ends.
             component Tile: DCard {
