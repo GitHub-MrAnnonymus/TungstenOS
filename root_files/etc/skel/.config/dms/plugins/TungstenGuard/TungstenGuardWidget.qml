@@ -100,6 +100,7 @@ PluginComponent {
     // Installing a TungstenOS update (updatectl update), with sysupdated's job progress.
     property bool osInstalling: false
     property int osProgress: 0
+    property int osPhase: 0           // 0 starting, 1 downloading (acquire), 2 installing (install)
     property string osInstalled: ""   // the version installed, active after a reboot
     property string osInstallError: ""
 
@@ -108,6 +109,7 @@ PluginComponent {
             return;
         osInstalling = true;
         osProgress = 0;
+        osPhase = 0;
         osInstallError = "";
         osInstallProc.running = true;
     }
@@ -323,12 +325,20 @@ PluginComponent {
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
+                    // An update runs as two jobs, "acquire" (download) then "install", each
+                    // 0-100 %. Never backwards: not to an earlier phase (another target's
+                    // download) and not to a lower percentage within a phase.
                     const jobs = JSON.parse(text).data[0];
-                    // Only the update job, and never backwards: when it ends it leaves the
-                    // list, and other jobs (or the next component) start again at 0.
-                    const job = jobs.find(j => j[1] === "update");
-                    if (job)
+                    const job = jobs.find(j => j[1] === "install") ?? jobs.find(j => j[1] === "acquire");
+                    if (!job)
+                        return;
+                    const phase = job[1] === "install" ? 2 : 1;
+                    if (phase > root.osPhase) {
+                        root.osPhase = phase;
+                        root.osProgress = job[2];
+                    } else if (phase === root.osPhase) {
                         root.osProgress = Math.max(root.osProgress, job[2]);
+                    }
                 } catch (e) {}
             }
         }
@@ -653,7 +663,9 @@ PluginComponent {
                         tint: root.osAvailable ? Theme.primary : Theme.onSurfaceVariant
                         title: root.osInstalled ? "TungstenOS " + root.osInstalled + " installed"
                              : root.osAvailable ? "TungstenOS " + root.osAvailable : "TungstenOS is up to date"
-                        detail: root.osInstalling ? root.osProgress + " % · active after a reboot"
+                        detail: root.osInstalling ? (root.osPhase === 2 ? "Installing " + root.osProgress + " %"
+                                                   : root.osPhase === 1 ? "Downloading " + root.osProgress + " %"
+                                                   : "Preparing") + " · active after a reboot"
                               : root.osInstalled ? "Restart to use it · running " + (root.status?.os?.current || "unknown")
                               : root.osInstallError ? "Update failed: " + root.osInstallError
                               : "Installed: " + (root.status?.os?.current || "unknown")
@@ -667,7 +679,7 @@ PluginComponent {
                             width: Math.max(implicitWidth, osButtonWidest.implicitWidth)
                             opacity: active ? 1 : 0
                             enabled: active && !root.osInstalling
-                            text: root.osInstalled ? "Restart" : root.osInstalling ? "Installing"
+                            text: root.osInstalled ? "Restart" : root.osInstalling ? "Updating"
                                 : root.osInstallError ? "Retry" : "Install"
                             iconName: root.osInstalled ? "restart_alt" : root.osInstalling ? "downloading" : "download"
                             onClicked: root.osInstalled ? Quickshell.execDetached(["systemctl", "reboot"]) : root.installOs()
@@ -676,7 +688,7 @@ PluginComponent {
                         DButton {
                             id: osButtonWidest   // measures only; a Row skips invisible items
                             visible: false
-                            text: "Installing"
+                            text: "Updating"
                             iconName: "downloading"
                         }
                     }
