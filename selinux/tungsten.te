@@ -1022,6 +1022,9 @@ allow user_bubblewrap_t xdg_cache_t:file { getattr map read };
 # flatpak_content_t above; bwrap may not run Steam's files in its own domain. The app can
 # already execute these files, so this grants it nothing new.
 domtrans_pattern(user_bubblewrap_t, steam_data_t, tungsten_flatpak_t)
+# The runtime's /usr is Steam's, from its data directory: bwrap locks /usr/.ref there, as it
+# does in Flatpak runtimes ("Unable to lock file /usr/.ref").
+allow user_bubblewrap_t steam_data_t:file { getattr lock open read };
 
 # Inside the sandbox: run the app and runtime programs, JIT.
 can_exec(tungsten_flatpak_t, flatpak_content_t)
