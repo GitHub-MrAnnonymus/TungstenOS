@@ -1111,6 +1111,9 @@ allow user_dbusd_t tungsten_flatpak_t:fd use;
 allow user_dbusd_t tungsten_flatpak_t:unix_stream_socket { getattr read write };
 allow user_dbusd_t tungsten_flatpak_t:fifo_file { getattr read write };
 allow user_dbusd_t tungsten_flatpak_tmpfs_t:file { getattr map read write };
+# and temporary files (Steam passes each game's environment as a deleted file in /tmp,
+# steam-runtime-supervisor --edit-env-fd; the bus dropped it and closed the connection).
+allow user_dbusd_t user_tmp_t:file { append getattr ioctl read write };
 # Started from a terminal or by the session: stdio pipes and inherited descriptors.
 allow tungsten_flatpak_t user_t:fifo_file { getattr ioctl read write };
 # Started as an app service (uwsm, UWSM_APP_UNIT_TYPE=service): stdin is /dev/null and
