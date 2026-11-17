@@ -1672,6 +1672,6 @@ optional_policy(`
 	dontaudit tailscaled_t mnt_t:dir search;
 	dontaudit tailscaled_t etc_t:dir { watch watch_reads };
 	dontaudit fwupd_t user_home_dir_t:dir { getattr search };
-	# and in Flatpak's exports (XDG_DATA_DIRS: GSettings schemas, the dconf profile).
+	# and in the Flatpak exports (XDG_DATA_DIRS: GSettings schemas, the dconf profile).
 	dontaudit fwupd_t flatpak_content_t:dir search;
 ')
