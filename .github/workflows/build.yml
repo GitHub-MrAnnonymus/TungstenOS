@@ -44,10 +44,14 @@ jobs:
         if: github.event_name == 'push'
         env:
           BEFORE: ${{ github.event.before }}
+          # The files that make the package build build something, as in packages.yml (plan).
+          # Other changes there (helper scripts, docs) start no package build, so no image build
+          # would follow: build now.
+          PACKAGE_INPUTS: '^(kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)|packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|(erofs-utils-selinux|trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|ttf-manrope|gvisor|visorbox|oh-my-posh|fzf-tab|dux-files|dux-search)/))'
         run: |
           skip=false
           if [[ ! $BEFORE =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null &&
-             git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE '^(packages|kernel)/'; then
+             git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE "$PACKAGE_INPUTS"; then
             skip=true
             echo "Packages or the kernel changed too: the package build starts the image build."
           fi

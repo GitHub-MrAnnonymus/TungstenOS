@@ -58,6 +58,7 @@ jobs:
           fi
           has() { [ "$all" = true ] || [ "$changed" = ALL ] || grep -qE "$1" <<<"$changed"; }
           kernel=false; selinux=false; misc=false
+          # build.yml (PACKAGE_INPUTS) skips the image build for the same paths: keep them in step.
           has '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' && kernel=true
           has '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' && selinux=true
           has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|ttf-manrope|gvisor|visorbox|oh-my-posh|fzf-tab|dux-files|dux-search)/' && misc=true
