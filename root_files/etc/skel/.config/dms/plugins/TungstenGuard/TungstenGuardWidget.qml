@@ -460,17 +460,14 @@ PluginComponent {
                 readonly property real startR: first ? Theme.cornerRadiusL : Theme.groupedListInnerRadius
                 readonly property real endR: last ? Theme.cornerRadiusL : Theme.groupedListInnerRadius
 
-                // keepHeight: grows with its text but does not shrink back (the update tile,
-                // whose text and button change from state to state, would make the
-                // popup jump); released when keepHeight goes false.
-                property bool keepHeight: false
-                property real heldHeight: 0
-                readonly property real naturalHeight: Math.max(tileRow.implicitHeight, Theme.iconSize) + pad * 2
-                onNaturalHeightChanged: if (keepHeight) heldHeight = Math.max(heldHeight, naturalHeight)
-                onKeepHeightChanged: heldHeight = keepHeight ? naturalHeight : 0
+                // A tile whose text changes from state to state (the update tile) keeps one
+                // size: a one-line title and room for detailMinLines of detail, so the popup
+                // does not jump.
+                property int detailMinLines: 0
+                property bool singleLineTitle: false
 
                 width: parent ? parent.width : 0
-                height: keepHeight ? Math.max(naturalHeight, heldHeight) : naturalHeight
+                height: Math.max(tileRow.implicitHeight, Theme.iconSize) + pad * 2
                 restRadius: Theme.groupedListInnerRadius
                 topLeftRadius: startR
                 topRightRadius: startR
@@ -501,15 +498,26 @@ PluginComponent {
                             color: Theme.onSurface
                             font.pixelSize: Theme.fontSizeMedium
                             wrapMode: Text.WordWrap
+                            maximumLineCount: tile.singleLineTitle ? 1 : 1000
+                            elide: tile.singleLineTitle ? Text.ElideRight : Text.ElideNone
                         }
 
                         StyledText {
+                            id: detailText
                             width: parent.width
-                            visible: text !== ""
+                            visible: text !== "" || tile.detailMinLines > 0
                             text: tile.detail + (tile.dismissedWarning ? (tile.detail ? " · " : "") + "warning dismissed" : "")
                             color: Theme.onSurfaceVariant
                             font.pixelSize: Theme.fontSizeSmall
                             wrapMode: Text.WordWrap
+                            maximumLineCount: tile.detailMinLines > 0 ? tile.detailMinLines : 1000
+                            elide: tile.detailMinLines > 0 ? Text.ElideRight : Text.ElideNone
+                            height: Math.max(implicitHeight, Math.ceil(detailMetrics.lineSpacing * tile.detailMinLines))
+
+                            FontMetrics {
+                                id: detailMetrics
+                                font: detailText.font
+                            }
                         }
                     }
 
@@ -639,7 +647,8 @@ PluginComponent {
 
                     Tile {
                         first: true
-                        keepHeight: root.osAvailable !== "" || root.osInstalling || root.osInstalled !== ""
+                        detailMinLines: 2
+                        singleLineTitle: true
                         icon: root.osAvailable ? "system_update" : "check_circle"
                         tint: root.osAvailable ? Theme.primary : Theme.onSurfaceVariant
                         title: (root.osInstalled ? "TungstenOS " + root.osInstalled + " installed"
@@ -651,20 +660,25 @@ PluginComponent {
                               : "Installed: " + (root.status?.os?.current || "unknown")
                                 + (root.osAvailable ? " · active after a reboot" : "")
 
+                        // One button for every state, as wide as its widest label, and only
+                        // hidden (not removed) when there is nothing to do: the tile keeps its
+                        // size from "update found" through installing to "restart".
                         DButton {
-                            visible: root.osAvailable !== "" && root.osInstalled === ""
-                            enabled: !root.osInstalling
-                            text: root.osInstalling ? "Installing"
+                            readonly property bool active: root.osInstalled !== "" || root.osAvailable !== ""
+                            width: Math.max(implicitWidth, osButtonWidest.implicitWidth)
+                            opacity: active ? 1 : 0
+                            enabled: active && !root.osInstalling
+                            text: root.osInstalled ? "Restart" : root.osInstalling ? "Installing"
                                 : root.osInstallError ? "Retry" : "Install"
-                            iconName: root.osInstalling ? "downloading" : "download"
-                            onClicked: root.installOs()
+                            iconName: root.osInstalled ? "restart_alt" : root.osInstalling ? "downloading" : "download"
+                            onClicked: root.osInstalled ? Quickshell.execDetached(["systemctl", "reboot"]) : root.installOs()
                         }
 
                         DButton {
-                            visible: root.osInstalled !== ""
-                            text: "Restart"
-                            iconName: "restart_alt"
-                            onClicked: Quickshell.execDetached(["systemctl", "reboot"])
+                            id: osButtonWidest   // measures only; a Row skips invisible items
+                            visible: false
+                            text: "Installing"
+                            iconName: "downloading"
                         }
                     }
 
