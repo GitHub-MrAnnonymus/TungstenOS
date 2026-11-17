@@ -1338,6 +1338,13 @@ optional_policy(`
 	# user namespace, into a scope of its own ("Sender is not authorized to send message").
 	allow podman_user_t user_systemd_t:dbus send_msg;
 	allow user_systemd_t podman_user_t:dbus send_msg;
+	# podman exec --tty (visorbox enter): conmon opens a pseudo-terminal (/dev/ptmx) for the
+	# shell and passes it to runsc; conmon died before reporting anything without it.
+	gen_require(`
+		type podman_user_conmon_t;
+	')
+	term_use_ptmx(podman_user_conmon_t)
+	term_use_generic_ptys({ podman_user_conmon_t podman_user_t })
 	# visorbox state (container ID files written by Podman) as container data, also when
 	# visorbox creates the directory (~/.local/state is xdg_data_t, shared by all apps).
 	filetrans_pattern(user_t, xdg_data_t, container_data_home_t, dir, "visorbox")
