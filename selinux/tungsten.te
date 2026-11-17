@@ -1390,6 +1390,8 @@ allow { init_t sysadm_t } flatpak_exec_data_t:{ file lnk_file } manage_file_perm
 allow { init_t sysadm_t } flatpak_exec_data_t:{ dir file lnk_file } { relabelfrom relabelto };
 allow { user_t user_systemd_t } steam_data_t:dir { getattr search };
 allow { user_t user_systemd_t } steam_data_t:lnk_file { getattr read };
+# The shell shows Steam's tray icon from its data directory (public/steam_tray_mono.png).
+allow user_t steam_data_t:file { getattr open read map };
 allow user_bubblewrap_t steam_data_t:dir { getattr mounton open read search };
 allow user_bubblewrap_t steam_data_t:lnk_file { getattr read };
 # Administrators clean up (accounts removed), boot creates the base directory.
