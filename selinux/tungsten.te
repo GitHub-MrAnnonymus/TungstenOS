@@ -1284,6 +1284,13 @@ allow { sysadm_t user_t tungsten_flatpak_t } tailscale_runtime_t:dir search_dir_
 allow { sysadm_t user_t tungsten_flatpak_t } tailscale_runtime_t:sock_file write;
 allow { sysadm_t user_t tungsten_flatpak_t } tailscaled_t:unix_stream_socket connectto;
 allow tungsten_flatpak_t proc_net_t:lnk_file read;
+# The network state in /proc/net (sockets, routes): Steam looks up the local ports of its UI
+# process (steamwebhelper) there and runs lsof on failure; browsers and network tools read it
+# too. Apps with network access share the host network namespace, so it lists all of the
+# host connections, without their processes.
+kernel_read_network_state(tungsten_flatpak_t)
+# lsof also looks at every process in the sandbox, bwrap (the sandbox init) included.
+dontaudit tungsten_flatpak_t user_bubblewrap_t:dir getattr;
 # nftables mode loads the netfilter modules it uses on demand (signed, from the image).
 kernel_request_load_module(tailscaled_t)
 
