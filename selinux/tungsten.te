@@ -1025,6 +1025,12 @@ domtrans_pattern(user_bubblewrap_t, steam_data_t, tungsten_flatpak_t)
 # refpolicy's domtrans_pattern leaves out the entry point (domain_entry_file for
 # flatpak_content_t above); a plain rule keeps steam_data_t out of the entry_type attribute.
 allow tungsten_flatpak_t steam_data_t:file entrypoint;
+# Without noatsecure the switch into the app's domain runs it in secure-execution mode
+# (AT_SECURE), and the loader ignores LD_LIBRARY_PATH: pv-adverb finds its libraries only
+# through it, before it has built the runtime's ld.so.cache ("libdl.so.2: cannot open
+# shared object file"; refpolicy's transition pattern hides this denial). bwrap and the app
+# run for the same user with no privileges between them to protect.
+allow user_bubblewrap_t tungsten_flatpak_t:process { noatsecure rlimitinh siginh };
 # The runtime's /usr is Steam's, from its data directory: bwrap locks /usr/.ref there, as it
 # does in Flatpak runtimes ("Unable to lock file /usr/.ref").
 allow user_bubblewrap_t steam_data_t:file { getattr lock open read };
