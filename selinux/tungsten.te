@@ -1107,6 +1107,10 @@ allow user_dbusd_t tungsten_flatpak_t:fifo_file { getattr read write };
 allow user_dbusd_t tungsten_flatpak_tmpfs_t:file { getattr map read write };
 # Started from a terminal or by the session: stdio pipes and inherited descriptors.
 allow tungsten_flatpak_t user_t:fifo_file { getattr ioctl read write };
+# Started as an app service (uwsm, UWSM_APP_UNIT_TYPE=service): stdin is /dev/null and
+# stdout/stderr the journal stream, both opened by the user's systemd.
+allow { tungsten_flatpak_t user_bubblewrap_t } user_systemd_t:fd use;
+allow { tungsten_flatpak_t user_bubblewrap_t } user_systemd_t:unix_stream_socket { append getattr ioctl read write };
 allow tungsten_flatpak_t user_t:netlink_kobject_uevent_socket { getattr read write };
 # Games and Steam read vm.max_map_count and vm.overcommit_memory.
 kernel_read_vm_sysctls(tungsten_flatpak_t)
@@ -1656,10 +1660,12 @@ optional_policy(`
 # programs (it uses nftables) and watches /etc; fwupd (its dconf worker) looks into /root.
 optional_policy(`
 	gen_require(`
-		type tailscaled_t, iptables_exec_t, bin_t, mnt_t, etc_t, fwupd_t, user_home_dir_t;
+		type tailscaled_t, iptables_exec_t, bin_t, mnt_t, etc_t, fwupd_t, user_home_dir_t, flatpak_content_t;
 	')
 	dontaudit tailscaled_t { bin_t iptables_exec_t }:file getattr;
 	dontaudit tailscaled_t mnt_t:dir search;
 	dontaudit tailscaled_t etc_t:dir { watch watch_reads };
 	dontaudit fwupd_t user_home_dir_t:dir { getattr search };
+	# and in Flatpak's exports (XDG_DATA_DIRS: GSettings schemas, the dconf profile).
+	dontaudit fwupd_t flatpak_content_t:dir search;
 ')
