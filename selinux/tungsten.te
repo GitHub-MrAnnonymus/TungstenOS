@@ -1017,6 +1017,11 @@ allow user_bubblewrap_t tungsten_flatpak_t:fd use;
 allow user_bubblewrap_t tungsten_flatpak_t:fifo_file { getattr ioctl read write };
 allow user_bubblewrap_t tungsten_flatpak_t:unix_stream_socket { getattr read write };
 allow user_bubblewrap_t xdg_cache_t:file { getattr map read };
+# Steam's nested runtime sandbox (pressure-vessel): the portal's bwrap starts pv-adverb from
+# Steam's data directory, not from the Flatpak tree. It enters the app's domain, as from
+# flatpak_content_t above; bwrap may not run Steam's files in its own domain. The app can
+# already execute these files, so this grants it nothing new.
+domtrans_pattern(user_bubblewrap_t, steam_data_t, tungsten_flatpak_t)
 
 # Inside the sandbox: run the app and runtime programs, JIT.
 can_exec(tungsten_flatpak_t, flatpak_content_t)
