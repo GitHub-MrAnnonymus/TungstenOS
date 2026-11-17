@@ -1436,6 +1436,20 @@ allow tungsten_flatpak_t user_home_dir_t:dir { getattr open read search };
 files_search_home(tungsten_flatpak_t)
 allow tungsten_flatpak_t { user_home_t tungsten_project_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:dir manage_dir_perms;
 allow tungsten_flatpak_t { user_home_t tungsten_project_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:{ file lnk_file } manage_file_perms;
+# Sockets in the app directories (~/.var/app/<app>/cache): Chromium and Electron apps
+# (Discord) bind their single-instance socket there and quit when they cannot.
+allow tungsten_flatpak_t { user_home_t xdg_cache_t xdg_data_t xdg_config_t }:sock_file { create getattr setattr unlink write };
+# Apps that may see ~/.config read it as a whole (ProtonPlus looks into ~/.config/systemd);
+# read only: user units written by an app would run outside its sandbox.
+gen_require(`
+	type systemd_conf_home_t, sysctl_dev_t;
+')
+allow tungsten_flatpak_t systemd_conf_home_t:dir { getattr open read search };
+allow tungsten_flatpak_t systemd_conf_home_t:file { getattr open read };
+# Graphics drivers and Chromium read device settings in /proc/sys/dev (Intel GPU
+# perf_stream_paranoid).
+allow tungsten_flatpak_t sysctl_dev_t:dir search;
+allow tungsten_flatpak_t sysctl_dev_t:file { getattr open read };
 allow tungsten_flatpak_t { user_home_t tungsten_project_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t }:file map;
 allow tungsten_flatpak_t gnome_xdg_config_t:dir list_dir_perms;
 allow tungsten_flatpak_t gnome_xdg_config_t:file { getattr open read map };
