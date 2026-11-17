@@ -324,9 +324,11 @@ PluginComponent {
             onStreamFinished: {
                 try {
                     const jobs = JSON.parse(text).data[0];
-                    const job = jobs.find(j => j[1] === "update") ?? jobs[0];
+                    // Only the update job, and never backwards: when it ends it leaves the
+                    // list, and other jobs (or the next component) start again at 0.
+                    const job = jobs.find(j => j[1] === "update");
                     if (job)
-                        root.osProgress = job[2];
+                        root.osProgress = Math.max(root.osProgress, job[2]);
                 } catch (e) {}
             }
         }
@@ -458,8 +460,17 @@ PluginComponent {
                 readonly property real startR: first ? Theme.cornerRadiusL : Theme.groupedListInnerRadius
                 readonly property real endR: last ? Theme.cornerRadiusL : Theme.groupedListInnerRadius
 
+                // keepHeight: grows with its text but does not shrink back (the update tile,
+                // whose text and button change from state to state, would make the
+                // popup jump); released when keepHeight goes false.
+                property bool keepHeight: false
+                property real heldHeight: 0
+                readonly property real naturalHeight: Math.max(tileRow.implicitHeight, Theme.iconSize) + pad * 2
+                onNaturalHeightChanged: if (keepHeight) heldHeight = Math.max(heldHeight, naturalHeight)
+                onKeepHeightChanged: heldHeight = keepHeight ? naturalHeight : 0
+
                 width: parent ? parent.width : 0
-                height: Math.max(tileRow.implicitHeight, Theme.iconSize) + pad * 2
+                height: keepHeight ? Math.max(naturalHeight, heldHeight) : naturalHeight
                 restRadius: Theme.groupedListInnerRadius
                 topLeftRadius: startR
                 topRightRadius: startR
@@ -628,6 +639,7 @@ PluginComponent {
 
                     Tile {
                         first: true
+                        keepHeight: root.osAvailable !== "" || root.osInstalling || root.osInstalled !== ""
                         icon: root.osAvailable ? "system_update" : "check_circle"
                         tint: root.osAvailable ? Theme.primary : Theme.onSurfaceVariant
                         title: (root.osInstalled ? "TungstenOS " + root.osInstalled + " installed"
