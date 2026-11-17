@@ -6,6 +6,9 @@ export GDK_SCALE=2
 export QT_QPA_PLATFORMTHEME="qtengine"
 # No JIT in QML (Quickshell/DMS, KDE Connect): SELinux denies writable executable memory.
 export QV4_FORCE_INTERPRETER=1
+# Java (AWT/Swing: Ghidra, JetBrains tools) draws empty white windows under a window manager
+# that does not reparent, as Hyprland.
+export _JAVA_AWT_WM_NONREPARENTING=1
 export HYPRCURSOR_THEME="default"
 export XCURSOR_THEME="default"
 export HYPRCURSOR_SIZE=30
