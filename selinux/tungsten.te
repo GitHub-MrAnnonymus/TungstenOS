@@ -1481,15 +1481,15 @@ allow chromium_t pulseaudio_tmp_t:sock_file { getattr write };
 allow chromium_t pulseaudio_xdg_config_t:file { getattr open read };
 dontaudit chromium_t pulseaudio_tmp_t:dir rmdir;
 # Flatpak apps with sound: bwrap binds the PipeWire-Pulse socket into the sandbox, the
-# app connects to it (the server runs in the session, user_t).
+# app connects to it (the server runs in pipewire_t: see the PipeWire section).
 allow user_bubblewrap_t pulseaudio_tmp_t:dir { getattr search };
 allow user_bubblewrap_t pulseaudio_tmp_t:sock_file getattr;
 allow tungsten_flatpak_t pulseaudio_tmp_t:dir { getattr search };
 allow tungsten_flatpak_t pulseaudio_tmp_t:sock_file { getattr write };
 # PipeWire's own sockets (pipewire-0, pipewire-0-manager) are created by systemd --user
 # from pipewire.socket, labeled from refpolicy's file contexts (pipewire_runtime_t); older
-# ones kept the runtime directory's type (user_runtime_t). The server runs in the session
-# (user_t). Flatpak checks them and binds them in for screen sharing, cameras and native
+# ones kept the runtime directory's type (user_runtime_t). The server runs in pipewire_t
+# (see the PipeWire section). Flatpak checks them and binds them in for screen sharing, cameras and native
 # PipeWire audio (Steam: "bwrap: Can't get type of source .../pipewire-0").
 gen_require(`
 	type user_runtime_t, pipewire_runtime_t;
@@ -1570,6 +1570,7 @@ dontaudit systemd_coredump_t cert_t:dir search;
 
 gen_require(`
 	type pipewire_t, wireplumber_t, pulseaudio_tmp_t, user_systemd_tmpfiles_t, user_home_dir_t;
+	type chromium_t, chromium_tmpfs_t;
 ')
 
 # pipewire-pulse serves PulseAudio clients from /run/user/<uid>/pulse (its socket "native").
@@ -1584,6 +1585,15 @@ init_dbus_chat(wireplumber_t)
 
 # Both identify the machine to their clients (/etc/machine-id).
 files_read_etc_runtime_files({ pipewire_t wireplumber_t })
+
+# The PipeWire daemons (pipewire, pipewire-pulse) run in pipewire_t, not in the session:
+# Flatpak apps and Trivalent connect to them as clients (the PulseAudio socket "native" and
+# pipewire-0), and both sides share audio buffers as memfds.
+pipewire_client({ tungsten_flatpak_t chromium_t })
+allow { tungsten_flatpak_t chromium_t } pipewire_t:unix_stream_socket connectto;
+allow pipewire_t { tungsten_flatpak_t chromium_t }:fd use;
+allow pipewire_t { tungsten_flatpak_t chromium_t }:unix_stream_socket { getattr read write };
+allow pipewire_t { tungsten_flatpak_tmpfs_t chromium_tmpfs_t }:file { getattr map read write };
 
 # Flatpak adds /var/lib/flatpak/exports/share to XDG_DATA_DIRS; WirePlumber searches it for
 # its own data files, which are not there.
