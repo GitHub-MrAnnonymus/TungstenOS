@@ -471,7 +471,7 @@ PluginComponent {
                 readonly property real endR: last ? Theme.cornerRadiusL : Theme.groupedListInnerRadius
 
                 // A tile whose text changes from state to state (the update tile) keeps one
-                // size: a one-line title and room for detailMinLines of detail, so the popup
+                // size: a one-line title and exactly detailMinLines of detail, so the popup
                 // does not jump.
                 property int detailMinLines: 0
                 property bool singleLineTitle: false
@@ -657,7 +657,7 @@ PluginComponent {
 
                     Tile {
                         first: true
-                        detailMinLines: 2
+                        detailMinLines: 1
                         singleLineTitle: true
                         icon: root.osAvailable ? "system_update" : "check_circle"
                         tint: root.osAvailable ? Theme.primary : Theme.onSurfaceVariant
