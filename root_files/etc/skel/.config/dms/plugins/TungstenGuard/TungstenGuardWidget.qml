@@ -630,8 +630,9 @@ PluginComponent {
                         first: true
                         icon: root.osAvailable ? "system_update" : "check_circle"
                         tint: root.osAvailable ? Theme.primary : Theme.onSurfaceVariant
-                        title: root.osInstalled ? "TungstenOS " + root.osInstalled + " installed"
-                             : root.osAvailable ? "TungstenOS " + root.osAvailable : "TungstenOS is up to date"
+                        title: (root.osInstalled ? "TungstenOS " + root.osInstalled + " installed"
+                             : root.osAvailable ? "TungstenOS " + root.osAvailable : "TungstenOS is up to date")
+                             + (root.status?.os?.channel === "experimental" ? " · experimental" : "")
                         detail: root.osInstalling ? root.osProgress + " % · active after a reboot"
                               : root.osInstalled ? "Restart to use it · running " + (root.status?.os?.current || "unknown")
                               : root.osInstallError ? "Update failed: " + root.osInstallError

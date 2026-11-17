@@ -1,0 +1,27 @@
+#!/bin/bash
+# The release channel this machine updates from:
+#
+#        tungsten-channel                  shows it
+#   run0 tungsten-channel experimental     every new build, before it is promoted
+#   run0 tungsten-channel stable           promoted builds only (the default)
+#
+# Updates never go back to an older version: a machine that leaves experimental keeps its
+# version until stable has a newer one.
+set -euo pipefail
+FILE=/etc/tungsten/channel
+current() { cat "$FILE" 2>/dev/null || echo stable; }
+
+case ${1:-} in
+  "") echo "Update channel: $(current)" ;;
+  stable|experimental)
+    [ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }
+    if [ "$1" = stable ]; then rm -f "$FILE"
+    else mkdir -p "$(dirname "$FILE")" && echo experimental > "$FILE"; fi
+    /usr/lib/tungsten/sysupdate-channel
+    echo "Update channel: $1"
+    [ "$1" = stable ] && echo "Installed versions newer than stable stay until stable has a newer one."
+    # Tungsten Guard's "available" refers to the old channel until the next check.
+    systemctl start --no-block tungsten-guard-check.service 2>/dev/null || :
+    ;;
+  *) sed -n '4,6p' "$0" | sed 's/^# *//' >&2; exit 2 ;;
+esac

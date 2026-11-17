@@ -1,0 +1,27 @@
+#!/bin/bash
+# Points systemd-sysupdate at the release channel in /etc/tungsten/channel (tungsten-channel):
+#   stable        (default) the GitHub release marked "latest": promoted builds only
+#   experimental  every new build, from the rolling release "experimental"
+# For experimental, the image's transfer files are written to /run/sysupdate.d with the other
+# URL; files there take precedence over /usr/lib/sysupdate.d. Generated at every boot, so they
+# follow changes to the image's transfer files.
+set -euo pipefail
+OUT=/run/sysupdate.d
+channel=$(cat /etc/tungsten/channel 2>/dev/null || echo stable)
+
+rm -f "$OUT"/*.transfer
+case $channel in
+  stable) exit 0 ;;
+  experimental) ;;
+  *) echo "unknown channel '$channel' in /etc/tungsten/channel, using stable" >&2; exit 0 ;;
+esac
+
+mkdir -p "$OUT"
+n=0
+for f in /usr/lib/sysupdate.d/*.transfer; do
+  # Development builds point elsewhere (tungsten.invalid): nothing to switch.
+  grep -q '/releases/latest/download/' "$f" || continue
+  sed 's|/releases/latest/download/|/releases/download/experimental/|' "$f" > "$OUT/$(basename "$f")"
+  n=$((n + 1))
+done
+echo "update channel: $channel ($n transfers)"

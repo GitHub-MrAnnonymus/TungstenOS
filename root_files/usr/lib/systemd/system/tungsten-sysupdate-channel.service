@@ -1,0 +1,14 @@
+# Points systemd-sysupdate at the chosen release channel (tungsten-channel).
+[Unit]
+Description=Select the TungstenOS update channel
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target systemd-sysupdate.service systemd-sysupdated.service tungsten-guard-check.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/tungsten/sysupdate-channel
+
+[Install]
+WantedBy=sysinit.target

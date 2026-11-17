@@ -227,6 +227,8 @@ Per-user (`--user`) Flatpak installations cannot run, because the root partition
 
 Flathub is limited to apps whose publisher Flathub has verified. `tungsten-unverified-flatpaks enable` lifts that for the whole system (it asks for an administrator password), and `disable` restores it; the choice survives image updates.
 
+New builds are published as pre-releases first, the experimental channel; once a build is verified, the "Promote image to stable" workflow marks it as the latest release, which machines update from by default. `run0 tungsten-channel experimental` switches a machine to every new build (a test machine), `run0 tungsten-channel stable` back; updates never go to an older version, so a machine leaving experimental keeps its version until stable has a newer one.
+
 A factory reset also removes installed extensions; enable them again with `updatectl enable --now <name>`.
 
 An update can also change the desktop defaults in `/etc/skel` (the Hyprland configuration, Dux Shell plugins), which new accounts get. For existing accounts, Tungsten Guard lists the changed files with their diffs and applies each one only after approval (`/usr/lib/tungsten/skel-sync`): files the user never edited are replaced, edits are merged where they do not overlap with the update's, and a replaced file is backed up to `~/.local/state/tungsten/skel/backup`. Settings the shell manages itself (`settings.json`, generated colors, monitor layout) are left alone.

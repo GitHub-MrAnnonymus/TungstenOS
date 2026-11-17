@@ -203,7 +203,7 @@ systemctl enable \
   systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-boot-confirm tungsten-flatpak-update.timer \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \
-  tungsten-pcrlock-predict systemd-pcrlock-make-policy systemd-sysext
+  tungsten-pcrlock-predict systemd-pcrlock-make-policy systemd-sysext tungsten-sysupdate-channel
 # sysupdate tells the sockets in /run/systemd/sysupdate/notify that an update is installed;
 # the pcrlock one recomputes the TPM policy for the new UKI before the reboot (drop-in:
 # pcrlock-predict --make-policy). Not enabled, nothing heard it: PCR 4 of the updated boot

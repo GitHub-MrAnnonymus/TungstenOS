@@ -3,7 +3,12 @@
 # Sets: ver usr verity uki boot exts (release file names) and CACHE (download directory).
 HERE=${HERE:-$(dirname -- "$(realpath "${BASH_SOURCE[0]}")")}
 KEYRING=$HERE/../keys/tungsten.pgp
-URL=https://github.com/GitHub-MrAnnonymus/TungstenOS/releases/latest/download
+# TUNGSTEN_CHANNEL=experimental: the newest build instead of the latest promoted one.
+if [ "${TUNGSTEN_CHANNEL:-stable}" = experimental ]; then
+  URL=https://github.com/GitHub-MrAnnonymus/TungstenOS/releases/download/experimental
+else
+  URL=https://github.com/GitHub-MrAnnonymus/TungstenOS/releases/latest/download
+fi
 # build-iso.sh --dev passes the directory of a local build.
 CACHE=${CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/tungstenos/release}
 

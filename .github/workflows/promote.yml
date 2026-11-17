@@ -1,0 +1,42 @@
+name: Promote image to stable
+
+# Builds are published as pre-releases (the experimental channel). Promoting one marks it
+# as the latest release, which is what stable machines update from
+# (releases/latest/download/).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release to promote (e.g. 202611162255); empty = the newest build
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: promote
+
+jobs:
+  promote:
+    environment: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Promote
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          # Image releases are tagged with the build time (12 digits); "packages" and
+          # "experimental" are not images.
+          tags=$(gh release list --limit 200 --json tagName --jq '.[].tagName' | grep -E '^[0-9]{12}$' | sort)
+          [ -n "$TAG" ] || TAG=$(tail -1 <<<"$tags")
+          grep -qx "$TAG" <<<"$tags" || { echo "::error::no image release $TAG"; exit 1; }
+          latest=$(gh release view --json tagName --jq .tagName 2>/dev/null || :)
+          if [[ $latest =~ ^[0-9]{12}$ ]] && [ "$TAG" -lt "$latest" ]; then
+            # Machines never install an older version, so this would change nothing for them.
+            echo "::error::$TAG is older than the current stable release $latest"; exit 1
+          fi
+          gh release edit "$TAG" --prerelease=false --latest
+          echo "Stable is now $TAG (was ${latest:-none})." >> "$GITHUB_STEP_SUMMARY"
