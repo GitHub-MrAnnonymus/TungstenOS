@@ -13,12 +13,20 @@
 # --audit-all builds the SELinux policy without its dontaudit rules: refusals the policy
 # normally hides (and programs may silently retry) appear in the audit log. Very noisy;
 # for debugging in the VM.
+# --permissive=<domain> (repeatable) makes a domain permissive: its refusals are logged
+# but not enforced, so one run shows everything a new domain needs (tungsten_gvisor_t).
 #
-# Usage: install/dev/build.sh [--audit-all]
+# Usage: install/dev/build.sh [--audit-all] [--permissive=<domain>]...
 # Needs: podman, sudo (the container is privileged, as in CI: it mounts and uses loop devices)
 set -euo pipefail
-AUDIT_ALL=0
-[ "${1:-}" = --audit-all ] && AUDIT_ALL=1
+AUDIT_ALL=0 PERMISSIVE=""
+for a in "$@"; do
+  case $a in
+    --audit-all) AUDIT_ALL=1 ;;
+    --permissive=*) PERMISSIVE="$PERMISSIVE ${a#--permissive=}" ;;
+    *) echo "usage: $0 [--audit-all] [--permissive=<domain>]..." >&2; exit 2 ;;
+  esac
+done
 HERE=$(dirname -- "$(realpath "$0")")
 REPO=$(realpath "$HERE/../..")
 DEV=${TUNGSTEN_DEV:-$HOME/.local/share/tungstenos-dev}
@@ -31,6 +39,6 @@ DEV=$(realpath "$DEV")
 
 sudo podman run --rm --privileged --pull=newer \
   -v "$REPO":/src:ro -v "$DEV":/state -v "$DEV/pkgcache":/var/cache/pacman/pkg \
-  -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e TUNGSTEN_AUDIT_ALL="$AUDIT_ALL" \
+  -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e TUNGSTEN_AUDIT_ALL="$AUDIT_ALL" -e TUNGSTEN_PERMISSIVE="${PERMISSIVE# }" \
   docker.io/library/archlinux:latest bash /src/install/dev/build-in-container.sh
 echo "Built $(readlink "$DEV/builds/latest") in $DEV/builds. Start it with install/dev/vm.sh."

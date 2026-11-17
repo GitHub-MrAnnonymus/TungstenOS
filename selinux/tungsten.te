@@ -1320,19 +1320,9 @@ optional_policy(`
 	files_read_etc_runtime_files(podman_user_t)
 	# Podman walks PATH and XDG_DATA_DIRS, which include the Flatpak exports; it needs nothing there.
 	dontaudit podman_user_t flatpak_content_t:dir search;
-	# gVisor (runsc, in the Podman domain): the sandbox unmounts the host proc in its own
-	# mount namespace, so the Sentry cannot see host processes (refused: the sandbox died
-	# before the container started), and reads memory settings in /proc/sys/vm.
-	kernel_unmount_proc(podman_user_t)
-	kernel_read_vm_sysctls(podman_user_t)
 	# fusermount3 and fuse-overlayfs (rootless storage) read the mount table in /run/mount.
 	mount_read_runtime_files(podman_user_t)
-	# runsc on the KVM platform (runsc-podman picks it): the guest runs in /dev/kvm, so no
-	# stub processes, ptrace or executable memory (systrap needed all three and cannot run
-	# on this kernel, which seals system mappings). The gofer bind-mounts runsc into the
-	# sandbox. Podman and runsc look up their runtime directory under /run/user.
-	dev_rw_kvm(podman_user_t)
-	allow podman_user_t bin_t:file mounton;
+	# Podman looks up its runtime directory under /run/user.
 	allow podman_user_t user_runtime_root_t:dir search;
 	# Podman asks the user manager (session bus) to move its pause process, which holds the
 	# user namespace, into a scope of its own ("Sender is not authorized to send message").
@@ -1344,7 +1334,7 @@ optional_policy(`
 		type podman_user_conmon_t;
 	')
 	term_use_ptmx(podman_user_conmon_t)
-	term_use_generic_ptys({ podman_user_conmon_t podman_user_t })
+	term_use_generic_ptys(podman_user_conmon_t)
 	# visorbox state (container ID files written by Podman) as container data, also when
 	# visorbox creates the directory (~/.local/state is xdg_data_t, shared by all apps).
 	filetrans_pattern(user_t, xdg_data_t, container_data_home_t, dir, "visorbox")
@@ -1352,14 +1342,59 @@ optional_policy(`
 	allow podman_user_t systemd_unit_t:dir getattr;
 	# Cleaning up (rm of ~/.local/share/containers, podman system reset).
 	container_manage_all_home_content(user_t)
-	# The project directories (below): the gVisor gofer mounts the one a container gets
-	# (visorbox: the current directory) into the sandbox and serves its files.
-	manage_dirs_pattern(podman_user_t, tungsten_project_t, tungsten_project_t)
-	manage_files_pattern(podman_user_t, tungsten_project_t, tungsten_project_t)
-	manage_lnk_files_pattern(podman_user_t, tungsten_project_t, tungsten_project_t)
-	allow podman_user_t tungsten_project_t:dir mounton;
-	allow podman_user_t tungsten_project_t:file map;
+	# Podman checks the project directory a container gets (visorbox: the current one)
+	# before handing it to the runtime; gVisor (below) mounts and serves it.
+	allow podman_user_t tungsten_project_t:dir { getattr open read search };
 	userdom_search_user_home_dirs(podman_user_t)
+')
+
+########################################
+# gVisor (runsc, its sidecars and the wrapper Podman calls) in a domain of its own,
+# entered when Podman (create, start, kill, delete) or conmon (create, exec) runs the
+# runtime. refpolicy would run it in podman_user_t, which may relabel and read the generic
+# home: a sandbox escape plus a host kernel bug would get that far. Here it reaches only the
+# project directories, the container storage and its own runtime state.
+type tungsten_gvisor_t;
+type tungsten_gvisor_exec_t;
+domain_type(tungsten_gvisor_t)
+domain_entry_file(tungsten_gvisor_t, tungsten_gvisor_exec_t)
+role user_r types tungsten_gvisor_t;
+
+optional_policy(`
+	gen_require(`
+		type podman_user_t, podman_user_conmon_t, user_runtime_root_t;
+	')
+	domtrans_pattern({ podman_user_t podman_user_conmon_t }, tungsten_gvisor_exec_t, tungsten_gvisor_t)
+	# Podman and conmon wait for the runtime, signal it, and hand it pipes and sockets.
+	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:process { signal sigkill signull sigstop };
+	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:dir { getattr open read search };
+	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:file { getattr open read };
+	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:fd use;
+	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:fifo_file { append getattr ioctl read write };
+	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:unix_stream_socket { connectto getattr read write };
+	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:process sigchld;
+	# The shell of podman exec --tty (visorbox enter), a terminal opened by conmon.
+	term_use_generic_ptys(tungsten_gvisor_t)
+	# runsc starts itself again (gofer, sandbox) and its sidecars, in this domain, and the
+	# gofer bind-mounts runsc into the sandbox.
+	can_exec(tungsten_gvisor_t, tungsten_gvisor_exec_t)
+	allow tungsten_gvisor_t tungsten_gvisor_exec_t:file mounton;
+	# The KVM platform (runsc-podman picks it): the guest runs in /dev/kvm, so no stub
+	# processes, ptrace or executable memory (systrap needed all three and cannot run on
+	# this kernel, which seals system mappings).
+	dev_rw_kvm(tungsten_gvisor_t)
+	# The sandbox unmounts the host proc in its own mount namespace, so the Sentry cannot
+	# see host processes, and reads memory settings in /proc/sys/vm.
+	kernel_unmount_proc(tungsten_gvisor_t)
+	kernel_read_vm_sysctls(tungsten_gvisor_t)
+	allow tungsten_gvisor_t user_runtime_root_t:dir search;
+	# The project directory the container gets: the gofer mounts it and serves its files.
+	manage_dirs_pattern(tungsten_gvisor_t, tungsten_project_t, tungsten_project_t)
+	manage_files_pattern(tungsten_gvisor_t, tungsten_project_t, tungsten_project_t)
+	manage_lnk_files_pattern(tungsten_gvisor_t, tungsten_project_t, tungsten_project_t)
+	allow tungsten_gvisor_t tungsten_project_t:dir mounton;
+	allow tungsten_gvisor_t tungsten_project_t:file map;
+	userdom_search_user_home_dirs(tungsten_gvisor_t)
 ')
 
 # ~/Projects: the part of the home that containers may mount (gVisor, visorbox), with a type

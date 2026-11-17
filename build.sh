@@ -179,13 +179,16 @@ install -Dm644 "$PCR_PUB" "$WORKDIR"/etc/systemd/tpm2-pcr-public-key.pem
 # Development builds only (install/dev/build.sh --audit-all): the policy without its
 # dontaudit rules, so refusals the policy normally hides show up in the audit log.
 AUDIT_ALL=${TUNGSTEN_AUDIT_ALL:-0}
-if [ "$AUDIT_ALL" = 1 ] && [ "${UPDATE_URL:-}" != https://tungsten.invalid/ ]; then
-  echo "TUNGSTEN_AUDIT_ALL is for development builds only" >&2; exit 1
+# Development builds only (install/dev/build.sh --permissive=<domain>): domains whose
+# refusals are logged but not enforced, to collect a new domain's needs in one run.
+PERMISSIVE=${TUNGSTEN_PERMISSIVE:-}
+if { [ "$AUDIT_ALL" = 1 ] || [ -n "$PERMISSIVE" ]; } && [ "${UPDATE_URL:-}" != https://tungsten.invalid/ ]; then
+  echo "TUNGSTEN_AUDIT_ALL and TUNGSTEN_PERMISSIVE are for development builds only" >&2; exit 1
 fi
 phase "Configuration (chroot)"
-arch-chroot "$WORKDIR" /bin/bash -s "$POLICY" "$AUDIT_ALL" <<'CHROOT'
+arch-chroot "$WORKDIR" /bin/bash -s "$POLICY" "$AUDIT_ALL" "$PERMISSIVE" <<'CHROOT'
 set -euo pipefail
-POLICY=$1 AUDIT_ALL=$2
+POLICY=$1 AUDIT_ALL=$2 PERMISSIVE=$3
 
 # Users and groups declared by TungstenOS's own sysusers.d files (usbguard), copied in
 # after the packages: otherwise the first boot creates them and writes /etc/passwd or
@@ -234,6 +237,14 @@ if [ "$AUDIT_ALL" = 1 ]; then
   echo "Development build: dontaudit rules disabled" >&2
   semodule -n -s "$POLICY" -DB
 fi
+if [ -n "$PERMISSIVE" ]; then
+  for d in $PERMISSIVE; do
+    [[ $d =~ ^[a-z0-9_]+_t$ ]] || { echo "not a domain type: $d" >&2; exit 1; }
+    printf '(typepermissive %s)\n' "$d"
+  done > /root/tungsten-build/permissive.cil
+  echo "Development build: permissive domains: $PERMISSIVE" >&2
+  semodule -n -s "$POLICY" -X 300 -i /root/tungsten-build/permissive.cil
+fi
 # Local SELinux settings, imported in one transaction: every separate semanage call
 # rebuilds the whole binary policy (about 15 rebuilds before, one now).
 #
@@ -259,9 +270,6 @@ fi
 #   even look at (dontaudit). As /media, both are mnt_t (the session may list them,
 #   udisks may create and mount on them; tungsten-selinux.conf creates /run/media
 #   labeled at boot).
-# - gVisor: runsc, its sidecars and the wrapper Podman calls are OCI runtimes. conmon
-#   starts them back in the Podman domain (podman_user_t for rootless), as refpolicy does
-#   for crun. Files only: a directory of an executable type cannot even be searched.
 # - Podman's helpers in /usr/lib/podman run as programs: quadlet is the user manager's
 #   generator for ~/.config/containers/systemd, netavark and aardvark-dns set up container
 #   networks for Podman itself; as lib_t neither may run them.
@@ -287,9 +295,6 @@ fcontext -a -t bin_t /usr/lib/systemd/systemd-pcrlock
 fcontext -a -t bin_t /usr/bin/Xwayland
 fcontext -a -e /etc /var/lib/tungsten/etc/upper
 fcontext -a -e /media /run/media
-fcontext -a -f f -t container_engine_exec_t /usr/lib/gvisor/runsc
-fcontext -a -f f -t container_engine_exec_t /usr/lib/gvisor/runsc-podman
-fcontext -a -f f -t container_engine_exec_t '/usr/lib/gvisor/gvisor-bin/.*'
 fcontext -a -f f -t bin_t '/usr/lib/podman/[^/]+'
 boolean -m --on systemd_logind_get_bootloader
 boolean -m --on xserver_allow_dri

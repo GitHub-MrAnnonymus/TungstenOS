@@ -61,3 +61,7 @@ HOME_DIR/\.local/state/visorbox(/.*)?			gen_context(system_u:object_r:container_
 /usr/bin/tailscaled			--	gen_context(system_u:object_r:tailscaled_exec_t)
 /var/lib/tailscale(/.*)?				gen_context(system_u:object_r:tailscaled_var_lib_t)
 /var/cache/tailscale(/.*)?				gen_context(system_u:object_r:tailscaled_cache_t)
+# gVisor: runsc, its sidecars and the wrapper Podman calls (tungsten_gvisor_t).
+/usr/lib/gvisor/runsc			--	gen_context(system_u:object_r:tungsten_gvisor_exec_t)
+/usr/lib/gvisor/runsc-podman		--	gen_context(system_u:object_r:tungsten_gvisor_exec_t)
+/usr/lib/gvisor/gvisor-bin/.*		--	gen_context(system_u:object_r:tungsten_gvisor_exec_t)
