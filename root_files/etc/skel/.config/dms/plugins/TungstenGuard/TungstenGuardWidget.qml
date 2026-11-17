@@ -114,6 +114,18 @@ PluginComponent {
         osInstallProc.running = true;
     }
     readonly property int flatpakCount: status?.flatpaks ?? 0
+    // Updating Flatpaks now: starts the daily update (tungsten-flatpak-update.service; polkit
+    // and SELinux allow the session exactly that). systemctl start waits for the oneshot.
+    property bool flatpakUpdating: false
+    property string flatpakUpdateError: ""
+
+    function updateFlatpaks() {
+        if (flatpakUpdating)
+            return;
+        flatpakUpdating = true;
+        flatpakUpdateError = "";
+        flatpakUpdateProc.running = true;
+    }
     readonly property var firmware: status?.firmware ?? []
     // Warnings the user dismissed, by key; a key includes the state it was about, so a
     // different problem (a new dbx version, another Secure Boot state) warns again.
@@ -314,6 +326,25 @@ PluginComponent {
                 root.osInstallError = lines[lines.length - 1] || ("updatectl exited with " + exitCode);
                 root.notify("TungstenOS update failed", root.osInstallError, "critical");
             }
+        }
+    }
+
+    Process {
+        id: flatpakUpdateProc
+        command: ["systemctl", "start", "tungsten-flatpak-update.service"]
+        stderr: StdioCollector {
+            id: flatpakUpdateErr
+        }
+        onExited: exitCode => {
+            root.flatpakUpdating = false;
+            if (exitCode === 0) {
+                root.notify("Flatpak apps updated", "");
+            } else {
+                const lines = (flatpakUpdateErr.text || "").trim().split("\n");
+                root.flatpakUpdateError = lines[0] || ("systemctl exited with " + exitCode);
+                root.notify("Flatpak update failed", "journalctl -u tungsten-flatpak-update", "critical");
+            }
+            root.checkNow();   // the count from before the update is out of date
         }
     }
 
@@ -704,10 +735,23 @@ PluginComponent {
                     }
 
                     Tile {
-                        icon: root.flatpakCount > 0 ? "apps" : "check_circle"
-                        tint: root.flatpakCount > 0 ? Theme.primary : Theme.onSurfaceVariant
+                        id: flatpakTile
+                        readonly property bool pending: root.flatpakCount > 0 || root.flatpakUpdating
+                        icon: pending ? "apps" : "check_circle"
+                        tint: pending ? Theme.primary : Theme.onSurfaceVariant
+                        singleLineTitle: true
                         title: root.flatpakCount > 0 ? root.flatpakCount + " Flatpak updates" : "Flatpak apps are up to date"
-                        detail: root.flatpakCount > 0 ? "Installed automatically once a day" : ""
+                        detail: root.flatpakUpdating ? "Updating apps and runtimes…"
+                              : root.flatpakUpdateError ? "Update failed: " + root.flatpakUpdateError
+                              : root.flatpakCount > 0 ? "Installed automatically once a day" : ""
+
+                        DButton {
+                            visible: flatpakTile.pending
+                            enabled: !root.flatpakUpdating
+                            text: root.flatpakUpdating ? "Updating" : root.flatpakUpdateError ? "Retry" : "Update"
+                            iconName: root.flatpakUpdating ? "downloading" : "download"
+                            onClicked: root.updateFlatpaks()
+                        }
                     }
 
                     Tile {

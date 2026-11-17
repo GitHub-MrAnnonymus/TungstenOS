@@ -1645,6 +1645,10 @@ allow user_t tungsten_usb_lock_unit_t:service { start stop status };
 type tungsten_guard_check_unit_t;
 init_unit_file(tungsten_guard_check_unit_t)
 allow user_t tungsten_guard_check_unit_t:service { start status };
+# And the Flatpak update (Tungsten Guard's Update button): start and status only.
+type tungsten_flatpak_update_unit_t;
+init_unit_file(tungsten_flatpak_update_unit_t)
+allow user_t tungsten_flatpak_update_unit_t:service { start status };
 
 # tungsten-secureboot-update (init_t): appends signed updates to db/dbx in efivarfs and
 # toggles the immutable flag around the write (FS_IOC_SETFLAGS).
