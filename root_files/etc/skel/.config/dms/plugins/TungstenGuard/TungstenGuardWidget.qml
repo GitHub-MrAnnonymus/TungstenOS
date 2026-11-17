@@ -651,9 +651,8 @@ PluginComponent {
                         singleLineTitle: true
                         icon: root.osAvailable ? "system_update" : "check_circle"
                         tint: root.osAvailable ? Theme.primary : Theme.onSurfaceVariant
-                        title: (root.osInstalled ? "TungstenOS " + root.osInstalled + " installed"
-                             : root.osAvailable ? "TungstenOS " + root.osAvailable : "TungstenOS is up to date")
-                             + (root.status?.os?.channel === "experimental" ? " · experimental" : "")
+                        title: root.osInstalled ? "TungstenOS " + root.osInstalled + " installed"
+                             : root.osAvailable ? "TungstenOS " + root.osAvailable : "TungstenOS is up to date"
                         detail: root.osInstalling ? root.osProgress + " % · active after a reboot"
                               : root.osInstalled ? "Restart to use it · running " + (root.status?.os?.current || "unknown")
                               : root.osInstallError ? "Update failed: " + root.osInstallError
@@ -680,6 +679,16 @@ PluginComponent {
                             text: "Installing"
                             iconName: "downloading"
                         }
+                    }
+
+                    // tungsten-channel: which builds this machine updates to.
+                    Tile {
+                        readonly property bool experimental: root.status?.os?.channel === "experimental"
+                        icon: experimental ? "science" : "verified"
+                        tint: experimental ? Theme.warning : Theme.onSurfaceVariant
+                        title: "Release channel: " + (experimental ? "experimental" : "stable")
+                        detail: experimental ? "Every new build, before it is promoted to stable"
+                                             : "Builds promoted after testing"
                     }
 
                     Tile {
