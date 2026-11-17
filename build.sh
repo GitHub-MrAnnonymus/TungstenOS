@@ -196,7 +196,7 @@ ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 locale-gen
 
 systemctl enable \
-  greetd NetworkManager firewalld usbguard tungsten-usbguard-init dnscrypt-proxy ntpd-rs \
+  greetd NetworkManager bluetooth firewalld usbguard tungsten-usbguard-init dnscrypt-proxy ntpd-rs \
   systemd-homed systemd-homed-firstboot auditd power-profiles-daemon systemd-oomd \
   tungsten-relabel tungsten-clear-console tungsten-sysext-sysusers \
   tungsten-guard-check.timer tungsten-guard-execwatch fwupd-refresh.timer tungsten-secureboot-update tungsten-wifi-recover tungsten-wifi-watchdog tungsten-loader-conf tungsten-usb-lock-status tungsten-usb-lock-boot \

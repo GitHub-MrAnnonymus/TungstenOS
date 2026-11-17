@@ -19,7 +19,8 @@ BLOCKLISTS = [
     "root_files/usr/lib/modprobe.d/secureblue-framebuffer.conf",
     "root_files/etc/modprobe.d/blacklist.conf",
 ]
-# Modules blocked only in some images, or blocked from autoloading but loaded on demand.
+# Modules blocked only in some images (and the Bluetooth ones, which the vendored blocklist
+# names).
 KEEP_MODULES = {"bluetooth", "btusb", "btintel", "i915", "xe", "nouveau",
                 "thunderbolt", "thunderbolt_net", "thunderbolt_stream"}
 # Filesystems not worth building even though they are not in the blocklists.
