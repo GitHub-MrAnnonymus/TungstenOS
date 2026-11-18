@@ -1390,6 +1390,15 @@ optional_policy(`
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:lnk_file { getattr read };
 	# With a terminal (podman exec --tty), runsc opens the pseudo-terminal and passes its
 	# master side to conmon over the console socket.
+	# conmon signals the processes of a container (inside its user namespace) when it ends.
+	allow podman_user_conmon_t self:cap_userns kill;
+	# The user manager tracks the processes of its units (runsc runs in the session cgroups).
+	gen_require(`
+		type user_systemd_t;
+	')
+	allow user_systemd_t tungsten_gvisor_t:dir { getattr open read search };
+	allow user_systemd_t tungsten_gvisor_t:file { getattr open read };
+	allow user_systemd_t tungsten_gvisor_t:lnk_file { getattr read };
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:fd use;
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:unix_stream_socket { getattr read write };
 	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:fd use;
