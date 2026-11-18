@@ -1386,6 +1386,8 @@ optional_policy(`
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:process { signal sigkill signull sigstop };
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:dir { getattr open read search };
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:file { getattr open read };
+	# Podman binds the sandbox network namespace (/proc/<runsc>/ns/net) to /run/user/<uid>/netns.
+	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:lnk_file { getattr read };
 	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:fd use;
 	# runsc takes over the stdio pipes it gets and changes their owner (chown /dev/stdout,
 	# configuring stdios) before it starts the sandbox.
@@ -1399,10 +1401,15 @@ optional_policy(`
 		type devpts_t;
 	')
 	allow tungsten_gvisor_t devpts_t:chr_file setattr;
-	# runsc starts itself again (gofer, sandbox) and its sidecars, in this domain, and the
-	# gofer bind-mounts runsc into the sandbox.
+	# runsc starts itself again (gofer, sandbox) and its sidecars, in this domain, and
+	# bind-mounts runsc into the sandbox.
 	can_exec(tungsten_gvisor_t, tungsten_gvisor_exec_t)
 	allow tungsten_gvisor_t tungsten_gvisor_exec_t:file mounton;
+	# It also bind-mounts Podman init program (catatonit, /run/podman-init) into the container.
+	gen_require(`
+		type bin_t;
+	')
+	allow tungsten_gvisor_t bin_t:file mounton;
 	# The KVM platform (runsc-podman picks it): the guest runs in /dev/kvm, so no stub
 	# processes, ptrace or executable memory (systrap needed all three and cannot run on
 	# this kernel, which seals system mappings).
