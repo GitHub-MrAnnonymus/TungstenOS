@@ -1387,11 +1387,17 @@ optional_policy(`
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:dir { getattr open read search };
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:file { getattr open read };
 	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:fd use;
-	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:fifo_file { append getattr ioctl read write };
+	# runsc takes over the stdio pipes it gets and changes their owner (chown /dev/stdout,
+	# configuring stdios) before it starts the sandbox.
+	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:fifo_file { append getattr ioctl read setattr write };
 	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:unix_stream_socket { connectto getattr read write };
 	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:process sigchld;
 	# The shell of podman exec --tty (visorbox enter), a terminal opened by conmon.
 	term_use_generic_ptys(tungsten_gvisor_t)
+	gen_require(`
+		type devpts_t;
+	')
+	allow tungsten_gvisor_t devpts_t:chr_file setattr;
 	# runsc starts itself again (gofer, sandbox) and its sidecars, in this domain, and the
 	# gofer bind-mounts runsc into the sandbox.
 	can_exec(tungsten_gvisor_t, tungsten_gvisor_exec_t)
