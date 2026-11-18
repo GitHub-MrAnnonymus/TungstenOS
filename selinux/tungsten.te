@@ -1391,6 +1391,7 @@ optional_policy(`
 	# configuring stdios) before it starts the sandbox.
 	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:fifo_file { append getattr ioctl read setattr write };
 	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:unix_stream_socket { connectto getattr read write };
+	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:unix_dgram_socket { getattr read write };
 	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:process sigchld;
 	# The shell of podman exec --tty (visorbox enter), a terminal opened by conmon.
 	term_use_generic_ptys(tungsten_gvisor_t)
