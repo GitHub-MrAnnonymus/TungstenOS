@@ -1388,6 +1388,10 @@ optional_policy(`
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:file { getattr open read };
 	# Podman binds the sandbox network namespace (/proc/<runsc>/ns/net) to /run/user/<uid>/netns.
 	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:lnk_file { getattr read };
+	# With a terminal (podman exec --tty), runsc opens the pseudo-terminal and passes its
+	# master side to conmon over the console socket.
+	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:fd use;
+	allow { podman_user_t podman_user_conmon_t } tungsten_gvisor_t:unix_stream_socket { getattr read write };
 	allow tungsten_gvisor_t { podman_user_t podman_user_conmon_t }:fd use;
 	# runsc takes over the stdio pipes it gets and changes their owner (chown /dev/stdout,
 	# configuring stdios) before it starts the sandbox.
