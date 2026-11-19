@@ -678,10 +678,11 @@ CMDLINE=(
   kvm_amd.sev=1 kvm_amd.sev_es=1 kvm_amd.sev_snp=1 kvm-amd.nested=0 kvm-intel.nested=0
   kvm-intel.vmentry_l1d_flush=always
   # Misc
+  # Plymouth waits for the GPU driver (i915, xe or amdgpu from the initramfs, see the
+  # tungsten mkinitcpio hook) instead of starting on the firmware framebuffer: the driver
+  # taking over mid-splash and Plymouth moving to it each blanked the screen. Without such
+  # a driver it falls back to the firmware framebuffer after its device timeout.
   preempt=full loglevel=0 quiet splash
-  # Splash on the firmware framebuffer until a GPU driver takes over (the initramfs has
-  # i915, xe and amdgpu, see the tungsten mkinitcpio hook; others load after the switch)
-  plymouth.use-simpledrm
   # Plymouth shows the text log instead of the splash when a serial console is active;
   # virt-manager adds one (console=uart,... through SMBIOS for systemd-stub).
   plymouth.ignore-serial-consoles
