@@ -9,64 +9,88 @@ POLICY=/var/lib/systemd/pcrlock.json
 D=/var/lib/pcrlock.d
 ESP=$(bootctl --print-esp-path)
 
-mkdir -p "$D"/610-boot-loader-code.pcrlock.d "$D"/650-uki.pcrlock.d
-rm -f "$D"/610-boot-loader-code.pcrlock.d/*.pcrlock "$D"/650-uki.pcrlock.d/*.pcrlock
-rm -rf "$D"/660-uki.pcrlock.d   # from older versions
-rm -rf "$D"/655-addon-*.pcrlock.d "$D"/655-addon-*.pcrlock
+# Measuring the boot loader and the UKIs takes seconds, on the way to the login screen.
+# Skipped when nothing it measures changed since the last run: the boot loaders, UKIs and
+# add-ons (name without the boot counter, size, modification time), the confirmed and the
+# running version (boot-confirm).
+STAMP=$D/.tungsten-inputs
+fingerprint() {
+  local f
+  for f in "$ESP"/EFI/systemd/systemd-bootx64.efi "$ESP"/EFI/BOOT/BOOTX64.EFI \
+           /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed \
+           "$ESP"/EFI/Linux/tungsten*.efi "$ESP"/loader/addons/*.addon.efi \
+           "$ESP"/EFI/Linux/tungsten*.efi.extra.d/*.addon.efi; do
+    [ -f "$f" ] || continue
+    printf '%s %s\n' "$(stat -c '%s %Y' -- "$f")" "$(basename -- "$f" | sed 's/+[0-9]*-[0-9]*\.efi$/.efi/')"
+  done
+  cat /var/lib/tungsten/pcrlock-confirmed 2>/dev/null || :
+  # shellcheck disable=SC1091
+  (. /usr/lib/os-release; echo "${IMAGE_VERSION:-}")
+}
+fp=$(shopt -s nullglob; fingerprint | sha256sum | cut -d' ' -f1)
+if [ "$(cat "$STAMP" 2>/dev/null)" = "$fp" ] && compgen -G "$D/650-uki.pcrlock.d/*.pcrlock" >/dev/null; then
+  echo "boot loader, UKIs and add-ons unchanged since the last prediction"
+else
+  mkdir -p "$D"/610-boot-loader-code.pcrlock.d "$D"/650-uki.pcrlock.d
+  rm -f "$D"/610-boot-loader-code.pcrlock.d/*.pcrlock "$D"/650-uki.pcrlock.d/*.pcrlock
+  rm -rf "$D"/660-uki.pcrlock.d   # from older versions
+  rm -rf "$D"/655-addon-*.pcrlock.d "$D"/655-addon-*.pcrlock
 
-# A TPM policy allows at most 8 alternatives per PCR, so identical copies of the boot
-# loader are predicted once.
-n=0; seen=" "
-for loader in "$ESP"/EFI/systemd/systemd-bootx64.efi "$ESP"/EFI/BOOT/BOOTX64.EFI \
-              /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed; do
-  [ -f "$loader" ] || continue
-  sum=$(sha256sum "$loader" | cut -d' ' -f1)
-  case $seen in *" $sum "*) continue ;; esac
-  seen="$seen$sum "
-  "$PCRLOCK" lock-pe "$loader" --pcrlock="$D/610-boot-loader-code.pcrlock.d/loader-$((n++)).pcrlock"
-done
+  # A TPM policy allows at most 8 alternatives per PCR, so identical copies of the boot
+  # loader are predicted once.
+  n=0; seen=" "
+  for loader in "$ESP"/EFI/systemd/systemd-bootx64.efi "$ESP"/EFI/BOOT/BOOTX64.EFI \
+                /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed; do
+    [ -f "$loader" ] || continue
+    sum=$(sha256sum "$loader" | cut -d' ' -f1)
+    case $seen in *" $sum "*) continue ;; esac
+    seen="$seen$sum "
+    "$PCRLOCK" lock-pe "$loader" --pcrlock="$D/610-boot-loader-code.pcrlock.d/loader-$((n++)).pcrlock"
+  done
 
-shopt -s nullglob
-ukis=("$ESP"/EFI/Linux/tungsten*.efi)
-[ ${#ukis[@]} -gt 0 ] || { echo "no TungstenOS UKIs in $ESP/EFI/Linux" >&2; exit 1; }
-# Once a version is confirmed (boot-confirm: its desktop session ran on two boots), older
-# UKIs leave the policy: the previous A/B slot then needs the recovery key. The running one
-# always stays, also after a manual rollback to an older version.
-confirmed=$(cat /var/lib/tungsten/pcrlock-confirmed 2>/dev/null || true)
-# shellcheck disable=SC1091
-booted=$(. /usr/lib/os-release; echo "${IMAGE_VERSION:-}")
-for uki in "${ukis[@]}"; do
-  name=$(basename "$uki" .efi); name=${name%%+*}   # drop the boot-counting suffix
-  ver=${name#tungsten_}
-  if [[ $confirmed =~ ^[0-9]+$ && $ver =~ ^[0-9]+$ ]] && [ "$ver" != "$booted" ] &&
-     [ "$ver" -lt "$confirmed" ]; then
-    echo "leaving out $name: older than the confirmed version $confirmed"
-    continue
-  fi
-  # lock-uki records both the UKI's PE hash (PCR 4) and its sections (PCR 11); a
-  # separate lock-pe would count the PE hash twice. Numbered before the add-ons,
-  # which systemd-stub loads (and the firmware measures into PCR 4) after the UKI.
-  "$PCRLOCK" lock-uki "$uki" --pcrlock="$D/650-uki.pcrlock.d/$name.pcrlock"
-done
+  shopt -s nullglob
+  ukis=("$ESP"/EFI/Linux/tungsten*.efi)
+  [ ${#ukis[@]} -gt 0 ] || { echo "no TungstenOS UKIs in $ESP/EFI/Linux" >&2; exit 1; }
+  # Once a version is confirmed (boot-confirm: its desktop session ran on two boots), older
+  # UKIs leave the policy: the previous A/B slot then needs the recovery key. The running one
+  # always stays, also after a manual rollback to an older version.
+  confirmed=$(cat /var/lib/tungsten/pcrlock-confirmed 2>/dev/null || true)
+  # shellcheck disable=SC1091
+  booted=$(. /usr/lib/os-release; echo "${IMAGE_VERSION:-}")
+  for uki in "${ukis[@]}"; do
+    name=$(basename "$uki" .efi); name=${name%%+*}   # drop the boot-counting suffix
+    ver=${name#tungsten_}
+    if [[ $confirmed =~ ^[0-9]+$ && $ver =~ ^[0-9]+$ ]] && [ "$ver" != "$booted" ] &&
+       [ "$ver" -lt "$confirmed" ]; then
+      echo "leaving out $name: older than the confirmed version $confirmed"
+      continue
+    fi
+    # lock-uki records both the UKI's PE hash (PCR 4) and its sections (PCR 11); a
+    # separate lock-pe would count the PE hash twice. Numbered before the add-ons,
+    # which systemd-stub loads (and the firmware measures into PCR 4) after the UKI.
+    "$PCRLOCK" lock-uki "$uki" --pcrlock="$D/650-uki.pcrlock.d/$name.pcrlock"
+  done
 
-# UKI add-ons (PCR 4): systemd-stub loads the global ones (loader/addons) with every
-# UKI, in name order, then the UKI's own .extra.d ones. Global add-ons are required
-# components. A UKI's own add-ons are optional (an empty variant always matches),
-# because the other A/B UKI boots without them; making the global ones optional too
-# would double the alternatives for PCR 4 past the limit of 8.
-# pcrlock assigns a log record only to the first matching variant in name order, and
-# not at all once the empty variant came first: "present" must sort before "absent".
-n=0
-for addon in "$ESP"/loader/addons/*.addon.efi; do
-  "$PCRLOCK" lock-pe "$addon" \
-    --pcrlock="$D/655-addon-$(printf %02d $((n++)))-$(basename "$addon" .addon.efi).pcrlock"
-done
-for addon in "$ESP"/EFI/Linux/tungsten*.efi.extra.d/*.addon.efi; do
-  c="$D/655-addon-$(printf %02d $((n++)))-$(basename "$addon" .addon.efi).pcrlock.d"
-  mkdir -p "$c"
-  "$PCRLOCK" lock-pe "$addon" --pcrlock="$c/1-present.pcrlock"
-  echo '{"records":[]}' > "$c/2-absent.pcrlock"
-done
+  # UKI add-ons (PCR 4): systemd-stub loads the global ones (loader/addons) with every
+  # UKI, in name order, then the UKI's own .extra.d ones. Global add-ons are required
+  # components. A UKI's own add-ons are optional (an empty variant always matches),
+  # because the other A/B UKI boots without them; making the global ones optional too
+  # would double the alternatives for PCR 4 past the limit of 8.
+  # pcrlock assigns a log record only to the first matching variant in name order, and
+  # not at all once the empty variant came first: "present" must sort before "absent".
+  n=0
+  for addon in "$ESP"/loader/addons/*.addon.efi; do
+    "$PCRLOCK" lock-pe "$addon" \
+      --pcrlock="$D/655-addon-$(printf %02d $((n++)))-$(basename "$addon" .addon.efi).pcrlock"
+  done
+  for addon in "$ESP"/EFI/Linux/tungsten*.efi.extra.d/*.addon.efi; do
+    c="$D/655-addon-$(printf %02d $((n++)))-$(basename "$addon" .addon.efi).pcrlock.d"
+    mkdir -p "$c"
+    "$PCRLOCK" lock-pe "$addon" --pcrlock="$c/1-present.pcrlock"
+    echo '{"records":[]}' > "$c/2-absent.pcrlock"
+  done
+  mkdir -p "$D" && echo "$fp" > "$STAMP"
+fi
 
 if [ "${1:-}" = --make-policy ] && [ -e "$POLICY" ]; then
   "$PCRLOCK" make-policy --pcr="$PCRS" --policy="$POLICY"
