@@ -90,6 +90,11 @@ if [ "$tpm_tokens" != 0 ]; then
     fail "TPM lockout authorization is empty (run0 tungsten-tpm-enroll)"
   fi
 fi
+if [ -e "/var/log/journal/$(cat /etc/machine-id)/fss" ]; then
+  pass "Journal sealed (Forward Secure Sealing)"
+else
+  fail "Journal not sealed (run0 tungsten-log-seal setup)"
+fi
 exit "$exit_code"
 EOF
 )

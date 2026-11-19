@@ -1,0 +1,53 @@
+#!/bin/bash
+# Forward Secure Sealing for the system journal: journald seals what it has written every
+# few minutes with a key that then moves on, the earlier one forgotten. Someone who gets
+# into the machine later can still delete logs, but cannot change earlier entries without
+# the seals showing it. The logs stay readable as before; nothing is encrypted.
+#
+#   run0 tungsten-log-seal setup [--force]   creates the keys and shows the verification
+#                                            key once: keep it off this machine (on paper,
+#                                            in a password manager)
+#   run0 tungsten-log-seal verify            checks the journal against that key
+#        tungsten-log-seal status
+#
+# A factory reset (it clears /var) removes the sealing key: set it up again afterwards.
+set -euo pipefail
+INTERVAL=5min   # entries younger than this are not sealed yet
+key_file() { echo "/var/log/journal/$(cat /etc/machine-id)/fss"; }
+need_root() { [ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }; }
+
+case ${1:-} in
+  setup)
+    need_root
+    if [ -e "$(key_file)" ] && [ "${2:-}" != --force ]; then
+      echo "The journal is already sealed (since $(date -r "$(key_file)" '+%F %R'))." >&2
+      echo "tungsten-log-seal setup --force makes new keys: entries sealed until now stay" >&2
+      echo "verifiable only with the old verification key." >&2
+      exit 1
+    fi
+    echo "Write the verification key down now: it is shown only this once. Keep it off this"
+    echo "machine. Checking the journal later needs it (run0 tungsten-log-seal verify)."
+    echo
+    journalctl --setup-keys --interval="$INTERVAL" ${2:+--force}
+    # journald seals with the new key from its next start on.
+    systemctl restart systemd-journald.service
+    ;;
+  verify)
+    need_root
+    [ -e "$(key_file)" ] || { echo "The journal is not sealed (run0 tungsten-log-seal setup)." >&2; exit 1; }
+    read -rsp "Verification key: " key; echo
+    [ -n "$key" ] || exit 2
+    # Reports each journal file; a file that fails verification was changed after it was sealed.
+    if journalctl --verify --verify-key="$key"; then
+      echo "Journal intact: no sealed entry was changed."
+    else
+      echo "Verification failed: entries were changed after they were sealed, or the key is wrong." >&2
+      exit 1
+    fi
+    ;;
+  status)
+    if [ -e "$(key_file)" ]; then echo "Journal sealed since $(date -r "$(key_file)" '+%F %R'), every $INTERVAL"
+    else echo "Journal not sealed (run0 tungsten-log-seal setup)"; fi
+    ;;
+  *) sed -n '7,10p' "$0" | sed 's/^# *//' >&2; exit 2 ;;
+esac

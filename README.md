@@ -35,6 +35,7 @@ TungstenOS is an image-based, verified-boot desktop operating system built from 
 | Peripherals | USBGuard blocks unknown USB devices; IOMMU enforced; Thunderbolt and about 760 unused or risky kernel modules blocked |
 | Flatpak | Flathub limited to verified publishers (switchable); apps and runtimes updated daily |
 | Crash data | Crashes are logged with a backtrace; core dumps (process memory) are not stored |
+| Logs | The system journal can be sealed (Forward Secure Sealing, `run0 tungsten-log-seal setup`): changes to earlier entries show when it is checked with the verification key, which stays off the machine |
 | Network | firewalld with inbound traffic dropped by default, encrypted DNS (dnscrypt-proxy, which also blocks IPv6 (AAAA) lookups), authenticated time (NTS) |
 
 ## Image and extensions

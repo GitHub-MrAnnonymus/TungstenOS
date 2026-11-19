@@ -152,7 +152,10 @@ PluginComponent {
     readonly property string sbdbKey: "sbdb:" + sbdbPending.map(p => p.name).join(",")
     readonly property bool sbdbWarn: sbdbPending.length > 0 && !isDismissed(sbdbKey)
     // Problems that weaken the system itself (not just pending updates), unless dismissed.
-    readonly property bool hwProblem: sbWarn || diskWarn || verifyWarn || sbdbWarn
+    // Journal not sealed (tungsten-log-seal): a warning until set up or dismissed.
+    readonly property string logKey: "logseal:off"
+    readonly property bool logWarn: hw !== null && hw?.log_sealed === false && !isDismissed(logKey)
+    readonly property bool hwProblem: sbWarn || diskWarn || verifyWarn || sbdbWarn || logWarn
     readonly property var history: blocked.filter(e => e.time > clearedTime)
     // Blocked programs within the last day keep the shield on alert, until cleared.
     readonly property bool recentBlock: history.length > 0 && (Date.now() / 1000 - history[0].time) < 86400
@@ -984,6 +987,18 @@ PluginComponent {
                         detail: "dm-verity " + (root.hw?.verity ? "✓" : "✗")
                                 + " · IPE " + (root.hw?.ipe ? "✓" : "✗")
                                 + " · SELinux " + (root.hw?.selinux || "?")
+                    }
+
+                    Tile {
+                        visible: root.hw !== null && root.hw?.log_sealed !== undefined
+                        readonly property bool sealed: root.hw?.log_sealed ?? false
+                        warnKey: sealed ? "" : root.logKey
+                        warning: !sealed
+                        icon: sealed ? "history_edu" : "edit_note"
+                        tint: sealed ? Theme.primary : Theme.warning
+                        title: sealed ? "Logs sealed" : "Logs not sealed"
+                        detail: sealed ? "Changes to earlier entries would show (run0 tungsten-log-seal verify)"
+                                       : "Set up with: run0 tungsten-log-seal setup"
                     }
 
                     Tile {
