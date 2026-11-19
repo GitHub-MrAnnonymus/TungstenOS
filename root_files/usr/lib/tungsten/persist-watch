@@ -1,0 +1,111 @@
+#!/bin/bash
+# Watches the places where something can make itself start with every login or session,
+# the first thing an attacker who ran code as the user once would change:
+#   user units (~/.config/systemd/user), autostart and environment files, uwsm's env,
+#   shell start files, exec lines of the Hyprland configuration, Dux Shell plugins (QML the
+#   shell runs), Flatpak overrides (the user's and the system's), launcher entries.
+# Root keeps the baseline (/var/lib/tungsten/persist, unreadable for users), so code running
+# as the user cannot accept its own change; accepting asks for the administrator (run0).
+#
+#   persist-watch check                   every logged-in user: compare with the baseline and
+#                                         write the changes to /run/tungsten-guard/persist-<uid>.json
+#                                         (the first scan becomes the baseline)
+#   persist-watch accept <user> <path>|--all
+#
+# Run by guard-check (tungsten-guard-check.service) and tungsten-persist.
+set -uo pipefail
+STATE=${PERSIST_STATE:-/var/lib/tungsten/persist}   # overridable for tests
+OUT=${PERSIST_OUT:-/run/tungsten-guard}
+MAXDIFF=60   # diff lines per change shown in Tungsten Guard
+
+# The watched files of a home, NUL-separated: absolute paths.
+watched() {
+  local h=$1 f
+  find "$h/.config/systemd/user" "$h/.config/autostart" "$h/.config/environment.d" \
+       "$h/.config/uwsm" "$h/.config/hypr" "$h/.config/dms/plugins" \
+       "$h/.local/share/flatpak/overrides" "$h/.local/share/applications" \
+       /var/lib/flatpak/overrides \
+       -xdev \( -type f -o -type l \) -print0 2>/dev/null
+  for f in .bashrc .bash_profile .bash_login .profile .zshrc .zprofile .zshenv .zlogin; do
+    [ -e "$h/$f" ] || [ -L "$h/$f" ] && printf '%s\0' "$h/$f"
+  done
+}
+
+# What is compared of a file: a symlink's target; of the Hyprland configuration only the
+# exec lines (other edits are not startup entries); otherwise the whole content.
+content() {
+  local f=$1
+  if [ -L "$f" ]; then printf 'symlink to %s\n' "$(readlink -- "$f")"
+  else case $f in */.config/hypr/*) grep -i -- 'exec' "$f" || : ;; *) cat -- "$f" ;; esac
+  fi
+}
+
+# The name of a path in the baseline: relative to the home, or absolute outside it.
+key() { case $1 in "$2"/*) printf '%s' "${1#"$2"/}" ;; *) printf '%s' "$1" ;; esac; }
+path_of() { case $1 in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$2" "$1" ;; esac; }
+
+# snapshot <home> <dir>: copies what is compared of every watched file into <dir>.
+snapshot() {
+  local h=$1 d=$2 f k
+  rm -rf -- "$d"; mkdir -p -- "$d"
+  while IFS= read -r -d '' f; do
+    k=$(key "$f" "$h")
+    mkdir -p -- "$d/$(dirname -- "$k")"
+    content "$f" > "$d/$k" 2>/dev/null || :
+  done < <(watched "$h")
+}
+
+check_user() {
+  local u=$1 uid h base cur json
+  uid=$(id -u -- "$u") || return
+  h=$(getent passwd "$u" | cut -d: -f6)
+  [ -n "$h" ] && [ -d "$h/.config" ] || return   # a systemd-homed home is mounted only while in use
+  base=$STATE/$u/base cur=$STATE/$u/current
+  if [ ! -d "$base" ]; then snapshot "$h" "$base"; fi
+  snapshot "$h" "$cur"
+  json='[]'
+  while IFS= read -r line; do
+    local kind=${line%% *} k=${line#* } d
+    case $kind in
+      added) if [ -d "$cur/$k" ]; then d=$(cd "$cur/$k" && find . -type f | sed 's|^\./|new file: |' | head -n "$MAXDIFF")
+             else d=$(LC_ALL=C diff -u /dev/null "$cur/$k" | sed -n "3,$((MAXDIFF + 2))p"); fi ;;
+      removed) d="" ;;
+      changed) d=$(LC_ALL=C diff -u "$base/$k" "$cur/$k" | sed -n "3,$((MAXDIFF + 2))p") ;;
+    esac
+    json=$(jq -c --arg k "$kind" --arg p "$(path_of "$k" "$h")" --arg d "$d" '. + [{kind: $k, path: $p, diff: $d}]' <<<"$json")
+  done < <(LC_ALL=C diff -rq "$base" "$cur" 2>/dev/null | awk -v b="$base/" -v c="$cur/" '
+    / differ$/ { sub(/^Files /, ""); sub(/ and .*/, ""); sub("^" b, ""); print "changed " $0; next }
+    /^Only in / { sub(/^Only in /, ""); dir = $0; sub(/: .*/, "", dir); name = $0; sub(/^[^:]*: /, "", name)
+                  if (index(dir "/", b) == 1) { d = substr(dir "/", length(b) + 1); print "removed " d name }
+                  else { d = substr(dir "/", length(c) + 1); print "added " d name } }' | sort -k2)
+  local tmp
+  tmp=$(mktemp "$OUT/.persist.XXXXXX")
+  jq -n --argjson changes "$json" --arg checked "$(date -Iseconds)" '{checked: $checked, changes: $changes}' > "$tmp"
+  chmod 0600 "$tmp" && chown "$uid" "$tmp" && mv -f "$tmp" "$OUT/persist-$uid.json"
+}
+
+case ${1:-} in
+  check)
+    mkdir -p "$STATE" "$OUT" && chmod 0700 "$STATE"
+    for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{ print $2 }' | sort -u); do
+      [ "$(id -u -- "$u" 2>/dev/null || echo 0)" -ge 1000 ] || continue   # people, not the greeter
+      check_user "$u"
+    done ;;
+  accept)
+    u=${2:?user} what=${3:?path or --all}
+    [ -d "$STATE/$u/current" ] || { echo "no scan for $u yet" >&2; exit 1; }
+    h=$(getent passwd "$u" | cut -d: -f6)
+    snapshot "$h" "$STATE/$u/current"
+    if [ "$what" = --all ]; then
+      rm -rf -- "$STATE/$u/base" && cp -a -- "$STATE/$u/current" "$STATE/$u/base"
+    else
+      k=$(key "$what" "$h")
+      if [ -e "$STATE/$u/current/$k" ]; then
+        mkdir -p -- "$STATE/$u/base/$(dirname -- "$k")" && cp -a -- "$STATE/$u/current/$k" "$STATE/$u/base/$k"
+      else
+        rm -rf -- "$STATE/$u/base/$k"
+      fi
+    fi
+    check_user "$u" ;;
+  *) sed -n '10,13p' "$0" | sed 's/^# *//' >&2; exit 2 ;;
+esac

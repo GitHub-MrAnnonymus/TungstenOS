@@ -1729,6 +1729,16 @@ manage_files_pattern(init_t, tungsten_guard_runtime_t, tungsten_guard_runtime_t)
 allow init_t tungsten_guard_runtime_t:file { setattr };
 read_files_pattern(user_t, tungsten_guard_runtime_t, tungsten_guard_runtime_t)
 allow user_t tungsten_guard_runtime_t:dir { list_dir_perms watch };
+# The startup-entry watch (persist-watch, from guard-check) reads the places in the homes
+# of logged-in users where something can make itself start. Read only, and only the types
+# those places have: generic home files and the configuration and data directories, not
+# documents, downloads, projects or keys (their own types).
+gen_require(`
+	type user_home_dir_t, user_home_t, xdg_config_t, xdg_data_t, systemd_conf_home_t;
+')
+allow init_t { user_home_dir_t user_home_t xdg_config_t xdg_data_t systemd_conf_home_t }:dir { getattr open read search };
+allow init_t { user_home_t xdg_config_t xdg_data_t systemd_conf_home_t }:file { getattr open read };
+allow init_t { user_home_t xdg_config_t xdg_data_t systemd_conf_home_t }:lnk_file { getattr read };
 allow user_t tungsten_guard_runtime_t:file watch;
 # guard-execwatch reads the audit log with ausearch.
 logging_read_audit_log(init_t)

@@ -1,0 +1,22 @@
+#!/bin/bash
+# Startup entries (user units, autostart, shell start files, Hyprland exec lines, shell
+# plugins, Flatpak overrides, launcher entries) that changed since you last accepted them.
+# Tungsten Guard shows them too; see /usr/lib/tungsten/persist-watch.
+#
+#        tungsten-persist                      lists the changes, with what changed
+#   run0 tungsten-persist accept <path>|--all  accepts them (asks for the administrator, so
+#                                              code running as you cannot accept its own)
+set -euo pipefail
+case ${1:-status} in
+  status)
+    f=/run/tungsten-guard/persist-$(id -u).json
+    [ -r "$f" ] || { echo "Not checked yet (Tungsten Guard checks hourly, or press its refresh button)."; exit 0; }
+    jq -r 'if (.changes | length) == 0 then "No changed startup entries (checked \(.checked))."
+           else .changes[] | "\(.kind): \(.path)\n\(.diff | split("\n") | map("    " + .) | join("\n"))" end' "$f" ;;
+  accept)
+    [ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }
+    u=${SUDO_USER:-}
+    [ -n "$u" ] || { echo "run with run0 from your own account" >&2; exit 1; }
+    exec /usr/lib/tungsten/persist-watch accept "$u" "${2:?<path> or --all}" ;;
+  *) sed -n '6,8p' "$0" | sed 's/^# *//' >&2; exit 2 ;;
+esac

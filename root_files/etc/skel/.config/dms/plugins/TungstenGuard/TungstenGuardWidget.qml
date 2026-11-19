@@ -21,6 +21,38 @@ PluginComponent {
     property var status: null
     property var blocked: []          // newest first, at most 20
     property var usb: null            // /run/tungsten-guard/usb.json (usb-lock)
+    // Startup entries changed since accepted (/run/tungsten-guard/persist-<uid>.json, written
+    // by persist-watch as root); accepting asks for the administrator (run0 tungsten-persist).
+    property var persist: null
+    property string persistOpen: ""
+    readonly property var persistChanges: persist?.changes ?? []
+    readonly property bool persistWarn: persistChanges.length > 0
+
+    function homeRel(p) {
+        const home = Quickshell.env("HOME") || "";
+        return home && p.startsWith(home + "/") ? "~" + p.slice(home.length) : p;
+    }
+
+    function onPersist(text) {
+        try {
+            root.persist = JSON.parse(text);
+        } catch (e) {
+            return;
+        }
+        // Once per set of changes; security news, so also while the popout is open.
+        const key = root.persistChanges.map(c => c.kind + ":" + c.path + ":" + c.diff).join("\n");
+        if (root.persistChanges.length > 0 && key !== loadState("notifiedPersist", "")) {
+            saveState("notifiedPersist", key);
+            const n = root.persistChanges.length;
+            notify(n === 1 ? "A startup entry changed" : n + " startup entries changed",
+                   homeRel(root.persistChanges[0].path) + (n > 1 ? " and more" : "")
+                   + ". Review them in Tungsten Guard; accept only what you changed yourself.", "critical");
+        }
+    }
+
+    function persistAccept(path) {
+        Quickshell.execDetached(["run0", "tungsten-persist", "accept", path]);
+    }
     property bool usbAutolock: false  // ~/.config/tungsten/usb-autolock exists
     readonly property string autolockFile: Quickshell.env("HOME") + "/.config/tungsten/usb-autolock"
 
@@ -155,7 +187,7 @@ PluginComponent {
     // Journal not sealed (tungsten-log-seal): a warning until set up or dismissed.
     readonly property string logKey: "logseal:off"
     readonly property bool logWarn: hw !== null && hw?.log_sealed === false && !isDismissed(logKey)
-    readonly property bool hwProblem: sbWarn || diskWarn || verifyWarn || sbdbWarn || logWarn
+    readonly property bool hwProblem: sbWarn || diskWarn || verifyWarn || sbdbWarn || logWarn || persistWarn
     readonly property var history: blocked.filter(e => e.time > clearedTime)
     // Blocked programs within the last day keep the shield on alert, until cleared.
     readonly property bool recentBlock: history.length > 0 && (Date.now() / 1000 - history[0].time) < 86400
@@ -432,6 +464,14 @@ PluginComponent {
         printErrors: false
         onFileChanged: reload()
         onLoaded: root.onStatus(text())
+    }
+
+    FileView {
+        path: root.uid ? root.dir + "/persist-" + root.uid + ".json" : ""
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.onPersist(text())
     }
 
     FileView {
@@ -987,6 +1027,74 @@ PluginComponent {
                         detail: "dm-verity " + (root.hw?.verity ? "✓" : "✗")
                                 + " · IPE " + (root.hw?.ipe ? "✓" : "✗")
                                 + " · SELinux " + (root.hw?.selinux || "?")
+                    }
+
+                    Tile {
+                        id: persistTile
+                        visible: root.persist !== null
+                        readonly property int n: root.persistChanges.length
+                        warning: n > 0
+                        icon: n > 0 ? "rule" : "fact_check"
+                        tint: n > 0 ? Theme.warning : Theme.primary
+                        title: n > 0 ? (n === 1 ? "1 startup entry changed" : n + " startup entries changed")
+                                     : "Startup entries unchanged"
+                        detail: n > 0 ? "Accept only what you changed yourself (asks for the administrator)"
+                                      : "User units, autostart, shell files, Hyprland exec lines, plugins"
+
+                        DButton {
+                            visible: persistTile.n > 1
+                            text: "Accept all"
+                            onClicked: root.persistAccept("--all")
+                        }
+                    }
+
+                    Repeater {
+                        model: root.persistChanges
+                        delegate: Column {
+                            id: persistItem
+                            required property var modelData
+                            readonly property bool open: root.persistOpen === modelData.path
+                            width: parent.width
+                            spacing: 2
+
+                            Tile {
+                                icon: persistItem.modelData.kind === "added" ? "add_circle"
+                                    : persistItem.modelData.kind === "removed" ? "remove_circle" : "edit_note"
+                                tint: Theme.warning
+                                title: root.homeRel(persistItem.modelData.path)
+                                detail: persistItem.modelData.kind === "added" ? "New"
+                                      : persistItem.modelData.kind === "removed" ? "Removed" : "Changed"
+
+                                DIconButton {
+                                    visible: persistItem.modelData.diff !== ""
+                                    iconName: persistItem.open ? "visibility_off" : "visibility"
+                                    tooltipText: persistItem.open ? "Hide the changes" : "Show the changes"
+                                    onClicked: root.persistOpen = persistItem.open ? "" : persistItem.modelData.path
+                                }
+                                DIconButton {
+                                    iconName: "check"
+                                    tooltipText: "Accept (asks for the administrator)"
+                                    onClicked: root.persistAccept(persistItem.modelData.path)
+                                }
+                            }
+
+                            DCard {
+                                visible: persistItem.open
+                                width: parent.width
+                                height: persistDiff.implicitHeight + pad * 2
+                                restRadius: Theme.groupedListInnerRadius
+
+                                StyledText {
+                                    id: persistDiff
+                                    width: parent.width
+                                    textFormat: Text.RichText
+                                    wrapMode: Text.WrapAnywhere
+                                    font.family: Theme.monoFontFamily
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    text: root.diffHtml(persistItem.modelData.diff)
+                                }
+                            }
+                        }
                     }
 
                     Tile {
