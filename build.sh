@@ -679,7 +679,8 @@ CMDLINE=(
   kvm-intel.vmentry_l1d_flush=always
   # Misc
   preempt=full loglevel=0 quiet splash
-  # Splash on the firmware framebuffer: the initramfs has no GPU drivers (no kms hook)
+  # Splash on the firmware framebuffer until a GPU driver takes over (the initramfs has
+  # i915, xe and amdgpu, see mkinitcpio.conf; others load after the switch to the real system)
   plymouth.use-simpledrm
   # Plymouth shows the text log instead of the splash when a serial console is active;
   # virt-manager adds one (console=uart,... through SMBIOS for systemd-stub).
