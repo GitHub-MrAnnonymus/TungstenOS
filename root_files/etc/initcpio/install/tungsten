@@ -24,6 +24,16 @@ build() {
     add_symlink /etc/systemd/system/sysinit.target.wants/tungsten-selinux-required.service \
         /usr/lib/systemd/system/tungsten-selinux-required.service
 
+    # GPU drivers early: the graphics driver takes over the firmware framebuffer before the
+    # splash starts, instead of seconds into the real system, where the takeover and Plymouth
+    # moving to the new device each blanked the screen. Included (with their firmware), not
+    # loaded: udev loads the one whose hardware is there (MODULES= would load all of them on
+    # every machine, and amdgpu creates /dev/kfd even without an AMD GPU). Intel (i915, xe
+    # from Lunar Lake on) and AMD (amdgpu), which drive laptop panels with hybrid graphics
+    # too. Not nouveau (NVIDIA's large GSP firmware; NVIDIA systems use the extension's
+    # driver) or radeon (GPUs before ~2012).
+    map add_module i915 xe amdgpu
+
     # /etc overlay: image defaults below, local changes on the root partition above
     add_module overlay
     add_binary /usr/lib/tungsten/etc-overlay

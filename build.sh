@@ -680,7 +680,7 @@ CMDLINE=(
   # Misc
   preempt=full loglevel=0 quiet splash
   # Splash on the firmware framebuffer until a GPU driver takes over (the initramfs has
-  # i915, xe and amdgpu, see mkinitcpio.conf; others load after the switch to the real system)
+  # i915, xe and amdgpu, see the tungsten mkinitcpio hook; others load after the switch)
   plymouth.use-simpledrm
   # Plymouth shows the text log instead of the splash when a serial console is active;
   # virt-manager adds one (console=uart,... through SMBIOS for systemd-stub).
