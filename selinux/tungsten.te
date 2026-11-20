@@ -1845,3 +1845,12 @@ allow systemd_tmpfiles_t sysfs_t:file { getattr open write };
 allow sysadm_t self:bpf { map_create map_read map_write prog_load prog_run };
 allow sysadm_t self:capability2 { bpf perfmon };
 
+########################################
+# tungsten-drm-hold@.service: systemd opens the display GPU's render node as the service's
+# standard input; sleep (bin_t, still init_t) holds it, so the kernel console never covers
+# the screen between boot splash, login screen and session.
+
+gen_require(`
+	type init_t, dri_device_t;
+')
+allow init_t dri_device_t:chr_file { getattr open read };

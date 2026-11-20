@@ -1,0 +1,43 @@
+# When the last program closes a GPU, the kernel puts its console framebuffer (black) on the
+# screen. That happened between every two pictures: the boot splash ends (Plymouth exits,
+# keeping its last frame) before the login screen draws, the login screen's compositor exits
+# before the session's draws, and the session's before the login screen's. Holding the GPU's
+# render node open keeps the last frame on screen until the next compositor draws.
+# A render node allows no display control, so this cannot interfere with logind or the
+# compositors. Switching to a text console (Ctrl+Alt+F2...) still shows the console.
+# Started by 63-tungsten-drm-hold.rules for the GPU that shows the boot screen.
+[Unit]
+Description=Keep the display GPU open between boot splash, login screen and session (%i)
+DefaultDependencies=no
+BindsTo=dev-dri-%i.device
+After=dev-dri-%i.device
+Before=plymouth-quit.service greetd.service shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+ExecStart=/usr/bin/sleep infinity
+StandardInput=file:/dev/dri/%i
+StandardOutput=null
+DynamicUser=yes
+CapabilityBoundingSet=
+NoNewPrivileges=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=none
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources

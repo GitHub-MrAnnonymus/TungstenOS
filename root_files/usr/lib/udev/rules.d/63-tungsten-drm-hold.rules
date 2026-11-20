@@ -1,0 +1,3 @@
+# The render node of the GPU that shows the boot screen (boot_vga; on hybrid laptops the
+# integrated one driving the panel) is held open by tungsten-drm-hold@.service: see there.
+ACTION=="add", SUBSYSTEM=="drm", KERNEL=="renderD*", ATTRS{boot_vga}=="1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="tungsten-drm-hold@%k.service"
