@@ -690,10 +690,6 @@ CMDLINE=(
   # Plymouth shows the text log instead of the splash when a serial console is active;
   # virt-manager adds one (console=uart,... through SMBIOS for systemd-stub).
   plymouth.ignore-serial-consoles
-  # TEMPORARY (one experimental build, remove after reading the log): KMS debug output, to
-  # see why i915 programs the panel anew at takeover instead of keeping the firmware mode
-  # ("fastset requirement not met"); the log buffer must hold the whole boot.
-  drm.debug=0x04 log_buf_len=8M
 )
 cat "$BOOT"/*-ucode.img > /tmp/ucode.img
 ukify build \
