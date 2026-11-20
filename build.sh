@@ -703,6 +703,11 @@ CMDLINE=(
   # starting a sched_ext scheduler (scx_bpfland) crashes cerberus without a trace. Revert:
   # kernel logs should not stay in firmware memory.
   efi_pstore.pstore_disable=0
+  # TEMPORARY, same reason: the panic was linux-hardened's freed-memory check (mm/slub.c
+  # BUG_ON(memchr_inv) in kmalloc-64): something wrote to kernel memory after freeing it.
+  # Red zones, poisoning and owner tracking on those caches name who allocated and who freed
+  # the overwritten block. Revert together with the line above.
+  slub_debug=FZPU,kmalloc-64,kmalloc-cg-64
 )
 cat "$BOOT"/*-ucode.img > /tmp/ucode.img
 ukify build \
