@@ -24,8 +24,9 @@ tar -xzf "$work/src.tar.gz" -C "$work"
 applies=yes
 patch -d "$work/hyprland-source" -p1 --dry-run -s < 0001-keep-max-bpc.patch >/dev/null || applies=no
 
-# Arch's dependency lists against ours (a new library would otherwise be missing).
-arrays() { bash -c 'eval "$1"; printf "%s\n" "${depends[@]}" "--" "${makedepends[@]}"' _ "$1" | sed 's/ *#.*//' | sort; }
+# Arch's dependency lists against ours (a new library would otherwise be missing); ours
+# without CFI, whose compiler packages Arch's build does not need.
+arrays() { TUNGSTEN_CFI= bash -c 'eval "$1"; printf "%s\n" "${depends[@]}" "--" "${makedepends[@]}"' _ "$1" | sed 's/ *#.*//' | sort; }
 same_deps=yes
 [ "$(arrays "$up")" = "$(arrays "$(cat PKGBUILD)")" ] || same_deps=no
 

@@ -1,10 +1,14 @@
 # Arch Linux's hyprland package (its maintainers and contributors credited below), built
-# here with two changes, until upstream has the first (aquamarine #423):
+# here with three changes, until upstream has the first (aquamarine #423):
 # - 0001-keep-max-bpc.patch: the first commit after a previous DRM master does not lower
 #   "max bpc", which made i915 do a full modeset: the panel went dark for about a second
 #   when the login screen and the session started.
 # - -ftrivial-auto-var-init=zero: uninitialized stack variables are zeroed. The compositor
 #   parses the Wayland requests of every app, sandboxed Flatpaks too.
+# - Clang control-flow integrity (CFI, trap mode): an indirect or virtual call to anything
+#   but a function or class of the expected type stops Hyprland, so a memory corruption bug
+#   cannot easily be turned into running chosen code. Two diagnose runs on cerberus
+#   (2026-11-19/20); the second, with cfi-ignorelist.txt, reported nothing.
 # Only hyprland, not hyprpm: plugins are refused on TungstenOS. scripts/update/run.sh keeps
 # pkgver and the checksum in step with Arch.
 #
@@ -13,14 +17,11 @@
 # Contributor: Brenno Lemos <brenno@syndel.is>
 # Contributor: Gabriel Fox <inbox@gabrielfox.dev>
 
-# TEMPORARY: one experimental build with the CFI trial in diagnose mode, to test on cerberus
-# (the greeter and the session; failed checks go to the journal, Hyprland keeps running).
-# Revert after the test; do not promote this build to stable.
-: "${TUNGSTEN_CFI:=diagnose}"
+: "${TUNGSTEN_CFI=trap}"   # see below; TUNGSTEN_CFI= (empty) builds without CFI
 
 pkgname=hyprland
 pkgver=0.57.2
-pkgrel=1.3
+pkgrel=1.4
 pkgdesc='a highly customizable dynamic tiling Wayland compositor'
 arch=(x86_64)
 url="https://github.com/hyprwm/Hyprland"
@@ -89,11 +90,13 @@ sha256sums=('34dbec0738ab88c8228caf89385662688ab1601ea58fbe5c60a6b6ab383db46d'
             '64288e7f269b541f1a8741a4929509501a7a20676246b24a160d5bf977a1cd0c'
             'f703d4dba8205c4cebf1f7f62cde1af2904847502569786df8d7c2492bf7c277')
 
-# Clang CFI trial (.github/workflows/hyprland-cfi.yml), off in the normal build:
+# Clang CFI:
+#   TUNGSTEN_CFI=trap      a failed check stops Hyprland (the default, the hardened build)
 #   TUNGSTEN_CFI=diagnose  every failed check is printed (file:line, the types) and Hyprland
-#                          keeps running: for finding what still needs an exemption or a fix
-#   TUNGSTEN_CFI=trap      a failed check stops Hyprland: the hardened build, once a diagnose
-#                          run reports nothing
+#                          keeps running: after a Hyprland or library update that trips a
+#                          check, to find what needs an exemption or a fix
+#                          (.github/workflows/hyprland-cfi.yml builds it as an artifact)
+#   TUNGSTEN_CFI=          GCC build without CFI
 # Built with clang and ThinLTO (CFI needs LTO; Hyprland turns LTO off only to keep plugins
 # working, and plugins are refused here anyway).
 if [ -n "${TUNGSTEN_CFI:-}" ]; then
