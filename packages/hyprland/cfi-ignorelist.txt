@@ -1,0 +1,14 @@
+# Clang CFI exemptions for the Hyprland trial build (TUNGSTEN_CFI in the PKGBUILD).
+#
+# The virtual-call and cast checks assume, with -fvisibility=hidden, that every class with a
+# vtable is implemented inside the Hyprland binary. These libraries implement their own
+# interfaces in their .so files (aquamarine's DRM, Wayland and libinput backends behind
+# Aquamarine::IOutput, IBuffer, IPointer...), so calls into them would always fail the check.
+# Hyprland's own classes (windows, workspaces, protocol objects) stay checked.
+[cfi-vcall|cfi-nvcall|cfi-derived-cast|cfi-unrelated-cast]
+type:Aquamarine::*
+type:Hyprutils::*
+type:Hyprgraphics::*
+type:Hyprlang::*
+type:Hyprwire::*
+type:Hyprcursor::*

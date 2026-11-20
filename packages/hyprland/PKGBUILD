@@ -78,9 +78,22 @@ optdepends=('hyprshutdown: clean logout and shutdown helper'
 provides=(wayland-compositor)
 _archive="Hyprland-$pkgver"
 source=("$_archive.tar.gz::$url/releases/download/v$pkgver/source-v$pkgver.tar.gz"
-        0001-keep-max-bpc.patch)
+        0001-keep-max-bpc.patch
+        cfi-ignorelist.txt)
 sha256sums=('34dbec0738ab88c8228caf89385662688ab1601ea58fbe5c60a6b6ab383db46d'
-            '64288e7f269b541f1a8741a4929509501a7a20676246b24a160d5bf977a1cd0c')
+            '64288e7f269b541f1a8741a4929509501a7a20676246b24a160d5bf977a1cd0c'
+            '1b228ef1b68bed9e5cfe176890cf0466165713a2ac056e75db87965f44cf361b')
+
+# Clang CFI trial (.github/workflows/hyprland-cfi.yml), off in the normal build:
+#   TUNGSTEN_CFI=diagnose  every failed check is printed (file:line, the types) and Hyprland
+#                          keeps running: for finding what still needs an exemption or a fix
+#   TUNGSTEN_CFI=trap      a failed check stops Hyprland: the hardened build, once a diagnose
+#                          run reports nothing
+# Built with clang and ThinLTO (CFI needs LTO; Hyprland turns LTO off only to keep plugins
+# working, and plugins are refused here anyway).
+if [ -n "${TUNGSTEN_CFI:-}" ]; then
+	makedepends+=(clang lld llvm compiler-rt)
+fi
 
 prepare() {
 	ln -sf hyprland-source "$_archive"
@@ -88,12 +101,27 @@ prepare() {
 	sed -i -e '/^release:/{n;s/-D/-DCMAKE_SKIP_RPATH=ON -D/}' Makefile
 	sed -i -e '/find_package.glaze/s/7...<8 //' {.,hyprpm,start}/CMakeLists.txt
 	patch -Np1 -i "$srcdir/0001-keep-max-bpc.patch"
+	if [ -n "${TUNGSTEN_CFI:-}" ]; then
+		sed -i -e '/^add_compile_options(-fno-lto)$/d' CMakeLists.txt
+	fi
 }
 
 build() {
 	cd "$_archive"
 	export CFLAGS="$CFLAGS -ftrivial-auto-var-init=zero"
 	export CXXFLAGS="$CXXFLAGS -ftrivial-auto-var-init=zero"
+	if [ -n "${TUNGSTEN_CFI:-}" ]; then
+		local cfi="-flto=thin -fvisibility=hidden -fsanitize=cfi -fsanitize-ignorelist=$srcdir/cfi-ignorelist.txt"
+		case $TUNGSTEN_CFI in
+			diagnose) cfi+=" -fno-sanitize-trap=cfi -fsanitize-recover=cfi" ;;
+			trap) ;;
+			*) echo "TUNGSTEN_CFI must be diagnose or trap" >&2; return 1 ;;
+		esac
+		export CC=clang CXX=clang++
+		export CFLAGS="${CFLAGS//-flto=auto/} $cfi"
+		export CXXFLAGS="${CXXFLAGS//-flto=auto/} $cfi"
+		export LDFLAGS="${LDFLAGS//-flto=auto/} -fuse-ld=lld $cfi"
+	fi
 	make release PREFIX=/usr
 }
 
