@@ -1,0 +1,5 @@
+# I/O schedulers by device (as CachyOS): BFQ for spinning disks (fair under mixed load),
+# mq-deadline for SATA SSDs and SD cards (bounded latency). NVMe keeps "none": its own
+# queues schedule better than any software scheduler.
+ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
+ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"

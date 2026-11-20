@@ -1,0 +1,3 @@
+# Every user's Wine and Proton may use /dev/ntsync (ioctls on objects they create, nothing
+# shared between users); SELinux gives it its own type (tungsten_ntsync_device_t).
+KERNEL=="ntsync", MODE="0666"

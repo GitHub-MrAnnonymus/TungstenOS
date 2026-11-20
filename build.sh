@@ -84,6 +84,10 @@ PACKAGES=(
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
   power-profiles-daemon trivalent bazaar android-tools tailscale
+  # sched_ext CPU schedulers, to try by hand (run0 scx_bpfland); none runs by default. Those
+  # that read kernel memory from BPF (scx_lavd, scx_layered, scx_rusty) cannot load under
+  # lockdown=confidentiality.
+  scx-scheds
 
   # Dev containers: rootless Podman with gVisor as its only runtime (visorbox, runsc)
   podman passt fuse-overlayfs gvisor visorbox

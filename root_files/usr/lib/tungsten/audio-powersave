@@ -1,0 +1,8 @@
+#!/bin/sh
+# HD Audio power saving by power source (62-tungsten-audio-powersave.rules): 10 s idle on
+# battery, off on AC (no pop and no wake-up delay at the first sound).
+p=/sys/module/snd_hda_intel/parameters
+case $1 in
+  battery) echo 10 > $p/power_save; echo Y > $p/power_save_controller ;;
+  ac) echo 0 > $p/power_save; echo N > $p/power_save_controller ;;
+esac

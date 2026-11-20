@@ -1823,3 +1823,25 @@ gen_require(`
 ')
 allow bluetooth_t udev_runtime_t:dir { getattr open read search };
 allow bluetooth_t udev_runtime_t:file { getattr open read };
+
+########################################
+# Performance settings (see sysctl_params.conf, tungsten-thp.conf, the 6x-tungsten udev rules)
+
+# Wine and Proton use /dev/ntsync (NT synchronization primitives), natively and in Flatpak
+# (Steam); bwrap binds it into sandboxes that may see devices.
+type tungsten_ntsync_device_t;
+dev_node(tungsten_ntsync_device_t)
+allow { user_t tungsten_flatpak_t } tungsten_ntsync_device_t:chr_file { getattr ioctl open read write };
+allow user_bubblewrap_t tungsten_ntsync_device_t:chr_file getattr;
+
+# systemd-tmpfiles sets the transparent huge page settings in /sys/kernel/mm.
+gen_require(`
+	type systemd_tmpfiles_t, sysfs_t, sysadm_t;
+')
+allow systemd_tmpfiles_t sysfs_t:file { getattr open write };
+
+# sched_ext schedulers (scx-scheds, run by the administrator to try them: run0 scx_bpfland)
+# load BPF programs and maps and attach them as the CPU scheduler.
+allow sysadm_t self:bpf { map_create map_read map_write prog_load prog_run };
+allow sysadm_t self:capability2 { bpf perfmon };
+

@@ -1,0 +1,4 @@
+# Intel HD Audio powers down after a few idle seconds, which pops and delays the first sound:
+# on battery only (as CachyOS), not on AC.
+ACTION=="add|change", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_TYPE}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="0", TEST=="/sys/module/snd_hda_intel/parameters/power_save", RUN+="/usr/bin/sh /usr/lib/tungsten/audio-powersave battery"
+ACTION=="add|change", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_TYPE}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="1", TEST=="/sys/module/snd_hda_intel/parameters/power_save", RUN+="/usr/bin/sh /usr/lib/tungsten/audio-powersave ac"

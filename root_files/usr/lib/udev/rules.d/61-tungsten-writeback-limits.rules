@@ -1,0 +1,7 @@
+# Slow and removable disks may hold only a little unwritten data in the page cache (as
+# CachyOS): otherwise copying gigabytes to a USB stick fills memory with dirty pages,
+# stalls the system while they are written, and makes unmounting take minutes.
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", ATTR{removable}=="1", ATTR{bdi/strict_limit}="1", ATTR{bdi/max_bytes}="268435456"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{bdi/strict_limit}="1", ATTR{bdi/max_bytes}="268435456"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="mmcblk[0-9]*", ATTR{bdi/strict_limit}="1", ATTR{bdi/max_bytes}="268435456"
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", ENV{ID_BUS}=="usb", ATTR{bdi/strict_limit}="1", ATTR{bdi/max_bytes}="16777216"
