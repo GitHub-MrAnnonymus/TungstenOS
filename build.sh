@@ -698,10 +698,6 @@ CMDLINE=(
   # Plymouth shows the text log instead of the splash when a serial console is active;
   # virt-manager adds one (console=uart,... through SMBIOS for systemd-stub).
   plymouth.ignore-serial-consoles
-  # TEMPORARY: one experimental build with display power saving limited to DC5 (no DC6), to
-  # see whether leaving DC6 makes the Tiger Lake panel blink when display audio powers up
-  # power wells 2 and 3 (panel self refresh was not it: still blinked with enable_psr=0). Revert.
-  i915.enable_dc=1
 )
 cat "$BOOT"/*-ucode.img > /tmp/ucode.img
 ukify build \
