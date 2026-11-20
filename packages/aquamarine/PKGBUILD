@@ -1,0 +1,63 @@
+# Arch Linux's aquamarine package (its maintainer and contributor credited below), built
+# here with two changes:
+# - 0001-keep-crtc-on-exit.patch: when the compositor exits, its outputs stay on with the last
+#   frame instead of being switched off. Switching them off made i915 power-cycle the panel
+#   (dark for about a second) at every handover: login screen -> session, logout -> login screen.
+# - -ftrivial-auto-var-init=zero: uninitialized stack variables are zeroed (it parses the EDID
+#   of every monitor plugged in).
+# scripts/update/run.sh keeps pkgver and the checksum in step with Arch.
+#
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Aaron Blasko <blaskoazzolaaaron [at] gmail.com>
+
+pkgname=aquamarine
+pkgver=0.16.0
+pkgrel=1.1
+pkgdesc='a very light linux rendering backend library'
+arch=(x86_64)
+url="https://github.com/hyprwm/$pkgname"
+license=(BSD-3-Clause)
+depends=(libgcc
+         libstdc++
+         glibc # libc.so libm.so
+         hyprutils libhyprutils.so
+         libdisplay-info libdisplay-info.so
+         libdrm # libdrm.so
+         libglvnd libEGL.so
+         libinput # libinput.so
+         mesa # libgbm.so
+         opengl-driver
+         pixman
+         seatd libseat.so
+         systemd-libs libudev.so
+         wayland libwayland-client.so
+         wayland-protocols)
+makedepends=(cmake
+             hyprwayland-scanner)
+provides=("lib$pkgname.so")
+_archive="$pkgname-$pkgver"
+source=("$url/archive/v$pkgver/$_archive.tar.gz"
+        0001-keep-crtc-on-exit.patch)
+sha256sums=('42339c3096c9de6582c0d71bc86b7e63334a3faf6a2b917d385ad093caf66c3c'
+            '8b4c004e67dbf45fcd0e01beabd90fc45b643d688b0b93a077e5be98605e4f38')
+
+prepare() {
+	cd "$_archive"
+	patch -Np1 -i "$srcdir/0001-keep-crtc-on-exit.patch"
+}
+
+build() {
+	cd "$_archive"
+	export CFLAGS="$CFLAGS -ftrivial-auto-var-init=zero"
+	export CXXFLAGS="$CXXFLAGS -ftrivial-auto-var-init=zero"
+	cmake -B build \
+		-D CMAKE_INSTALL_PREFIX=/usr \
+		-D CMAKE_BUILD_TYPE=Release
+	cmake --build build
+}
+
+package() {
+	cd "$_archive"
+	DESTDIR="$pkgdir" cmake --install build
+	install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+}

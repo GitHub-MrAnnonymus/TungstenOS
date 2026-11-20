@@ -1,0 +1,34 @@
+--- a/src/backend/drm/DRM.cpp
++++ b/src/backend/drm/DRM.cpp
+@@ -380,13 +380,22 @@
+     return backends;
+ }
+ 
++// TungstenOS: true while a backend is destroyed, which is the compositor exiting: its
++// connectors are still plugged in, so disconnect() leaves the CRTCs on and only closes the
++// framebuffers (drmModeCloseFB keeps the last frame on screen). The next DRM master (the
++// session after the login screen, the login screen after logging out) then takes over with a
++// fastset; switching the CRTC off here made i915 power-cycle the panel twice per handover.
++static bool tungstenBackendTeardown = false;
++
+ Aquamarine::CDRMBackend::~CDRMBackend() {
+     stopCommitThread();
+ 
++    tungstenBackendTeardown = true;
+     for (auto& conn : connectors) {
+         conn->disconnect();
+         conn.reset();
+     }
++    tungstenBackendTeardown = false;
+ 
+     if (rendererState.allocator)
+         rendererState.allocator->destroyBuffers();
+@@ -2139,7 +2148,7 @@
+ 
+     // normal output commits reject disconnected connectors, so disable KMS
+     // directly before releasing the output and its framebuffer references.
+-    if (crtc && backend->backend->session && backend->backend->session->active && output->enabledState) {
++    if (crtc && !tungstenBackendTeardown && backend->backend->session && backend->backend->session->active && output->enabledState) {
+         const auto QUEUE_KEY = crtc->id;
+         if (backend->pauseCommitQueue(QUEUE_KEY)) {
+             CScopeGuard             resume([this, QUEUE_KEY] { backend->resumeCommitQueue(QUEUE_KEY); });

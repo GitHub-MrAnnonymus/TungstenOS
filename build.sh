@@ -120,6 +120,10 @@ pacman --config "$PACMAN_CONF" --root "$WORKDIR" -Sl tungsten | grep -c '^tungst
 # panel when the login screen and the session start (packages/hyprland).
 pacman --config "$PACMAN_CONF" --root "$WORKDIR" -Sl tungsten | grep -c '^tungsten hyprland .*\[installed' >/dev/null \
   || { echo "hyprland is not the patched [tungsten] build; update packages/hyprland" >&2; exit 1; }
+# And aquamarine (its DRM backend): Arch's switches the outputs off when the compositor exits,
+# so every handover between login screen and session power-cycled the panel (packages/aquamarine).
+pacman --config "$PACMAN_CONF" --root "$WORKDIR" -Sl tungsten | grep -c '^tungsten aquamarine .*\[installed' >/dev/null \
+  || { echo "aquamarine is not the patched [tungsten] build; update packages/aquamarine" >&2; exit 1; }
 
 # --- Configuration ---
 phase "Configuration"
