@@ -698,6 +698,11 @@ CMDLINE=(
   # Plymouth shows the text log instead of the splash when a serial console is active;
   # virt-manager adds one (console=uart,... through SMBIOS for systemd-stub).
   plymouth.ignore-serial-consoles
+  # TEMPORARY: one experimental build that keeps the kernel's panic log in EFI variables
+  # (pstore; systemd-pstore moves it to /var/lib/systemd/pstore at the next boot), to read why
+  # starting a sched_ext scheduler (scx_bpfland) crashes cerberus without a trace. Revert:
+  # kernel logs should not stay in firmware memory.
+  efi_pstore.pstore_disable=0
 )
 cat "$BOOT"/*-ucode.img > /tmp/ucode.img
 ukify build \
