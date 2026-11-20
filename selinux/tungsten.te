@@ -1117,6 +1117,15 @@ allow user_dbusd_t tungsten_flatpak_tmpfs_t:file { getattr map read write };
 # and temporary files (Steam passes each game's environment as a deleted file in /tmp,
 # steam-runtime-supervisor --edit-env-fd; the bus dropped it and closed the connection).
 allow user_dbusd_t user_tmp_t:file { append getattr ioctl read write };
+# and the files and folders picked in a file dialog: xdg-desktop-portal hands each one, open,
+# to the document portal (the app gets exactly that file); the bus dropped them, the portal
+# call failed with "The connection is closed" and LocalSend waited forever. The bus only
+# passes the descriptor on, it opens nothing itself.
+gen_require(`
+	attribute user_home_content_type;
+')
+allow user_dbusd_t user_home_content_type:file { append getattr ioctl read write };
+allow user_dbusd_t user_home_content_type:dir { getattr ioctl read search };
 # Started from a terminal or by the session: stdio pipes and inherited descriptors.
 allow tungsten_flatpak_t user_t:fifo_file { getattr ioctl read write };
 # Started as an app service (uwsm, UWSM_APP_UNIT_TYPE=service): stdin is /dev/null and
