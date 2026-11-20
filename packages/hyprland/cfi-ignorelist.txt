@@ -1,14 +1,48 @@
-# Clang CFI exemptions for the Hyprland trial build (TUNGSTEN_CFI in the PKGBUILD).
+# Clang CFI exemptions for the Hyprland trial build (TUNGSTEN_CFI in the PKGBUILD), from the
+# diagnose run on cerberus (2026-11-19). One section per check: newer clang reads section
+# names as globs, so "[a|b]" matched nothing.
 #
-# The virtual-call and cast checks assume, with -fvisibility=hidden, that every class with a
+# Virtual calls and casts: with -fvisibility=hidden the checks assume every class with a
 # vtable is implemented inside the Hyprland binary. These libraries implement their own
-# interfaces in their .so files (aquamarine's DRM, Wayland and libinput backends behind
-# Aquamarine::IOutput, IBuffer, IPointer...), so calls into them would always fail the check.
-# Hyprland's own classes (windows, workspaces, protocol objects) stay checked.
-[cfi-vcall|cfi-nvcall|cfi-derived-cast|cfi-unrelated-cast]
+# interfaces in their .so files (aquamarine's DRM, libinput and allocator classes behind
+# Aquamarine::IOutput, IPointer, IBuffer...), so every call into them failed. Hyprland's own
+# classes (windows, workspaces, protocol objects) stay checked.
+[cfi-vcall]
 type:Aquamarine::*
 type:Hyprutils::*
 type:Hyprgraphics::*
 type:Hyprlang::*
 type:Hyprwire::*
 type:Hyprcursor::*
+[cfi-nvcall]
+type:Aquamarine::*
+type:Hyprutils::*
+type:Hyprgraphics::*
+type:Hyprlang::*
+type:Hyprwire::*
+type:Hyprcursor::*
+[cfi-derived-cast]
+type:Aquamarine::*
+type:Hyprutils::*
+type:Hyprgraphics::*
+type:Hyprlang::*
+type:Hyprwire::*
+type:Hyprcursor::*
+[cfi-unrelated-cast]
+type:Aquamarine::*
+type:Hyprutils::*
+type:Hyprgraphics::*
+type:Hyprlang::*
+type:Hyprwire::*
+type:Hyprcursor::*
+# Indirect calls whose targets are in other libraries, which the check cannot know:
+# - the EGL and GL extension functions (eglCreateImageKHR, glEGLImageTargetTexture2DOES...),
+#   fetched with eglGetProcAddress from Mesa; these files call nothing else indirectly;
+# - hyprutils' smart pointers: the destroy function of an object created inside a library;
+# - std::function: callbacks created inside a library and called in Hyprland.
+[cfi-icall]
+src:*src/render/OpenGL.cpp
+src:*src/render/gl/GLTexture.cpp
+src:*src/render/gl/GLRenderbuffer.cpp
+src:*hyprutils/*ImplBase.hpp
+src:*bits/std_function.h
