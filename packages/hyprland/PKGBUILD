@@ -13,9 +13,14 @@
 # Contributor: Brenno Lemos <brenno@syndel.is>
 # Contributor: Gabriel Fox <inbox@gabrielfox.dev>
 
+# TEMPORARY: one experimental build with the CFI trial in diagnose mode, to test on cerberus
+# (the greeter and the session; failed checks go to the journal, Hyprland keeps running).
+# Revert after the test; do not promote this build to stable.
+: "${TUNGSTEN_CFI:=diagnose}"
+
 pkgname=hyprland
 pkgver=0.57.2
-pkgrel=1.1
+pkgrel=1.2
 pkgdesc='a highly customizable dynamic tiling Wayland compositor'
 arch=(x86_64)
 url="https://github.com/hyprwm/Hyprland"
