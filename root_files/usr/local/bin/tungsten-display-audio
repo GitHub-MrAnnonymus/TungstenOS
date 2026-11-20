@@ -1,0 +1,64 @@
+#!/bin/bash
+# Sound over HDMI and DisplayPort (to a monitor's or TV's speakers) comes from the GPU's
+# display audio. On some laptops (seen on Tiger Lake) the built-in screen blinks every time
+# it powers up: during the boot splash, when the login screen and each session start
+# PipeWire, and now and then later. This turns it off for this machine, or back on:
+#
+#   run0 tungsten-display-audio off       no HDMI/DP sound, no blinking (after a reboot)
+#   run0 tungsten-display-audio on        HDMI/DP sound again (the default; after a reboot)
+#   tungsten-display-audio status
+#
+# Laptop speakers, headphones, USB and Bluetooth audio are not affected. The choice is a
+# module option in /etc/modprobe.d (snd_hda_intel probe_mask: probe every sound codec except
+# the GPU's) and survives image updates.
+set -euo pipefail
+CONF=/etc/modprobe.d/tungsten-display-audio.conf
+usage() { sed -n '7,9p' "$0" | sed 's/^# *//' >&2; exit 2; }
+need_root() { [ "$EUID" -eq 0 ] || { echo "run with run0" >&2; exit 1; }; }
+
+# The PCI devices snd_hda_intel drives, in the order it probes them (bus order), which is
+# the order of its per-card options.
+controllers() {
+  local d
+  for d in /sys/bus/pci/drivers/snd_hda_intel/0000:*; do [ -e "$d" ] && basename "$d"; done | sort
+}
+
+# probe_mask for one controller: every codec on it except Intel display codecs (vendor 8086).
+mask_for() {   # pci-address
+  local card c v a mask=0 display=0
+  for card in /sys/bus/pci/devices/"$1"/sound/card*; do
+    [ -e "$card" ] || continue
+    c=${card##*card}
+    for v in /sys/bus/hdaudio/devices/hdaudioC"$c"D*/vendor_id; do
+      [ -e "$v" ] || continue
+      a=${v%/vendor_id}; a=${a##*D}
+      case $(cat "$v") in 0x8086*) display=1 ;; *) mask=$((mask | 1 << a)) ;; esac
+    done
+  done
+  # -1 (probe everything) where there is nothing to leave out, or nothing else would remain.
+  if [ $display = 1 ] && [ $mask -ne 0 ]; then printf '0x%x' $mask; else printf -- '-1'; fi
+}
+
+case ${1:-} in
+  off)
+    need_root
+    [ -e "$CONF" ] && { echo "HDMI/DP audio is already off (reboot if it still blinks)."; exit 0; }
+    masks=() changed=0
+    for p in $(controllers); do
+      m=$(mask_for "$p"); masks+=("$m"); [ "$m" = -1 ] || changed=1
+    done
+    [ $changed = 1 ] || { echo "No GPU display audio found next to other sound codecs; nothing changed." >&2; exit 1; }
+    printf '# tungsten-display-audio off: probe every sound codec except the GPU display audio\noptions snd_hda_intel probe_mask=%s\n' \
+      "$(IFS=,; echo "${masks[*]}")" > "$CONF"
+    echo "HDMI/DP audio is off from the next boot. Undo with: run0 tungsten-display-audio on"
+    ;;
+  on)
+    need_root
+    rm -f "$CONF"
+    echo "HDMI/DP audio is on again from the next boot."
+    ;;
+  status)
+    if [ -e "$CONF" ]; then echo "off ($(sed -n 's/^options //p' "$CONF"))"; else echo "on"; fi
+    ;;
+  *) usage ;;
+esac

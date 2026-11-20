@@ -230,6 +230,8 @@ Per-user (`--user`) Flatpak installations cannot run, because the root partition
 
 Flathub is limited to apps whose publisher Flathub has verified. `tungsten-unverified-flatpaks enable` lifts that for the whole system (it asks for an administrator password), and `disable` restores it; the choice survives image updates.
 
+On some laptops (seen on Tiger Lake) the built-in screen blinks whenever the GPU's display audio powers up: during the boot splash and when the login screen and each session start. `run0 tungsten-display-audio off` turns HDMI/DP audio off for that machine (from the next boot; laptop speakers, headphones, USB and Bluetooth audio keep working), `on` brings it back.
+
 New builds are published as pre-releases first, the experimental channel; once a build is verified, the "Promote image to stable" workflow marks it as the latest release, which machines update from by default. `run0 tungsten-channel experimental` switches a machine to every new build (a test machine), `run0 tungsten-channel stable` back; updates never go to an older version, so a machine leaving experimental keeps its version until stable has a newer one.
 
 A factory reset also removes installed extensions; enable them again with `updatectl enable --now <name>`.
