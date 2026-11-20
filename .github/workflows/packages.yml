@@ -61,7 +61,7 @@ jobs:
           # build.yml (PACKAGE_INPUTS) skips the image build for the same paths: keep them in step.
           has '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' && kernel=true
           has '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' && selinux=true
-          has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|ttf-manrope|gvisor|visorbox|oh-my-posh|fzf-tab|dux-files|dux-search)/' && misc=true
+          has '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|ttf-manrope|gvisor|visorbox|oh-my-posh|fzf-tab|dux-files|dux-search|hyprland)/' && misc=true
           groups="${{ github.event_name == 'workflow_dispatch' && inputs.groups || '' }}"
           if [ -n "$groups" ]; then
             # Explicit groups (from the Update workflow or a manual run) replace change detection.
@@ -186,6 +186,7 @@ jobs:
           (cd packages/fzf-tab && makepkg -s --noconfirm)
           (cd packages/dux-files && makepkg -s --noconfirm)
           (cd packages/dux-search && makepkg -s --noconfirm)
+          (cd packages/hyprland && makepkg -s --noconfirm)
           EOF
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -205,6 +206,7 @@ jobs:
             packages/fzf-tab/*.pkg.tar.zst
             packages/dux-files/*.pkg.tar.zst
             packages/dux-search/*.pkg.tar.zst
+            packages/hyprland/*.pkg.tar.zst
 
   publish:
     needs: [plan, kernel, selinux, misc]

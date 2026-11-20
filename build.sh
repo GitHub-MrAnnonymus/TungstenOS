@@ -116,6 +116,10 @@ arch-chroot "$WORKDIR" /bin/bash -c 'mkdir -p /usr/share/tungstenos && arch-repr
 # quickshell issue #947). Fail if a newer Arch release replaced it.
 pacman --config "$PACMAN_CONF" --root "$WORKDIR" -Sl tungsten | grep -c '^tungsten quickshell .*\[installed' >/dev/null \
   || { echo "quickshell is not the patched [tungsten] build; update packages/quickshell" >&2; exit 1; }
+# Hyprland too: Arch's lowers "max bpc" on its first commit, a full modeset that blanks the
+# panel when the login screen and the session start (packages/hyprland).
+pacman --config "$PACMAN_CONF" --root "$WORKDIR" -Sl tungsten | grep -c '^tungsten hyprland .*\[installed' >/dev/null \
+  || { echo "hyprland is not the patched [tungsten] build; update packages/hyprland" >&2; exit 1; }
 
 # --- Configuration ---
 phase "Configuration"

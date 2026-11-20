@@ -74,6 +74,7 @@ run oh-my-posh      scripts/update/git-tag.sh oh-my-posh https://github.com/JanD
 run fzf-tab         scripts/update/git-tag.sh fzf-tab https://github.com/Aloxaf/fzf-tab.git
 run dux-files       scripts/update/git-tag.sh dux-files https://github.com/duxlabs-dev/dux-files.git
 run dux-search      scripts/update/git-tag.sh dux-search https://github.com/duxlabs-dev/dux-search.git
+run hyprland        scripts/update/hyprland.sh
 run qt-rebuild      scripts/update/qt-rebuild.sh
 push_branch
 
@@ -84,7 +85,7 @@ changed=$(git diff --name-only "$START" HEAD)
 groups=()
 grep -qE '^kernel/(PKGBUILD|config\.(base|fragment|slim)|patches/|patch-overrides/)' <<<"$changed" && groups+=(kernel)
 grep -qE '^packages/(build-selinux\.sh|refpolicy-user-exec-content\.sh|archlinuxhardened\.asc|erofs-utils-selinux/)' <<<"$changed" && groups+=(selinux)
-grep -qE '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|gvisor|visorbox|oh-my-posh|fzf-tab|dux-files|dux-search)/' <<<"$changed" && groups+=(misc)
+grep -qE '^packages/(trivalent|hardened_malloc|greetd-dms-greeter|usbguard-notifier|quickshell|no_rlimit_as|qtengine|gvisor|visorbox|oh-my-posh|fzf-tab|dux-files|dux-search|hyprland)/' <<<"$changed" && groups+=(misc)
 echo "groups=${groups[*]}" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 
 if [ ${#failed[@]} -gt 0 ]; then
