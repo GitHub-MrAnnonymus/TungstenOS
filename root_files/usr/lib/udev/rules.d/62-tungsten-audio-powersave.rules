@@ -1,4 +1,7 @@
-# Intel HD Audio powers down after a few idle seconds, which pops and delays the first sound:
-# on battery only (as CachyOS), not on AC.
+# Intel HD Audio powers down after a few idle seconds, which pops, delays the first sound and
+# (Tiger Lake) blinks the panel when it powers up again: on battery only (as CachyOS), not
+# on AC. Applied when the power source changes and when the sound driver loads (it loads
+# after udev has seen the power supplies at boot).
 ACTION=="add|change", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_TYPE}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="0", TEST=="/sys/module/snd_hda_intel/parameters/power_save", RUN+="/usr/bin/sh /usr/lib/tungsten/audio-powersave battery"
 ACTION=="add|change", SUBSYSTEM=="power_supply", ENV{POWER_SUPPLY_TYPE}=="Mains", ENV{POWER_SUPPLY_ONLINE}=="1", TEST=="/sys/module/snd_hda_intel/parameters/power_save", RUN+="/usr/bin/sh /usr/lib/tungsten/audio-powersave ac"
+ACTION=="add", SUBSYSTEM=="module", KERNEL=="snd_hda_intel", RUN+="/usr/bin/sh /usr/lib/tungsten/audio-powersave auto"

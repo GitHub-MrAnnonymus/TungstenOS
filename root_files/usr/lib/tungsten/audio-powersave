@@ -1,8 +1,18 @@
 #!/bin/sh
 # HD Audio power saving by power source (62-tungsten-audio-powersave.rules): 10 s idle on
-# battery, off on AC (no pop and no wake-up delay at the first sound).
+# battery, off on AC. Every time the sound chip powers up again, it also powers the GPU's
+# display audio, and on Tiger Lake that blinks the panel for a moment; on AC it stays on.
+#   audio-powersave battery|ac|auto      (auto: from the current power source)
 p=/sys/module/snd_hda_intel/parameters
-case $1 in
+[ -e $p/power_save ] || exit 0
+mode=$1
+if [ "$mode" = auto ]; then
+  mode=battery
+  for s in /sys/class/power_supply/*; do
+    [ "$(cat "$s/type" 2>/dev/null)" = Mains ] && [ "$(cat "$s/online" 2>/dev/null)" = 1 ] && mode=ac
+  done
+fi
+case $mode in
   battery) echo 10 > $p/power_save; echo Y > $p/power_save_controller ;;
   ac) echo 0 > $p/power_save; echo N > $p/power_save_controller ;;
 esac
