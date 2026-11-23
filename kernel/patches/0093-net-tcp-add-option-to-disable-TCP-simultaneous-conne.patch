@@ -34,7 +34,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  5 files changed, 53 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/networking/ip-sysctl.rst b/Documentation/networking/ip-sysctl.rst
-index f7af028..6897b93 100644
+index 66a54c5..2430516 100644
 --- a/Documentation/networking/ip-sysctl.rst
 +++ b/Documentation/networking/ip-sysctl.rst
 @@ -929,6 +929,24 @@ tcp_backlog_ack_defer - BOOLEAN
@@ -106,10 +106,10 @@ index 0f4cfea..3e02378 100644
 +
 +	  If unsure, say N.
 diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index e921cb3..0d58f66 100644
+index bf193e7..7db2683 100644
 --- a/net/ipv4/sysctl_net_ipv4.c
 +++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -624,6 +624,15 @@ static struct ctl_table ipv4_table[] = {
+@@ -625,6 +625,15 @@ static struct ctl_table ipv4_table[] = {
  		.extra1		= &sysctl_fib_sync_mem_min,
  		.extra2		= &sysctl_fib_sync_mem_max,
  	},
@@ -124,9 +124,9 @@ index e921cb3..0d58f66 100644
 +	},
  };
  
- static struct ctl_table ipv4_net_table[] = {
+ static const struct ctl_table ipv4_net_table[] = {
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 99baf14..b632f84 100644
+index 3583867..b1ae03f 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -85,6 +85,7 @@
