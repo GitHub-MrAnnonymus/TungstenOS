@@ -32,7 +32,7 @@ index 60ea761..cb5ed42 100644
  ifdef CONFIG_USB_ONBOARD_DEV
  usbcore-y			+= ../misc/onboard_usb_dev_pdevs.o
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index 13f8adf..fefa2d7 100644
+index 11185c4..25d1910 100644
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c
 @@ -5405,9 +5405,6 @@ static int descriptors_changed(struct usb_device *udev,
@@ -150,7 +150,7 @@ index f2a0543..12c707a 100644
  #endif  /* __KERNEL__ */
  
 diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 685f64f..549c3c8 100644
+index 9f26e57..d9af00d 100644
 --- a/kernel/sysctl.c
 +++ b/kernel/sysctl.c
 @@ -25,9 +25,6 @@
@@ -163,7 +163,7 @@ index 685f64f..549c3c8 100644
  
  /* shared constants to be used in various sysctls */
  const int sysctl_vals[] = { 0, 1, 2, 3, 4, 100, 200, 1000, 3000, INT_MAX, 65535, -1 };
-@@ -1435,17 +1432,6 @@ static const struct ctl_table sysctl_subsys_table[] = {
+@@ -1461,17 +1458,6 @@ static const struct ctl_table sysctl_subsys_table[] = {
  		.extra1		= SYSCTL_NEG_ONE,
  		.extra2		= SYSCTL_ONE,
  	},

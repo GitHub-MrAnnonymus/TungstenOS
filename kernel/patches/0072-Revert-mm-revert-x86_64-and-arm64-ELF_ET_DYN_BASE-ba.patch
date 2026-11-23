@@ -32,7 +32,7 @@ index d2779d6..c2fcacc 100644
  #ifndef __ASSEMBLER__
  
 diff --git a/arch/x86/include/asm/elf.h b/arch/x86/include/asm/elf.h
-index 0de9df7..e478de9 100644
+index 4133c79..c210511 100644
 --- a/arch/x86/include/asm/elf.h
 +++ b/arch/x86/include/asm/elf.h
 @@ -227,11 +227,11 @@ extern int force_personality32;
