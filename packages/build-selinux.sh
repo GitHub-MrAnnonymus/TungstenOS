@@ -57,11 +57,28 @@ PKGS=(
   dbus-broker-selinux selinux-refpolicy-arch
 )
 
+# With $PUBLISHED (the repo release's file names, from CI): a package whose files are all
+# published is not built again. Its published copy is installed instead, for the packages
+# built after it. Without it (a local run), everything is built.
+already_published() {
+  [ -n "${PUBLISHED:-}" ] || return 1
+  local files f dl
+  mapfile -t files < <(makepkg --packagelist | grep -v -- '-debug-')
+  for f in "${files[@]}"; do grep -qxF "${f##*/}" "$PUBLISHED" || return 1; done
+  echo "$pkg: this version is published, installing it instead of building"
+  dl=$(mktemp -d)
+  for f in "${files[@]}"; do
+    gh release download packages --repo "$GITHUB_REPOSITORY" --dir "$dl" --pattern "${f##*/}"
+  done
+  sudo pacman -U --noconfirm --ask=4 "$dl"/*.pkg.tar.zst
+}
+
 for pkg in "${PKGS[@]}"; do
   echo "::group::$pkg"
   (
     cd "$SRC/$pkg"
     rm -f ./*.pkg.tar.zst
+    [ "$pkg" = selinux-refpolicy-arch ] || ! already_published || exit 0
     # Test suites are skipped: the same sources are tested by Arch and upstream,
     # and running them all exceeds the 6 h CI job limit.
     extra=(--nocheck)
@@ -70,7 +87,12 @@ for pkg in "${PKGS[@]}"; do
     if [ "$pkg" = selinux-refpolicy-arch ]; then
       printf '\nprepare() { cd "${srcdir}/${_reponame}" && bash %q; }\n' \
         "$HERE/refpolicy-user-exec-content.sh" >> PKGBUILD
+      # Our change to the policy gets its own revision: upstream's version alone would
+      # keep the published package (the repo never replaces a published file).
+      rel=$(sed -n 's/^# tungsten-rel: //p' "$HERE/refpolicy-user-exec-content.sh")
+      sed -i "s/^pkgrel=\(.*\)/pkgrel=\1.$rel/" PKGBUILD
     fi
+    already_published && exit 0
     # Download and verify sources with retries, then build without re-fetching.
     for attempt in 1 2 3 4 5; do
       makepkg --verifysource --noconfirm && break
@@ -89,6 +111,8 @@ done
 # Needs libselinux from above.
 (
   cd "$HERE/erofs-utils-selinux"
+  pkg=erofs-utils-selinux
+  already_published && exit 0
   makepkg -s -C -f --noconfirm
   mv ./*.pkg.tar.zst "$OUT/"
 )

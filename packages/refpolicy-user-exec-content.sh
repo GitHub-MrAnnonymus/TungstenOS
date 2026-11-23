@@ -2,6 +2,9 @@
 # Adds a user_exec_content tunable (default off, as in Fedora's policy) around
 # the rules that let confined users execute files in their home and /tmp.
 # Run from the refpolicy source root.
+# The package version gets this revision appended to its pkgrel (build-selinux.sh):
+# raise it with every change here, or the repo keeps the published package.
+# tungsten-rel: 1
 set -euo pipefail
 if='policy/modules/system/userdomain.if'
 te='policy/modules/system/userdomain.te'
