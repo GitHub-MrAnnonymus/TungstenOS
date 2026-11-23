@@ -1852,11 +1852,6 @@ gen_require(`
 ')
 allow systemd_tmpfiles_t sysfs_t:file { getattr open write };
 
-# sched_ext schedulers (scx-scheds, run by the administrator to try them: run0 scx_bpfland)
-# load BPF programs and maps and attach them as the CPU scheduler.
-allow sysadm_t self:bpf { map_create map_read map_write prog_load prog_run };
-allow sysadm_t self:capability2 { bpf perfmon };
-
 ########################################
 # tungsten-drm-hold@.service: systemd opens the display GPU's render node as the service's
 # standard input; sleep (bin_t, still init_t) holds it, so the kernel console never covers

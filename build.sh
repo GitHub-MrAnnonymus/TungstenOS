@@ -84,10 +84,6 @@ PACKAGES=(
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
   power-profiles-daemon trivalent bazaar android-tools tailscale
-  # sched_ext CPU schedulers, to try by hand (run0 scx_bpfland); none runs by default. Those
-  # that read kernel memory from BPF (scx_lavd, scx_layered, scx_rusty) cannot load under
-  # lockdown=confidentiality.
-  scx-scheds
 
   # Dev containers: rootless Podman with gVisor as its only runtime (visorbox, runsc)
   podman passt fuse-overlayfs gvisor visorbox
@@ -698,16 +694,6 @@ CMDLINE=(
   # Plymouth shows the text log instead of the splash when a serial console is active;
   # virt-manager adds one (console=uart,... through SMBIOS for systemd-stub).
   plymouth.ignore-serial-consoles
-  # TEMPORARY: one experimental build that keeps the kernel's panic log in EFI variables
-  # (pstore; systemd-pstore moves it to /var/lib/systemd/pstore at the next boot), to read why
-  # starting a sched_ext scheduler (scx_bpfland) crashes cerberus without a trace. Revert:
-  # kernel logs should not stay in firmware memory.
-  efi_pstore.pstore_disable=0
-  # TEMPORARY, same reason: the panic was linux-hardened's freed-memory check (mm/slub.c
-  # BUG_ON(memchr_inv) in kmalloc-64): something wrote to kernel memory after freeing it.
-  # Red zones, poisoning and owner tracking on those caches name who allocated and who freed
-  # the overwritten block. Revert together with the line above.
-  slub_debug=FZPU,kmalloc-64,kmalloc-cg-64
 )
 cat "$BOOT"/*-ucode.img > /tmp/ucode.img
 ukify build \
