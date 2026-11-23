@@ -13,8 +13,9 @@ cur_tag=$(sed -n '1s/^# linux-hardened \(v[^ ]*\) .*/\1/p' patches/series)
 # Only within the series Arch's linux-hardened ships: config.base comes from it, and a
 # newer series built from an older config filled every new option with its default (7.3.1
 # left a laptop with a black screen). A new series waits until Arch has it.
-arch=$(curl -fsSL 'https://archlinux.org/packages/search/json/?name=linux-hardened&repo=Extra' |
-  jq -r '.results[] | select(.arch == "x86_64") | .pkgver' | head -n1)
+archrel=$(curl -fsSL 'https://archlinux.org/packages/search/json/?name=linux-hardened&repo=Extra' |
+  jq -r '.results[] | select(.arch == "x86_64") | "\(.pkgver)-\(.pkgrel)"' | head -n1)
+arch=${archrel%-*}
 series=$(sed -nE 's/^([0-9]+\.[0-9]+).*/\1/p' <<<"$arch")
 [ -n "$series" ] || { echo "linux-hardened not found in [extra]" >&2; exit 1; }
 latest=$(git ls-remote --tags --refs https://github.com/anthraxx/linux-hardened \
@@ -41,7 +42,17 @@ if [ "$before" != "$after" ]; then
   note "linux-hardened patch set changed:"
   diff <(echo "$before") <(echo "$after") | sed -n 's/^[<>]/   &/p' >> "$REPORT" || :
 fi
-[ "${old_ver%.*}" = "${kver%.*}" ] || note "new kernel series ${old_ver%.*} -> ${kver%.*}: refresh config.base from Arch's linux-hardened"
+# A new series: config.base becomes Arch's config for it (taken unchanged, as before), and
+# the PKGBUILD pins its checksum. Still a pull request: new options deserve a look.
+if [ "${old_ver%.*}" != "${kver%.*}" ]; then
+  oldsum=$(sha256sum config.base | cut -d' ' -f1)
+  curl -fsSL -o config.base.new \
+    "https://gitlab.archlinux.org/archlinux/packaging/packages/linux-hardened/-/raw/$archrel/config.x86_64"
+  grep -q "^# Linux/x86 ${kver%.*}" config.base.new || { rm -f config.base.new; echo "Arch's config is not for ${kver%.*}" >&2; exit 1; }
+  mv config.base.new config.base
+  sed -i "s/'$oldsum'/'$(sha256sum config.base | cut -d' ' -f1)'/" PKGBUILD
+  note "new kernel series ${old_ver%.*} -> ${kver%.*}: config.base is now Arch's $archrel config (new options: $(comm -13 <(git show HEAD:kernel/config.base | grep -oE '^CONFIG_[A-Z0-9_]+' | sort) <(grep -oE '^CONFIG_[A-Z0-9_]+' config.base | sort) | wc -l))"
+fi
 
 # Verify the tarball against kernel.org's signing keys before pinning its checksum.
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/tungstenos"; mkdir -p "$CACHE"
