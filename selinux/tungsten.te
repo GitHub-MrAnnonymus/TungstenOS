@@ -1337,8 +1337,8 @@ optional_policy(`
 	# user namespace, into a scope of its own ("Sender is not authorized to send message").
 	allow podman_user_t user_systemd_t:dbus send_msg;
 	allow user_systemd_t podman_user_t:dbus send_msg;
-	# and systemd's own check on the method: StartTransientUnit for that scope, and the
-	# job's status ("Failed to add pause process to systemd sandbox cgroup").
+	# and the check systemd itself makes on the method: StartTransientUnit for that scope, and the
+	# status of the job ("Failed to add pause process to systemd sandbox cgroup").
 	allow podman_user_t user_systemd_t:system { start status };
 	# podman exec --tty (visorbox enter): conmon opens a pseudo-terminal (/dev/ptmx) for the
 	# shell and passes it to runsc; conmon died before reporting anything without it.
