@@ -1,0 +1,10 @@
+# System jobs that can wait (Flatpak updates, image updates, the integrity check): under CPU
+# contention they get a fifth of what the desktop and services get, and all of it otherwise.
+# A sibling of system.slice and user.slice: a low weight inside system.slice would still
+# leave system.slice half of the CPU against the session.
+[Unit]
+Description=TungstenOS background jobs
+Before=slices.target
+
+[Slice]
+CPUWeight=20

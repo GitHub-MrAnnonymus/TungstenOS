@@ -657,10 +657,11 @@ arch-chroot "$WORKDIR" mkinitcpio -p linux-tungsten
 phase "UKI"
 BOOT="$WORKDIR"/boot
 CMDLINE=(
-  # Boot: verified /usr, encrypted writable root
+  # Boot: verified /usr, encrypted writable root (lazytime: access and change times are
+  # kept in memory and written with other updates, not as a write of their own each time)
   usrhash="$VERITY_HASH" systemd.verity_usr_options=panic-on-corruption
   mount.usrfstype=erofs mount.usrflags=ro
-  root=/dev/mapper/root rootfstype=ext4 rootflags=nosuid,nodev,noexec rw
+  root=/dev/mapper/root rootfstype=ext4 rootflags=nosuid,nodev,noexec,lazytime rw
   rd.emergency=halt rd.shell=0 systemd.ssh_auto=no audit_backlog_limit=8192
   # LSMs and lockdown
   lsm=landlock,lockdown,yama,integrity,selinux,bpf,ipe ipe.enforce=1
