@@ -45,6 +45,9 @@ CONFIG_KSTACK_ERASE=y
 # CONFIG_HIBERNATION is not set
 # CONFIG_KEXEC is not set
 # CONFIG_KEXEC_FILE is not set
+# No sched_ext: BPF CPU schedulers need to read kernel memory from BPF, which
+# lockdown=confidentiality forbids, and scx_bpfland corrupted kernel memory on cerberus.
+# CONFIG_SCHED_CLASS_EXT is not set
 
 
 # --- From secureblue/kernel (copr_script.sh @ 47de460) ---
