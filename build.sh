@@ -84,6 +84,7 @@ PACKAGES=(
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
   power-profiles-daemon trivalent bazaar android-tools tailscale
+  usbmuxd  # iPhone pairing ("Trust this computer"), needed for USB tethering from an iPhone
 
   # Dev containers: rootless Podman with gVisor as its only runtime (visorbox, runsc)
   podman passt fuse-overlayfs gvisor visorbox

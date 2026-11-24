@@ -15,6 +15,8 @@ HOME_DIR/\.cache/trivalent(/.*)?			gen_context(system_u:object_r:chromium_xdg_ca
 /var/lib/tungsten-steam(/.*)?				gen_context(system_u:object_r:steam_data_t)
 /var/lib/tungsten-games(/.*)?				gen_context(system_u:object_r:steam_data_t)
 /var/lib/tungsten-apps(/.*)?				gen_context(system_u:object_r:flatpak_exec_data_t)
+# iPhone pairing records (usbmuxd, tungsten.te).
+/var/lib/lockdown(/.*)?					gen_context(system_u:object_r:usbmuxd_var_lib_t)
 
 # Arch installs helper programs directly in /usr/lib (lib_t). Label the user-session
 # daemons as programs, as refpolicy does on other distributions' paths, so the user's

@@ -1869,3 +1869,28 @@ gen_require(`
 	type init_t, dri_device_t;
 ')
 allow init_t dri_device_t:chr_file { getattr open read };
+
+########################################
+# usbmuxd: pairs with iPhones ("Trust this computer"), which then enable USB tethering.
+# udev starts usbmuxd.service when an Apple device appears. Refpolicy declares usbmuxd_t
+# but no transition from systemd, so the daemon would stay in init_t. Pairing records are
+# kept in /var/lib/lockdown.
+
+type usbmuxd_var_lib_t;
+files_type(usbmuxd_var_lib_t)
+optional_policy(`
+	gen_require(`
+		type usbmuxd_t, usbmuxd_exec_t, udev_runtime_t;
+	')
+	init_daemon_domain(usbmuxd_t, usbmuxd_exec_t)
+	manage_dirs_pattern(usbmuxd_t, usbmuxd_var_lib_t, usbmuxd_var_lib_t)
+	manage_files_pattern(usbmuxd_t, usbmuxd_var_lib_t, usbmuxd_var_lib_t)
+	files_var_lib_filetrans(usbmuxd_t, usbmuxd_var_lib_t, dir, "lockdown")
+	# The pairing directory is handed to the usbmux user before the daemon drops root.
+	allow usbmuxd_t self:capability { chown fowner };
+	# libusb follows devices coming and going (uevents, the udev database).
+	allow usbmuxd_t self:netlink_kobject_uevent_socket create_socket_perms;
+	allow usbmuxd_t udev_runtime_t:dir search_dir_perms;
+	allow usbmuxd_t udev_runtime_t:file read_file_perms;
+	allow usbmuxd_t udev_runtime_t:lnk_file read_lnk_file_perms;
+')
