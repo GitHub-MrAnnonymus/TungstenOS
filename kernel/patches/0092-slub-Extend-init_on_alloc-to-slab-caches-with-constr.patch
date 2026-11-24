@@ -34,7 +34,7 @@ index eaf5935..df229f7 100644
  			return flags & __GFP_ZERO;
  		return true;
 diff --git a/mm/slub.c b/mm/slub.c
-index dff822c..426b113 100644
+index 1ab4c1e..ce993bd 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -4716,6 +4716,9 @@ bool slab_post_alloc_hook(struct kmem_cache *s, gfp_t flags, size_t size,

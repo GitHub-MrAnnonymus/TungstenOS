@@ -25,7 +25,7 @@ index 4f0990e..94d7759 100644
  const struct kobj_ns_type_operations *kobj_child_ns_ops(const struct kobject *parent);
  const struct kobj_ns_type_operations *kobj_ns_ops(const struct kobject *kobj);
 diff --git a/lib/kobject.c b/lib/kobject.c
-index e7b010a..5463e55 100644
+index 76214cb..5b6e3cb 100644
 --- a/lib/kobject.c
 +++ b/lib/kobject.c
 @@ -1023,9 +1023,9 @@ EXPORT_SYMBOL_GPL(kset_create_and_add);

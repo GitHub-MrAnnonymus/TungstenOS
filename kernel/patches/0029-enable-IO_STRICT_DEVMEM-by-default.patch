@@ -8,7 +8,7 @@ Subject: [PATCH 029/101] enable IO_STRICT_DEVMEM by default
  1 file changed, 1 insertion(+)
 
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index bcd606a..491c4ec 100644
+index ae76017..a1b35af 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
 @@ -1940,6 +1940,7 @@ config STRICT_DEVMEM

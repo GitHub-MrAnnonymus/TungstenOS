@@ -15,7 +15,7 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@ssi.gouv.fr>
  1 file changed, 4 insertions(+)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index bf3db65..4619d2f 100644
+index 8c1dbae..6865d82 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -6600,6 +6600,9 @@ static noinline void warn_free_bad_obj(struct kmem_cache *s, void *obj)

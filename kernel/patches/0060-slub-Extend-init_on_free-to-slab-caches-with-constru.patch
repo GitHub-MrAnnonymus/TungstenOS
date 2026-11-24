@@ -41,7 +41,7 @@ index 8fd6835..eaf5935 100644
  }
  
 diff --git a/mm/slub.c b/mm/slub.c
-index 4619d2f..09a9ef4 100644
+index 6865d82..1950fc0 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -2743,6 +2743,8 @@ bool slab_free_hook(struct kmem_cache *s, void *x, bool init,

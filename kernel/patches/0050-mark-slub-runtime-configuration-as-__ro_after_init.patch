@@ -9,7 +9,7 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index 544cff3..fee40dc 100644
+index 6bb75db..6693101 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -1013,13 +1013,13 @@ static inline void *restore_red_left(struct kmem_cache *s, void *p)

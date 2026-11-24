@@ -103,7 +103,7 @@ index df229f7..ff560e1 100644
  	/*
  	 * Defragmentation by allocating from a remote node.
 diff --git a/mm/slub.c b/mm/slub.c
-index d74b801..bb7d33c 100644
+index cd55c12..9ae8fbb 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -44,6 +44,7 @@
@@ -728,7 +728,7 @@ index d74b801..bb7d33c 100644
  			if (kfence_obj)
  				__kfence_free(kfence_obj);
  			return false;
-@@ -7850,6 +8028,7 @@ static void early_kmem_cache_node_alloc(int node)
+@@ -7851,6 +8029,7 @@ static void early_kmem_cache_node_alloc(int node)
  #ifdef CONFIG_SLUB_DEBUG
  	init_object(kmem_cache_node, n, SLUB_RED_ACTIVE);
  #endif
@@ -736,7 +736,7 @@ index d74b801..bb7d33c 100644
  	n = kasan_slab_alloc(kmem_cache_node, n, GFP_KERNEL, false);
  	kmem_cache_node->per_node[node].node = n;
  	init_kmem_cache_node(n);
-@@ -8062,6 +8241,9 @@ static int calculate_sizes(struct kmem_cache_args *args, struct kmem_cache *s)
+@@ -8063,6 +8242,9 @@ static int calculate_sizes(struct kmem_cache_args *args, struct kmem_cache *s)
  		s->offset = ALIGN_DOWN(s->object_size / 2, sizeof(void *));
  	}
  
@@ -746,7 +746,7 @@ index d74b801..bb7d33c 100644
  #ifdef CONFIG_SLUB_DEBUG
  	if (flags & SLAB_STORE_USER) {
  		/*
-@@ -8404,6 +8586,10 @@ void __check_heap_object(const void *ptr, unsigned long n,
+@@ -8405,6 +8587,10 @@ void __check_heap_object(const void *ptr, unsigned long n,
  		offset -= s->red_left_pad;
  	}
  
@@ -757,7 +757,7 @@ index d74b801..bb7d33c 100644
  	/* Allow address range falling entirely within usercopy region. */
  	if (offset >= s->useroffset &&
  	    offset - s->useroffset <= s->usersize &&
-@@ -8792,6 +8978,11 @@ int do_kmem_cache_create(struct kmem_cache *s, const char *name,
+@@ -8793,6 +8979,11 @@ int do_kmem_cache_create(struct kmem_cache *s, const char *name,
  	s->flags = kmem_cache_flags(flags, s->name);
  #ifdef CONFIG_SLAB_FREELIST_HARDENED
  	s->random = get_random_long();

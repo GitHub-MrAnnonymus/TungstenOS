@@ -41,7 +41,7 @@ index e38d9e6..a4507db 100644
  {
  	return &init_user_ns;
 diff --git a/kernel/fork.c b/kernel/fork.c
-index 48d7ca0..a5a6656 100644
+index ddd3dbc..0a59acd 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -85,6 +85,7 @@
@@ -63,7 +63,7 @@ index 48d7ca0..a5a6656 100644
  	/*
  	 * Thread groups must share signals as well, and detached threads
  	 * can only be started up within the thread group.
-@@ -3301,6 +3306,12 @@ int ksys_unshare(unsigned long unshare_flags)
+@@ -3307,6 +3312,12 @@ int ksys_unshare(unsigned long unshare_flags)
  	VFS_WARN_ON_ONCE(unshare_flags & (CLONE_NEWNS | CLONE_FS) &&
  			 current->fs != current->real_fs);
  

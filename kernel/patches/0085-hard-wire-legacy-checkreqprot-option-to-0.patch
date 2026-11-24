@@ -12,10 +12,10 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  2 files changed, 23 deletions(-)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index 42b4c7f..f71a6da 100644
+index be6d34b..8b9f5e9 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -779,17 +779,6 @@ Kernel parameters
+@@ -772,17 +772,6 @@ Kernel parameters
  			Format: { "0" | "1" }
  			Default: 0 (1 if CONFIG_DEBUG_VM is set)
  
