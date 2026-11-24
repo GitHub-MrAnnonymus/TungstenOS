@@ -276,6 +276,10 @@ allow systemd_homework_t systemd_homed_runtime_t:dir mounton;
 allow systemd_homework_t systemd_homed_t:unix_dgram_socket sendto;
 allow systemd_homework_t unlabeled_t:dir { mounton search };
 allow udev_t systemd_homed_storage_t:file getattr;
+# A shell redirection opens a file with O_CREAT. On sysfs the kernel first checks whether
+# the file could be created (write on the directory) and ignores the result when it exists:
+# audio-powersave writing the snd_hda_intel parameters succeeds, but logged a denial.
+dontaudit udev_t sysfs_t:dir write;
 
 # --- Other system services ---
 fs_rw_cgroup_files(systemd_logind_t)
@@ -1551,6 +1555,8 @@ fs_manage_fusefs_dirs(tungsten_flatpak_t)
 fs_manage_fusefs_files(tungsten_flatpak_t)
 # GLib follows changes (inotify): settings, overrides, installed apps.
 allow tungsten_flatpak_t { flatpak_content_t user_home_t tungsten_project_t xdg_config_t xdg_data_t xdg_cache_t xdg_documents_t xdg_downloads_t xdg_music_t xdg_pictures_t xdg_videos_t gnome_xdg_config_t }:dir watch;
+# Apps also watch single files of their own (Prism Launcher: its icons in ~/.var/app).
+allow tungsten_flatpak_t { user_home_t tungsten_project_t xdg_config_t xdg_data_t xdg_cache_t }:file watch;
 # Chromium-based apps (Electron) watch the time zone, the sandbox's /etc and
 # /run/host/monitor (Flatpak's copies of resolv.conf, localtime); they read the machine
 # ID and kernel sysctls, and keep a logind sleep inhibitor (video, downloads) as Trivalent
