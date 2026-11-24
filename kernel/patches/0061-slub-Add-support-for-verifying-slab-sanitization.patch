@@ -22,7 +22,7 @@ Signed-off-by: Levente Polyak <levente@leventepolyak.net>
  2 files changed, 43 insertions(+), 3 deletions(-)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index 09a9ef4..dff822c 100644
+index 1950fc0..1ab4c1e 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -251,6 +251,12 @@ static inline bool kmem_cache_debug(struct kmem_cache *s)

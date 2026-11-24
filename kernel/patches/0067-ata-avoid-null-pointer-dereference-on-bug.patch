@@ -13,10 +13,10 @@ Signed-off-by: Daniel Micay <danielmicay@gmail.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/ata/libata-core.c b/drivers/ata/libata-core.c
-index f218773..ea748de 100644
+index 30572ca..95c2895 100644
 --- a/drivers/ata/libata-core.c
 +++ b/drivers/ata/libata-core.c
-@@ -5045,6 +5045,7 @@ void __ata_qc_complete(struct ata_queued_cmd *qc)
+@@ -5060,6 +5060,7 @@ void __ata_qc_complete(struct ata_queued_cmd *qc)
  	struct ata_port *ap;
  	struct ata_link *link;
  

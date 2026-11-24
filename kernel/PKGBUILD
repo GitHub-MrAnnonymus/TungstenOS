@@ -2,9 +2,9 @@
 # NVIDIA modules are built here so they are signed with this build's module key.
 
 pkgbase=linux-tungsten
-pkgver=7.3.5
+pkgver=7.3.6
 _nvver=620.73.04
-pkgrel=2
+pkgrel=1
 pkgdesc='TungstenOS kernel (Linux + selected linux-hardened patches, SELinux)'
 url='https://github.com/anthraxx/linux-hardened'
 arch=(x86_64)
@@ -26,7 +26,7 @@ validpgpkeys=(
   ABAF11C65A2970B130ABE3C479BE3E4300411886  # Linus Torvalds
   647F28654894E3BD457199BE38DBBDC86092693E  # Greg Kroah-Hartman
 )
-sha256sums=('8f293f83d54f0b7b9be56863ebc5e4ea79d73e530b4ae55c572be97ef39f0990'
+sha256sums=('8183d475a76a0faffa92d6cd500af421f589dfd0300a0f1060bb875e11d45723'
             'SKIP'
             'b171c7beec88454b472cb8e001e79f146163b17e6a4f3217f54f609517d3b892'
             'SKIP'

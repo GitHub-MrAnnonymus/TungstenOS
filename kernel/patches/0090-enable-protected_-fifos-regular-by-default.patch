@@ -8,10 +8,10 @@ Subject: [PATCH 090/101] enable protected_{fifos,regular} by default
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/fs/namei.c b/fs/namei.c
-index a943ee5..e005649 100644
+index 0658a6e..1124c68 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -1203,8 +1203,8 @@ static inline void put_link(struct nameidata *nd)
+@@ -1209,8 +1209,8 @@ static inline void put_link(struct nameidata *nd)
  
  static int sysctl_protected_symlinks __read_mostly = 1;
  static int sysctl_protected_hardlinks __read_mostly = 1;

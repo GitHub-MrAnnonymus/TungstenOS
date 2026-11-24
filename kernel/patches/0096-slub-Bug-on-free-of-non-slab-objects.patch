@@ -25,7 +25,7 @@ Signed-off-by: Nicolas Bouchinet <nicolas.bouchinet@ssi.gouv.fr>
  1 file changed, 4 insertions(+)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index 426b113..d74b801 100644
+index ce993bd..cd55c12 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -6782,8 +6782,12 @@ static void free_large_kmalloc(struct page *page, void *object)
