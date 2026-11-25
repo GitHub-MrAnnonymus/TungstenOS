@@ -146,6 +146,78 @@ PluginComponent {
         osInstallProc.running = true;
     }
     readonly property int flatpakCount: status?.flatpaks ?? 0
+    readonly property var flatpakNames: status?.flatpak_names ?? []
+    // Past automatic updates, newest first (/run/tungsten-guard/flatpak-updates.json, written
+    // by flatpak-update as root): the apps with their versions and the permissions each one
+    // gained or lost. flatpak update accepts new permissions without asking.
+    property var flatpakHistory: []
+    // Permissions an app gained in an update: a warning each, until dismissed.
+    readonly property var flatpakPermGains: {
+        const out = [];
+        for (const run of flatpakHistory)
+            for (const a of (run.apps ?? []))
+                if ((a.added ?? []).length > 0)
+                    out.push({key: "fpperm:" + run.time + ":" + a.id, name: a.name, added: a.added,
+                              removed: a.removed ?? [], time: run.time});
+        return out;
+    }
+    readonly property bool flatpakPermWarn: flatpakPermGains.some(g => !isDismissed(g.key))
+    // Shown: warnings not dismissed, and dismissed ones for a week (to undo).
+    readonly property var flatpakPermShown: flatpakPermGains.filter(
+        g => !isDismissed(g.key) || Date.now() / 1000 - g.time < 7 * 86400)
+
+    function namesText(names, max) {
+        if (names.length <= max)
+            return names.join(", ");
+        return names.slice(0, max).join(", ") + " and " + (names.length - max) + " more";
+    }
+
+    function agoText(time) {
+        const s = Date.now() / 1000 - time;
+        if (s < 3600)
+            return Math.max(1, Math.round(s / 60)) + " min ago";
+        if (s < 86400)
+            return Math.round(s / 3600) + " h ago";
+        return Math.round(s / 86400) + " d ago";
+    }
+
+    readonly property string flatpakLastText: {
+        const run = flatpakHistory.find(r => (r.apps ?? []).length > 0);
+        if (!run)
+            return "";
+        return "Last updated: " + namesText(run.apps.map(a => a.name), 3) + " · " + agoText(run.time);
+    }
+
+    function onFlatpakHistory(text) {
+        let h;
+        try {
+            h = JSON.parse(text);
+        } catch (e) {
+            return;
+        }
+        root.flatpakHistory = Array.isArray(h) ? h : [];
+        const seen = loadState("flatpakSeen", 0);
+        const fresh = root.flatpakHistory.filter(r => r.time > seen);
+        if (fresh.length === 0)
+            return;
+        saveState("flatpakSeen", fresh[0].time);
+        if (seen === 0)
+            return;           // first run: earlier updates are history, not news
+        const apps = [];
+        for (const r of fresh)
+            for (const a of (r.apps ?? []))
+                apps.push(a);
+        if (apps.length > 0)
+            notifyUpdate(apps.length === 1 ? apps[0].name + " updated" : apps.length + " Flatpak apps updated",
+                         apps.map(a => a.name + (a.from && a.to && a.from !== a.to ? " " + a.from + " → " + a.to : "")).join("\n"));
+        else if (fresh[0].failed && !root.flatpakUpdating)   // the Update button reports its own
+            notifyUpdate("Flatpak update failed", "journalctl -u tungsten-flatpak-update", "critical");
+        // Security news: also while the popout is open.
+        for (const a of apps)
+            if ((a.added ?? []).length > 0)
+                notify(a.name + " gained permissions", a.added.join("\n")
+                       + "\nReview them in Tungsten Guard; Flatseal or flatpak override can take them back.", "critical");
+    }
     // Updating Flatpaks now: starts the daily update (tungsten-flatpak-update.service; polkit
     // and SELinux allow the session exactly that). systemctl start waits for the oneshot.
     property bool flatpakUpdating: false
@@ -188,6 +260,7 @@ PluginComponent {
     readonly property string logKey: "logseal:off"
     readonly property bool logWarn: hw !== null && hw?.log_sealed === false && !isDismissed(logKey)
     readonly property bool hwProblem: sbWarn || diskWarn || verifyWarn || sbdbWarn || logWarn || persistWarn
+                                      || flatpakPermWarn
     readonly property var history: blocked.filter(e => e.time > clearedTime)
     // Blocked programs within the last day keep the shield on alert, until cleared.
     readonly property bool recentBlock: history.length > 0 && (Date.now() / 1000 - history[0].time) < 86400
@@ -380,9 +453,7 @@ PluginComponent {
         }
         onExited: exitCode => {
             root.flatpakUpdating = false;
-            if (exitCode === 0) {
-                root.notifyUpdate("Flatpak apps updated", "");
-            } else {
+            if (exitCode !== 0) {   // what changed comes from flatpak-updates.json
                 const lines = (flatpakUpdateErr.text || "").trim().split("\n");
                 root.flatpakUpdateError = lines[0] || ("systemctl exited with " + exitCode);
                 root.notifyUpdate("Flatpak update failed", "journalctl -u tungsten-flatpak-update", "critical");
@@ -472,6 +543,14 @@ PluginComponent {
         printErrors: false
         onFileChanged: reload()
         onLoaded: root.onPersist(text())
+    }
+
+    FileView {
+        path: root.dir + "/flatpak-updates.json"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.onFlatpakHistory(text())
     }
 
     FileView {
@@ -797,7 +876,8 @@ PluginComponent {
                         title: root.flatpakCount > 0 ? root.flatpakCount + " Flatpak updates" : "Flatpak apps are up to date"
                         detail: root.flatpakUpdating ? "Updating apps and runtimes…"
                               : root.flatpakUpdateError ? "Update failed: " + root.flatpakUpdateError
-                              : root.flatpakCount > 0 ? "Installed automatically once a day" : ""
+                              : root.flatpakCount > 0 ? root.namesText(root.flatpakNames, 3) + " · installed automatically once a day"
+                              : root.flatpakLastText
 
                         DButton {
                             visible: flatpakTile.pending
@@ -805,6 +885,22 @@ PluginComponent {
                             text: root.flatpakUpdating ? "Updating" : root.flatpakUpdateError ? "Retry" : "Update"
                             iconName: root.flatpakUpdating ? "downloading" : "download"
                             onClicked: root.updateFlatpaks()
+                        }
+                    }
+
+                    // Permissions apps gained in an automatic update.
+                    Repeater {
+                        model: root.flatpakPermShown
+                        delegate: Tile {
+                            required property var modelData
+                            warnKey: modelData.key
+                            warning: true
+                            icon: "shield"
+                            tint: Theme.warning
+                            title: modelData.name + " gained permissions"
+                            detail: modelData.added.join(", ")
+                                    + (modelData.removed.length > 0 ? " · lost: " + modelData.removed.join(", ") : "")
+                                    + " · " + root.agoText(modelData.time)
                         }
                     }
 

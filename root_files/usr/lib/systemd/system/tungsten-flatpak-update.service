@@ -1,4 +1,6 @@
 # Keeps system-wide Flatpak apps and runtimes patched (there is no other updater for them).
+# flatpak-update records which apps changed and the permissions they gained or lost, for
+# Tungsten Guard (/run/tungsten-guard/flatpak-updates.json).
 [Unit]
 Description=Update Flatpak apps and runtimes
 Wants=network-online.target
@@ -6,5 +8,4 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/flatpak update --system --noninteractive --assumeyes
-ExecStart=/usr/bin/flatpak uninstall --system --unused --noninteractive --assumeyes
+ExecStart=/usr/lib/tungsten/flatpak-update

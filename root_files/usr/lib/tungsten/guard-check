@@ -17,8 +17,14 @@ fi
 os_cur=$(. /usr/lib/os-release; echo "${IMAGE_VERSION:-${VERSION_ID:-}}")
 channel=$(cat /etc/tungsten/channel 2>/dev/null || echo stable)   # tungsten-channel
 
-# Flatpak apps and runtimes with updates (tungsten-flatpak-update.timer installs them).
-flatpaks=$(flatpak remote-ls --system --updates --columns=application 2>/dev/null | grep -c . || :)
+# Flatpak apps and runtimes with updates (tungsten-flatpak-update.timer installs them), by
+# name. The record of past updates (flatpak-update) comes back from /var after a reboot.
+flatpak_names=$(flatpak remote-ls --system --updates --columns=name 2>/dev/null |
+  jq -Rsc 'split("\n") | map(select(length > 0)) | unique') || flatpak_names='[]'
+flatpaks=$(jq length <<<"$flatpak_names")
+if [ -f /var/lib/tungsten/flatpak-updates.json ] && [ ! -f "$DIR/flatpak-updates.json" ]; then
+  install -m 0644 /var/lib/tungsten/flatpak-updates.json "$DIR/flatpak-updates.json"
+fi
 
 # Firmware from the LVFS, through fwupd: device firmware and the UEFI revocation list (dbx),
 # which only applies where Microsoft's KEK is enrolled (enroll-secureboot.sh --trust=microsoft).
@@ -81,9 +87,9 @@ hardware=$(jq -n --argjson sbdb "$sbdb" --arg sb "$sb" --argjson tpm "$tpm" --ar
 /usr/lib/tungsten/persist-watch check || :
 
 tmp=$(mktemp "$DIR/.status.XXXXXX")
-jq -n --argjson os_new "$os_new" --arg os_cur "$os_cur" --arg channel "$channel" --argjson flatpaks "${flatpaks:-0}" \
+jq -n --argjson os_new "$os_new" --arg os_cur "$os_cur" --arg channel "$channel" --argjson flatpaks "${flatpaks:-0}" --argjson flatpak_names "$flatpak_names" \
    --argjson firmware "$fw" --argjson hardware "$hardware" --arg checked "$(date -Iseconds)" \
-   '{checked: $checked, os: {current: $os_cur, available: $os_new, channel: $channel}, flatpaks: $flatpaks,
+   '{checked: $checked, os: {current: $os_cur, available: $os_new, channel: $channel}, flatpaks: $flatpaks, flatpak_names: $flatpak_names,
      firmware: $firmware, hardware: $hardware}' > "$tmp"
 chmod 0644 "$tmp"
 mv -f "$tmp" "$OUT"

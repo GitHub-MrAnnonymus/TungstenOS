@@ -1,0 +1,115 @@
+#!/usr/bin/python3 -I
+"""Updates the system-wide Flatpak apps and runtimes (tungsten-flatpak-update.service) and
+records what changed for Tungsten Guard: which apps were updated, from which version to
+which, and the permissions each one gained or lost. flatpak update --noninteractive
+accepts new permissions without asking, so this record is the only place they show up.
+
+History: /var/lib/tungsten/flatpak-updates.json (the last 20 runs that changed something),
+copied to /run/tungsten-guard/flatpak-updates.json, which the Dux Shell widget reads.
+"""
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import time
+
+HISTORY = "/var/lib/tungsten/flatpak-updates.json"
+RUN_COPY = "/run/tungsten-guard/flatpak-updates.json"
+KEEP = 20
+
+
+def flatpak(*args):
+    return subprocess.run(["flatpak", *args], capture_output=True, text=True).stdout
+
+
+def installed(kind):
+    """{id//branch: (name, version, commit)} of the system installation's apps or runtimes."""
+    out = {}
+    for line in flatpak("list", "--system", "--" + kind,
+                        "--columns=application,name,branch,version,active").splitlines():
+        f = line.split("\t")
+        if len(f) >= 5:
+            out[f[0] + "//" + f[2]] = (f[1], f[3], f[4])
+    return out
+
+
+def permissions(ref):
+    """The app's permissions as a set of readable items, from its metadata keyfile:
+    "filesystems: home", "session bus: org.example.Service (talk)", ..."""
+    items, section = set(), ""
+    labels = {"Context": "", "Session Bus Policy": "session bus", "System Bus Policy": "system bus",
+              "Environment": "environment"}
+    for line in flatpak("info", "--system", "--show-permissions", ref).splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1]
+            continue
+        key, sep, value = line.partition("=")
+        if not sep:
+            continue
+        label = labels.get(section, section)
+        if section == "Context":
+            for v in filter(None, value.split(";")):
+                items.add(f"{key}: {v}")
+        elif section == "Environment":
+            items.add(f"environment: {key}={value}")
+        else:
+            items.add(f"{label}: {key} ({value})")
+    return items
+
+
+def write_json(path, data):
+    d = os.path.dirname(path)
+    os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".flatpak-updates.")
+    with os.fdopen(fd, "w") as f:
+        json.dump(data, f, indent=1)
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, path)
+
+
+def main():
+    apps_before = installed("app")
+    perms_before = {ref: permissions(ref) for ref in apps_before}
+    runtimes_before = installed("runtime")
+
+    update = subprocess.run(["flatpak", "update", "--system", "--noninteractive", "--assumeyes"])
+    subprocess.run(["flatpak", "uninstall", "--system", "--unused", "--noninteractive", "--assumeyes"])
+
+    apps_after = installed("app")
+    runtimes_after = installed("runtime")
+    changed = []
+    for ref, (name, version, commit) in sorted(apps_after.items(), key=lambda a: a[1][0].lower()):
+        old = apps_before.get(ref)
+        if old is None or old[2] == commit:
+            continue
+        perms = permissions(ref)
+        changed.append({
+            "id": ref.split("//")[0], "name": name or ref.split("//")[0],
+            "from": old[1], "to": version,
+            "added": sorted(perms - perms_before.get(ref, set())),
+            "removed": sorted(perms_before.get(ref, set()) - perms),
+        })
+    runtimes = sum(1 for ref, r in runtimes_after.items()
+                   if ref in runtimes_before and runtimes_before[ref][2] != r[2])
+
+    try:
+        with open(HISTORY) as f:
+            history = json.load(f)
+    except (OSError, ValueError):
+        history = []
+    if changed or runtimes or update.returncode != 0:
+        history.insert(0, {"time": int(time.time()), "apps": changed, "runtimes": runtimes,
+                           "failed": update.returncode != 0})
+        history = history[:KEEP]
+        write_json(HISTORY, history)
+    if history or os.path.exists(HISTORY):
+        write_json(RUN_COPY, history)
+    return update.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())
