@@ -239,7 +239,7 @@ PluginComponent {
     }
 
     function notify(summary, body, urgency) {
-        Quickshell.execDetached(["notify-send", "--app-name=Tungsten Guard", "--icon=security-high",
+        Quickshell.execDetached(["notify-send", "--app-name=Tungsten Guard", "--icon=/usr/share/icons/hicolor/scalable/apps/tungsten-guard.svg",
                                  "--urgency=" + (urgency || "normal"), summary, body]);
     }
 

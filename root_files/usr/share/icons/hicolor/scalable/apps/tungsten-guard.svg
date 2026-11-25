@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<!-- Tungsten Guard: a shield with the TungstenOS logo's glowing W filament (tungstenos.svg). -->
+<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+<path d="M128 14L218 46V118C218 176 180 218 128 242C76 218 38 176 38 118V46Z" fill="#1b2029" stroke="#8f96a3" stroke-width="10" stroke-linejoin="round"/>
+<path d="M74 92V160L128 128L182 160V92" stroke="#ffb46b" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" fill="none" opacity="0.45" filter="url(#glow)"/>
+<path d="M74 92V160L128 128L182 160V92" stroke="#ffb46b" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+<path d="M74 92V160L128 128L182 160V92" stroke="#fff1dc" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+</svg>
