@@ -2,8 +2,8 @@
 # from the image). Tags and commits are unsigned: pinned by commit.
 
 pkgname=oh-my-posh
-pkgver=33.4.0
-_commit=52be0064897f4a307981b639d25a7a0b90f468dc  # tag v33.4.0
+pkgver=33.4.1
+_commit=ae06996669b885e315a66af8900d185838a4f97f  # tag v33.4.1
 pkgrel=1
 pkgdesc='Prompt theme engine for any shell'
 arch=(x86_64)
