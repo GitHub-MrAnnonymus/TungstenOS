@@ -18,7 +18,8 @@ commit=
 for c in $(git -C "$tmp/g" rev-list --first-parent --reverse go); do
   if git -C "$tmp/g" merge-base --is-ancestor "$rel" "$c" 2>/dev/null; then commit=$c; break; fi
 done
-[ -n "$commit" ] || { echo "no go-branch commit contains $tag yet" >&2; exit 1; }
+# The go branch lags the release tags by a few days: nothing to do yet, not a failure.
+[ -n "$commit" ] || { echo "gvisor $ver tagged, not on the go branch yet"; exit 0; }
 sed -i -e "s/^pkgver=.*/pkgver=$ver/" -e "s/^pkgrel=.*/pkgrel=1/" \
        -e "s/^_commit=[0-9a-f]*.*/_commit=$commit  # go branch, contains tag $tag/" PKGBUILD
 echo "gvisor $cur -> $ver"

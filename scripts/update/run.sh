@@ -77,6 +77,7 @@ run dux-search      scripts/update/git-tag.sh dux-search https://github.com/duxl
 run aquamarine      scripts/update/aquamarine.sh
 run hyprland        scripts/update/hyprland.sh
 run qt-rebuild      scripts/update/qt-rebuild.sh
+run soname-rebuild  scripts/update/soname-rebuild.sh
 push_branch
 
 # Security advisories become issues; they change no files.
