@@ -83,7 +83,7 @@ PACKAGES=(
   ttf-jetbrains-mono noto-fonts noto-fonts-emoji
   pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber pavucontrol qt6-multimedia-ffmpeg
   gnome-keyring wl-clipboard grim slurp libnotify xdg-utils udiskie
-  power-profiles-daemon trivalent bazaar android-tools tailscale
+  power-profiles-daemon trivalent android-tools tailscale  # Bazaar: a Flatpak (default-flatpaks)
   usbmuxd  # iPhone pairing ("Trust this computer"), needed for USB tethering from an iPhone
 
   # Dev containers: rootless Podman with gVisor as its only runtime (visorbox, runsc)
@@ -212,7 +212,7 @@ systemctl enable \
   systemd-homed systemd-homed-firstboot auditd power-profiles-daemon systemd-oomd \
   tungsten-relabel tungsten-clear-console tungsten-sysext-sysusers \
   tungsten-guard-check.timer tungsten-guard-execwatch fwupd-refresh.timer tungsten-secureboot-update tungsten-wifi-recover tungsten-wifi-watchdog tungsten-loader-conf tungsten-usb-lock-status tungsten-usb-lock-boot \
-  systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-boot-confirm tungsten-flatpak-update.timer \
+  systemd-sysupdate.timer systemd-boot-update tungsten-boot-check tungsten-boot-confirm tungsten-flatpak-update.timer tungsten-flatpak-defaults \
   systemd-pcrlock-firmware-code systemd-pcrlock-firmware-config \
   systemd-pcrlock-secureboot-policy systemd-pcrlock-secureboot-authority \
   tungsten-pcrlock-predict systemd-pcrlock-make-policy systemd-sysext tungsten-sysupdate-channel

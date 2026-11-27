@@ -1,0 +1,16 @@
+# The default Flatpak apps (Bazaar), installed system-wide at the first boot with network,
+# once each (/usr/lib/tungsten/flatpak-defaults). Tries again every 10 minutes until done.
+[Unit]
+Description=Install the default Flatpak apps
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# exec, not oneshot: the download (Bazaar and its runtime) must not hold up the login screen.
+Type=exec
+ExecStart=/usr/lib/tungsten/flatpak-defaults
+Restart=on-failure
+RestartSec=10min
+
+[Install]
+WantedBy=multi-user.target

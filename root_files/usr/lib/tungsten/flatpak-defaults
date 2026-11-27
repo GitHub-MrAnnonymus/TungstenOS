@@ -1,0 +1,23 @@
+#!/bin/bash
+# Installs the default Flatpak apps (/usr/share/tungsten/default-flatpaks) system-wide from
+# Flathub, each only once: /var/lib/tungsten/flatpak-defaults/<id> records it, so an app
+# the user uninstalled is not brought back. Exits non-zero while one is still missing, so
+# the service tries again (no network yet, Flathub down).
+set -uo pipefail
+LIST=/usr/share/tungsten/default-flatpaks
+DONE=/var/lib/tungsten/flatpak-defaults
+mkdir -p "$DONE"
+rc=0
+while read -r app; do
+  case $app in ''|'#'*) continue ;; esac
+  [[ $app =~ ^[A-Za-z0-9._-]+$ ]] || { echo "bad application ID: $app" >&2; continue; }
+  [ -e "$DONE/$app" ] && continue
+  if flatpak info --system "$app" >/dev/null 2>&1 ||
+     flatpak install --system --noninteractive --assumeyes flathub "$app"; then
+    touch "$DONE/$app"
+  else
+    echo "could not install $app; trying again later" >&2
+    rc=1
+  fi
+done < "$LIST"
+exit $rc

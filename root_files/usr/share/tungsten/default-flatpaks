@@ -1,0 +1,7 @@
+# Flatpak apps every TungstenOS system gets from Flathub (system-wide), once each:
+# tungsten-flatpak-defaults.service installs those not installed before, so an app the
+# user removes stays removed. One application ID per line.
+#
+# Bazaar, the app store: as on secureblue, the Flathub build rather than a distribution
+# package (screenshots and other features broken in Arch's), updated with the other apps.
+io.github.kolunmi.Bazaar
